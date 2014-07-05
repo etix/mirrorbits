@@ -1,0 +1,90 @@
+#!/bin/bash
+
+# geoip-lite-update -- update geoip lite database(s).
+# (c) 2008,2009,2010,2011,2012,2013,2014 poeml@cmdline.net
+# Distribute under GPLv2 if it proves worthy.
+
+# With added support for:
+# - GeoLiteCityv6
+# - GeoIPASNum
+# - GeoIPASNumv6
+# by Ludovic Fauvet <etix@videolan.org>
+
+
+for i in curl wget ftp; do
+	if which $i &>/dev/null; then 
+		prg=$i
+		break
+	fi
+done
+
+if [ -z "$prg" ]; then
+	echo cannot find a tool to download, like curl or wget >&2
+	exit 1
+fi
+
+case $prg in 
+curl)
+	prg="curl -s -O"
+	;;
+wget)
+	prg="wget --quiet"
+	;;
+esac
+
+
+set -e
+
+# GeoIP data used to be in /usr/share/GeoIP in the openSUSE package, and was moved later.
+# try the old location first - if it's present, it means that the user had his own
+# updated database there
+cd /usr/share/GeoIP/ 2>/dev/null || cd /var/lib/GeoIP
+
+$prg http://geolite.maxmind.com/download/geoip/database/GeoLiteCountry/GeoIP.dat.gz
+rm -f GeoIP.dat.gz.1
+gunzip -c GeoIP.dat.gz > GeoIP.dat.updated.new
+mv GeoIP.dat.updated.new GeoIP.dat.updated
+
+$prg http://geolite.maxmind.com/download/geoip/database/GeoLiteCity.dat.gz
+rm -f GeoLiteCity.dat.gz.1
+gunzip -c GeoLiteCity.dat.gz > GeoLiteCity.dat.updated.new
+mv GeoLiteCity.dat.updated.new GeoLiteCity.dat.updated
+
+$prg http://geolite.maxmind.com/download/geoip/database/GeoLiteCityv6-beta/GeoLiteCityv6.dat.gz
+rm -f GeoLiteCityv6.dat.gz.1
+gunzip -c GeoLiteCityv6.dat.gz > GeoLiteCityv6.dat.updated.new
+mv GeoLiteCityv6.dat.updated.new GeoLiteCityv6.dat.updated
+
+$prg http://geolite.maxmind.com/download/geoip/database/GeoIPv6.dat.gz
+rm -f GeoIPv6.dat.gz.1
+gunzip -c GeoIPv6.dat.gz > GeoIPv6.dat.updated.new
+mv GeoIPv6.dat.updated.new GeoIPv6.dat.updated
+
+$prg http://download.maxmind.com/download/geoip/database/asnum/GeoIPASNum.dat.gz
+rm -f GeoIPASNum.dat.gz.1
+gunzip -c GeoIPASNum.dat.gz > GeoIPASNum.dat.updated.new
+mv GeoIPASNum.dat.updated.new GeoIPASNum.dat.updated
+
+$prg http://download.maxmind.com/download/geoip/database/asnum/GeoIPASNumv6.dat.gz
+rm -f GeoIPASNumv6.dat.gz.1
+gunzip -c GeoIPASNumv6.dat.gz > GeoIPASNumv6.dat.updated.new
+mv GeoIPASNumv6.dat.updated.new GeoIPASNumv6.dat.updated
+
+
+
+set +e
+
+if [ "$1" = "--no-reload" ]; then
+	exit 0
+fi
+
+if [ -x /etc/init.d/apache2 ]; then
+	/etc/init.d/apache2 reload
+elif [ -x /etc/init.d/httpd ]; then
+	/etc/init.d/httpd reload
+elif [ -x /usr/bin/systemctl ]; then
+	/usr/bin/systemctl reload httpd >/dev/null 2>&1 || :
+elif [ -x /bin/systemctl ]; then
+	/bin/systemctl reload httpd >/dev/null 2>&1 || :
+fi
+

@@ -1,0 +1,105 @@
+{{define "mirrorlist"}}
+<html>
+<head>
+<title>Mirrorlist {{.FileInfo.Path}}</title>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+
+        // Load the Visualization API and the piechart package.
+        google.load('visualization', '1.0', {'packages':['corechart']});
+
+        // Set a callback to run when the Google Visualization API is loaded.
+        google.setOnLoadCallback(drawChart);
+
+        function drawChart() {
+            // Create the data table.
+            var data = new google.visualization.DataTable();
+            data.addColumn('string', 'mirror');
+            data.addColumn('number', 'probability');
+            data.addRows([
+{{range $i, $v := .MirrorList}}
+{{if $v.Weight}}['{{$v.ID}}', {{$v.Weight}}],{{end}}
+{{end}}
+            ]);
+
+            // Set chart options
+            var options = {'title':'Load distribution',
+                            'width':600,
+                            'height':300,
+                            'chartArea': {'width': '90%', 'height': '65%'},
+            };
+
+            // Instantiate and draw our chart, passing in some options.
+            var chart = new google.visualization.PieChart(document.getElementById('chart_div'));
+            chart.draw(data, options);
+         }
+    </script>
+</head>
+<body>
+<h1>File {{.FileInfo.Path}}</h1>
+
+<div style="float: left;">
+    <h2>Client</h2>
+    <table>
+        <tr>
+            <td><b>IP:</b></td><td>{{.IP}}</td>
+        </tr>
+        <tr>
+            <td><b>Country:</b></td><td>{{if .ClientInfo.GeoIPRecord}}{{.ClientInfo.CountryName}}{{else}}Unknown{{end}}</td>
+        </tr>
+        <tr>
+            <td><b>City:</b></td><td>{{if .ClientInfo.GeoIPRecord}}{{.ClientInfo.City}}{{else}}Unknown{{end}}</td>
+        </tr>
+        <tr>
+            <td><b>ASN:</b></td><td>{{if .ClientInfo.GeoIPRecord}}{{.ClientInfo.ASNum}} / {{.ClientInfo.ASName}}{{else}}Unknown{{end}}</td>
+        </tr>
+    </table>
+</div>
+
+<div style="float: left;">
+    <div id="chart_div" style="width:600; height:300;"></div>
+</div>
+<div style="float: left;">
+    <img width="520" height="320" src="{{.MapURL}}"/>
+</div>
+
+<div style="clear:both;">
+    <h2>Mirrors</h2>
+
+    {{if .Fallback}}<p style="color:red">Warning: system is running in degraded mode.</p>{{end}}
+
+    {{if .MirrorList}}
+    <table border="0" cellpadding="10" style="width: 1024px; text-align:center;">
+    <tr>
+        <th>Rank</th><th>URL</th><th>Country</th><th>Continent</th><th>Distance</th><th>Probabilistic weight</th><th>File size</th>
+    </tr>
+    {{end}}
+    {{range $i, $v := .MirrorList}}
+    <tr{{if not $v.Weight}} style="color: grey;"{{end}}>
+            <td style="font-size: 2em;">#{{add $i 1}}</td><td style="text-align:left">{{$v.HttpURL}}</td><td>{{$v.CountryCodes}}</td><td>{{$v.ContinentCode}}</td><td style="text-align: right">{{printf "%.2f" $v.Distance}}Km</td><td>{{if $v.Weight}}{{$v.Weight}}%{{else}}N/A{{end}}</td><td>{{if $v.FileInfo}}{{$v.FileInfo.Size}}{{end}}</td>
+        </tr>
+    {{else}}
+    <i>No mirrors for this file</i>
+    {{end}}
+    {{if .MirrorList}}
+    </table>
+    {{end}}
+
+    {{if .ExcludedList}}
+    <h2>Excluded Mirrors</h2>
+    <table border="0" cellpadding="10">
+    {{end}}
+    {{range $i, $v := .ExcludedList}}
+        <tr>
+            <td><a href="{{$v.HttpURL}}">{{$v.HttpURL}}</a></td><td>{{printf "%.2f" $v.Distance}}Km</td><td>{{$v.ExcludeReason}}</td>
+        </tr>
+    {{end}}
+    {{if .ExcludedList}}
+    </table>
+    {{end}}
+</div>
+
+<div style="position: fixed; left: 0px; bottom: 0px; height: 20px; width: 100%; text-align: center; background-color: white;">Powered by Mirrorbits</div>
+</body>
+</html>
+{{end}}

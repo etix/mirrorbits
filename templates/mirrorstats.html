@@ -1,0 +1,192 @@
+{{define "mirrorstats"}}
+<html>
+    <head>
+        <title>Mirrorstats</title>
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.2/leaflet.css" />
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/0.4.0/MarkerCluster.css" />
+        <script src="//cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.2/leaflet.js"></script>
+        <script src="//cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/0.4.0/leaflet.markercluster.js"></script>
+        <style type="text/css">
+            #map { }
+            .marker-cluster {
+              border-radius: 50%;
+              opacity: 0.6;
+            }
+            .marker-good {
+              background-color: green;
+            }
+            .marker-bad {
+              background-color: red;
+            }
+            .marker-mixed {
+              background-color: orange;
+            }
+            .popup-content {
+                font-size: 0.8em;
+            }
+        </style>
+
+        <script type="text/javascript" src="//www.google.com/jsapi"></script>
+        <script type="text/javascript">
+
+            // Load the Visualization API and the piechart package.
+            google.load('visualization', '1.0', {'packages':['corechart']});
+
+            // Set a callback to run when the Google Visualization API is loaded.
+            google.setOnLoadCallback(drawChart);
+
+            function drawChart() {
+                // Create and populate the data table.
+                var data = google.visualization.arrayToDataTable([
+                    ['Mirror', 'Downloads', '', 'Bytes transferred', ''],
+                    {{range $i, $v := .List}}['{{$v.ID}}', {{$v.Downloads}}, 'Number of downloads: {{$v.Downloads}}', {{$v.Bytes}}, '{{sizeof $v.Bytes}}'],{{end}}
+                ]);
+
+                // Defines tooltip columns
+                data.setColumnProperty(2, 'role', 'tooltip');
+                data.setColumnProperty(4, 'role', 'tooltip');
+
+                // Compute target height
+                var height = data.getNumberOfRows() * 30 + 30;
+
+                // Create and draw the visualization.
+                new google.visualization.BarChart(document.getElementById('chart_div')).
+                draw(data, {
+                    title:"Mirrors usage (today)",
+                    width: "1024",
+                    height: height,
+                    chartArea: {'width': '40%', 'height': '95%'},
+                    vAxis: {title: "Mirrors"},
+                    hAxis: {title: "Downloads"},
+                    series:{
+                        1:{
+                            targetAxisIndex:1
+                        },
+                        2:{
+                            targetAxisIndex:2
+                        }
+                    }
+                });
+            }
+        </script>
+    </head>
+    <body>
+        <h1>Mirrorstats</h1>
+        <div id="map" style="width: 1024px; height: 512px;"></div>
+        <div id="chart_div" style="width: 1024px;"></div>
+
+        <script src="//cdnjs.cloudflare.com/ajax/libs/openlayers/2.13.1/OpenLayers.js"></script>
+        <script>
+            var map = L.map('map').setView([20,37], 2);
+            L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'
+            }).addTo(map);
+
+
+            var mirrors = {
+                "rows" : [
+                {{range $i, $v := .MirrorList}}
+                {
+                    "lat" : {{$v.Latitude}},
+                    "lon" : {{$v.Longitude}},
+                    "id" : "{{$v.ID}}",
+                    "enabled": {{$v.Enabled}},
+                    "up": {{$v.Up}}
+                },
+                {{end}}
+                ]
+            };
+
+            MirrorMarker = L.Marker.extend({
+                options: {
+                    operational: false,
+                    mid: ''
+                }
+            });
+
+            function generateStatusRow(marker) {
+                var color = "red";
+                if (marker.options.operational == true) {
+                    color = "green";
+                }
+                return '<tr><td style="background-color: ' + color + '"> &nbsp; </td><td>' + marker.options.mid + '</td></tr>';
+            }
+
+            var markers = new L.MarkerClusterGroup({
+                showCoverageOnHover: false,
+                zoomToBoundsOnClick: false,
+                spiderfyOnMaxZoom: false,
+                animateAddingMarkers: true,
+                iconCreateFunction: function (cluster) {
+                    var radius = 6;
+                    var childCount = cluster.getChildCount();
+                    var area = (Math.PI * (radius * radius)) * childCount;
+                    var size = Math.sqrt(area / Math.PI) * 2;
+
+                    var hasUp = false;
+                    var hasDown = false;
+                    for (var i = 0; i < cluster.getAllChildMarkers().length; i++) {
+                        if (cluster.getAllChildMarkers()[i].options.operational == true)
+                            hasUp = true;
+                        else
+                            hasDown = true;
+                    }
+
+                    var cssClass;
+                    if (hasUp && !hasDown) {
+                        cssClass = "marker-good";
+                    } else if (!hasUp && hasDown) {
+                        cssClass = "marker-bad";
+                    } else {
+                        cssClass = "marker-mixed";
+                    }
+
+                    return new L.divIcon({ html: '<div style="width:'+size+'px;height:'+size+'px;"></div>', className: 'marker-cluster ' + cssClass, iconSize: new L.Point(size, size) });
+                }
+            });
+
+
+            var radius = 6;
+            var mm = [];
+            for (i in mirrors.rows) {
+                var area = (Math.PI * (radius * radius));
+                var size = Math.sqrt(area / Math.PI) * 2;
+                var operational = mirrors.rows[i].enabled & mirrors.rows[i].up;
+
+                var cssClass;
+                if (operational == true) {
+                    cssClass = "marker-good";
+                } else {
+                    cssClass = "marker-bad";
+                }
+
+                var icon = new L.divIcon({ html: '<div style="width:'+size+'px;height:'+size+'px;"></div>', className: 'marker-cluster ' + cssClass, iconSize: new L.Point(size, size) });
+
+                var m = new MirrorMarker([mirrors.rows[i].lat, mirrors.rows[i].lon], {
+                    icon: icon,
+                    operational: operational,
+                    mid: mirrors.rows[i].id
+                });
+
+                mm.push(m);
+            }
+
+            markers.addLayers(mm);
+
+            markers.on('click', function(a) {
+                a.layer.bindPopup("<table class='popup-content'>" + generateStatusRow(a.layer) + "</table>").openPopup();
+            });
+
+            markers.on('clusterclick', function(a) {
+                var content = "";
+                for (var i = 0; i < a.layer.getAllChildMarkers().length; i++) {
+                    content += generateStatusRow(a.layer.getAllChildMarkers()[i]);
+                }
+                a.layer.bindPopup("<table class='popup-content'>" + content + "</table>").openPopup();
+            });
+
+            map.addLayer(markers);
+    </script>
+</body>
+</html>
+{{end}}
