@@ -4,7 +4,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/etix/stoppableListener"
@@ -241,35 +240,6 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	}
 
 	return
-}
-
-func getMirrorMapUrl(mirrors Mirrors, clientInfo GeoIPRec) string {
-	var buffer bytes.Buffer
-	buffer.WriteString("//maps.googleapis.com/maps/api/staticmap?size=520x320&sensor=false&visual_refresh=true")
-
-	if clientInfo.isValid() {
-		buffer.WriteString(fmt.Sprintf("&markers=size:mid|color:red|%f,%f", clientInfo.Latitude, clientInfo.Longitude))
-	}
-
-	count := 1
-	for i, mirror := range mirrors {
-		if count > 9 {
-			break
-		}
-		if i == 0 && clientInfo.isValid() {
-			// Draw a path between the client and the mirror
-			buffer.WriteString(fmt.Sprintf("&path=color:0x17ea0bdd|weight:5|%f,%f|%f,%f",
-				clientInfo.Latitude, clientInfo.Longitude,
-				mirror.Latitude, mirror.Longitude))
-		}
-		color := "blue"
-		if mirror.Weight > 0 {
-			color = "green"
-		}
-		buffer.WriteString(fmt.Sprintf("&markers=color:%s|label:%d|%f,%f", color, count, mirror.Latitude, mirror.Longitude))
-		count++
-	}
-	return buffer.String()
 }
 
 // LoadTemplates pre-loads templates from the configured template directory
