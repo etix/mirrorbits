@@ -72,7 +72,7 @@ func (w *MirrorListRenderer) Type() string {
 
 func (w *MirrorListRenderer) Write(ctx *Context, page *MirrorlistPage) (statusCode int, err error) {
 	if ctx.Templates() == nil {
-		return 0, TemplatesNotFound
+		return http.StatusInternalServerError, TemplatesNotFound
 	}
 	sort.Sort(ByExcludeReason{page.ExcludedList})
 	page.MapURL = getMirrorMapUrl(page.MirrorList, page.ClientInfo)
