@@ -269,8 +269,7 @@ func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 	}
 	defer c.Quit()
 
-	username := "anonymous"
-	password := "anonymous"
+	username, password := "anonymous", "anonymous"
 
 	if ftpurl.User != nil {
 		username = ftpurl.User.Username()
