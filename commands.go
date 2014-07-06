@@ -470,7 +470,7 @@ func (c *cli) CmdScan(args ...string) error {
 		return err
 	}
 
-	log.Notice("Scanning %s...\n", id)
+	log.Notice("Scanning %s...", id)
 
 	err = NoSyncMethod
 
