@@ -124,15 +124,6 @@ func (s *scan) ScanRsync(url, identifier string, stop chan bool) (err error) {
 			ret[4] = "/" + ret[4]
 		}
 
-		//if !exists(sourceFiles, ret[4]) {
-		//	//TODO do not exclude them but maybe mark them as non-distribuable
-		//	// since the source might be outdated
-		//	if os.Getenv("DEBUG") != "" {
-		//		//fmt.Printf("[%s] IGNORED: %s", identifier, ret[4])
-		//	}
-		//	goto cont
-		//}
-
 		// Remove the commas in the file size
 		ret[1] = strings.Replace(ret[1], ",", "", -1)
 		// Convert the size to int
@@ -252,17 +243,6 @@ func readln(r *bufio.Reader) (string, error) {
 	return string(ln), err
 }
 
-//TODO this is slow, don't do it.
-func exists(i []interface{}, str string) bool {
-	for _, e := range i {
-		var s, ok = e.([]byte)
-		if ok && string(s) == str {
-			return true
-		}
-	}
-	return false
-}
-
 func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 	if !strings.HasPrefix(ftpURL, "ftp://") {
 		log.Error("%s does not start with ftp://", ftpURL)
@@ -341,14 +321,6 @@ func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 	}
 	defer conn.Close()
 
-	// Get the list of all source files (we do not want to
-	// index files than are not provided by the source)
-	//sourceFiles, err := redis.Values(conn.Do("SMEMBERS", "FILES"))
-	//if err != nil {
-	//	log.Error("[%s] Cannot get the list of source files: %s", identifier, err)
-	//	return err
-	//}
-
 	conn.Send("MULTI")
 
 	filesKey := fmt.Sprintf("MIRROR_%s_FILES", identifier)
@@ -360,15 +332,6 @@ func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 	count := 0
 	for _, f := range files {
 		f.path = strings.TrimPrefix(f.path, prefix)
-
-		//if !exists(sourceFiles, f.path) {
-		//	//TODO do not exclude them but maybe mark them as non-distribuable
-		//	// since the source might be outdated
-		//	if os.Getenv("DEBUG") != "" {
-		//		fmt.Printf("IGNORED: %s\n", f.path)
-		//	}
-		//	continue
-		//}
 
 		if os.Getenv("DEBUG") != "" {
 			//fmt.Printf("%s\n", f.path)
