@@ -597,7 +597,7 @@ func (c *cli) CmdEdit(args ...string) error {
 	f.Close()
 
 	// Checksum the original file
-	chk, _ := sha1File(f.Name())
+	chk, _ := hashFile(f.Name())
 
 	// Launch the editor with the filename as first parameter
 	exe := exec.Command(editor, f.Name())
@@ -617,7 +617,7 @@ func (c *cli) CmdEdit(args ...string) error {
 	}
 
 	// Checksum the file back and compare
-	chk2, _ := sha1File(f.Name())
+	chk2, _ := hashFile(f.Name())
 	if chk == chk2 {
 		fmt.Println("Aborted")
 		return nil

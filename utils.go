@@ -4,12 +4,14 @@
 package main
 
 import (
+	"bufio"
 	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
 	"io"
-	"io/ioutil"
 	"math"
+	"os"
 	"strings"
 	"time"
 )
@@ -98,16 +100,22 @@ func normalizeURL(url string) string {
 	return url
 }
 
-func sha1File(file string) (string, error) {
-	content, err := ioutil.ReadFile(file)
+// Generate a human readable sha1 hash of the given file path
+func hashFile(path string) (hash string, err error) {
+	f, err := os.Open(path)
 	if err != nil {
-		return "", err
+		return
 	}
+	defer f.Close()
 
-	h := sha1.New()
-	io.WriteString(h, string(content))
-
-	return string(h.Sum(nil)), nil
+	reader := bufio.NewReader(f)
+	sha1Hash := sha1.New()
+	_, err = io.Copy(sha1Hash, reader)
+	if err != nil {
+		return
+	}
+	hash = hex.EncodeToString(sha1Hash.Sum(nil))
+	return
 }
 
 // Return the distance in km between two coordinates

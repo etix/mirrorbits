@@ -5,8 +5,6 @@ package main
 
 import (
 	"bufio"
-	"crypto/sha1"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
@@ -461,7 +459,7 @@ func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 		modTime, _ := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", properties[1])
 		sha1 := properties[2]
 		if size != d.size || modTime != d.modTime {
-			h, err := s.hashFile(GetConfig().Repository + d.path)
+			h, err := hashFile(GetConfig().Repository + d.path)
 			if err != nil {
 				log.Warning("%s: hashing failed: %s", d.path, err.Error())
 			} else {
@@ -476,23 +474,6 @@ func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 
 	s.walkSourceFiles = append(s.walkSourceFiles, d)
 	return nil
-}
-
-func (s *scan) hashFile(path string) (hash string, err error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-
-	reader := bufio.NewReader(f)
-	sha1Hash := sha1.New()
-	_, err = io.Copy(sha1Hash, reader)
-	if err != nil {
-		return
-	}
-	hash = hex.EncodeToString(sha1Hash.Sum(nil))
-	return
 }
 
 func (s *scan) ScanSource(stop chan bool) (err error) {
