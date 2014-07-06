@@ -266,7 +266,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	status, err := pageRenderer.Write(ctx, page)
 
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), status)
 	}
 
 	if !ctx.IsMirrorlist() {
