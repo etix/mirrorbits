@@ -188,10 +188,10 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 			sort.Sort(ByRank{mirrors, clientInfo})
 		} else {
 			// No fallback in stock, there's nothing else we can do
-			http.Error(w, nerr.Error(), 500)
+			http.Error(w, nerr.Error(), http.StatusInternalServerError)
 		}
 	} else if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -331,7 +331,7 @@ func (h *HTTP) fileStatsHandler(w http.ResponseWriter, r *http.Request, ctx *Con
 		res, err := redis.Values(rconn.Do("EXEC"))
 
 		if err != nil && err != redis.ErrNil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -352,7 +352,7 @@ func (h *HTTP) fileStatsHandler(w http.ResponseWriter, r *http.Request, ctx *Con
 
 		v, err := redis.Int64(rconn.Do("HGET", dkey, r.URL.Path))
 		if err != nil && err != redis.ErrNil {
-			http.Error(w, err.Error(), 500)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		s := &StatsFilePeriod{Period: ctx.QueryParam("stats"), Downloads: v}
