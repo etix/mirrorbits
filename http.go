@@ -243,9 +243,6 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 }
 
 func (h *HTTP) mirrorSelection(ctx *Context, fileInfo *FileInfo, clientInfo GeoIPRec) (mirrors Mirrors, excluded Mirrors, err error) {
-	rconn := h.redis.pool.Get()
-	defer rconn.Close()
-
 	// Get details about the requested file
 	*fileInfo, err = h.cache.GetFileInfo(fileInfo.Path)
 	if err != nil {
