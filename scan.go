@@ -333,7 +333,7 @@ func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 		f.path = strings.TrimPrefix(f.path, prefix)
 
 		if os.Getenv("DEBUG") != "" {
-			//fmt.Printf("%s\n", f.path)
+			fmt.Printf("%s\n", f.path)
 		}
 
 		// Add all the files to a temporary key
