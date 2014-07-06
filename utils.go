@@ -90,6 +90,7 @@ func setMirrorState(id string, state bool, reason string) error {
 	return err
 }
 
+// Add a trailing slash to the URL
 func normalizeURL(url string) string {
 	if url != "" && !strings.HasSuffix(url, "/") {
 		url += "/"
@@ -109,6 +110,7 @@ func sha1File(file string) (string, error) {
 	return string(h.Sum(nil)), nil
 }
 
+// Return the distance in km between two coordinates
 func getDistanceKm(lat1, lon1, lat2, lon2 float32) float32 {
 	var R float32 = 6371 // radius of the earth in Km
 	dLat := (lat2 - lat1) * float32(DegToRad)
@@ -137,6 +139,8 @@ func add(x, y int) int {
 	return x + y
 }
 
+// Return true is `a` is contained in `list`
+// Warning: this is slow, don't use it for long datasets
 func isInSlice(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {
@@ -146,6 +150,7 @@ func isInSlice(a string, list []string) bool {
 	return false
 }
 
+// Return true if a stop has been requested
 func isStopped(stop chan bool) bool {
 	select {
 	case <-stop:
@@ -155,6 +160,7 @@ func isStopped(stop chan bool) bool {
 	}
 }
 
+// Return a file size in a human readable form
 func readableSize(value int64) string {
 	units := []string{"bytes", "KB", "MB", "GB", "TB"}
 

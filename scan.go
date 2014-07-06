@@ -44,6 +44,7 @@ func Scan() *scan {
 	return &scan{}
 }
 
+// Scan an rsync repository and index its files
 func (s *scan) ScanRsync(url, identifier string, stop chan bool) (err error) {
 	if !strings.HasPrefix(url, "rsync://") {
 		log.Warning("[%s] %s does not start with rsync://", identifier, url)
@@ -220,6 +221,8 @@ func (s *scan) ScanRsync(url, identifier string, stop chan bool) (err error) {
 	}
 
 	sinterKey := fmt.Sprintf("HANDLEDFILES_%s", identifier)
+
+	// Count the number of files known on the remote end
 	common, _ := redis.Int64(conn.Do("SINTERSTORE", sinterKey, "FILES", filesKey))
 
 	if err == io.EOF {
@@ -243,6 +246,7 @@ func readln(r *bufio.Reader) (string, error) {
 	return string(ln), err
 }
 
+// Scan an FTP repository and index its files
 func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 	if !strings.HasPrefix(ftpURL, "ftp://") {
 		log.Error("%s does not start with ftp://", ftpURL)
@@ -391,6 +395,8 @@ func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 	}
 
 	sinterKey := fmt.Sprintf("HANDLEDFILES_%s", identifier)
+
+	// Count the number of files known on the remote end
 	common, _ := redis.Int64(conn.Do("SINTERSTORE", sinterKey, "FILES", filesKey))
 
 	s.setLastSync(conn, identifier)
@@ -399,6 +405,7 @@ func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 	return nil
 }
 
+// Walk inside an FTP repository
 func (s *scan) walkFtp(c *ftp.ServerConn, files []*filedata, path string, stop chan bool) ([]*filedata, error) {
 	if isStopped(stop) {
 		return nil, scanAborted
@@ -425,11 +432,14 @@ func (s *scan) walkFtp(c *ftp.ServerConn, files []*filedata, path string, stop c
 }
 
 func (s *scan) setLastSync(conn redis.Conn, identifier string) error {
+	// Set the last sync time
 	_, err := conn.Do("HSET", fmt.Sprintf("MIRROR_%s", identifier), "lastSync", time.Now().UTC().Unix())
+	// Publish an update on redis
 	conn.Do("PUBLISH", MIRROR_UPDATE, identifier)
 	return err
 }
 
+// Walk inside the source/reference repository
 func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 	if f == nil || f.IsDir() || f.Mode()&os.ModeSymlink != 0 {
 		return nil

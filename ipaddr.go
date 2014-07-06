@@ -38,6 +38,7 @@ func NewGeoIP() *GeoIP {
 	return &GeoIP{}
 }
 
+// Open the GeoIP database
 func (g *GeoIP) openDatabase(file string) (*geoip.GeoIP, error) {
 	dbpath := GetConfig().GeoipDatabasePath
 	if len(dbpath) > 0 {
@@ -53,6 +54,7 @@ func (g *GeoIP) openDatabase(file string) (*geoip.GeoIP, error) {
 	return geoip.Open(filename)
 }
 
+// Try to load the GeoIP databases into memory
 func (g *GeoIP) LoadGeoIP() (err error) {
 	g.geo, err = g.openDatabase("GeoLiteCity.dat")
 	if err != nil {
@@ -76,6 +78,7 @@ func (g *GeoIP) LoadGeoIP() (err error) {
 	return err
 }
 
+// Get details about a given ip address (might be v4 or v6)
 func (g *GeoIP) GetInfos(ip string) (ret GeoIPRec) {
 	if g.IsIPv6(ip) {
 		if g.geo6 != nil {
@@ -103,14 +106,18 @@ func (g *GeoIP) GetInfos(ip string) (ret GeoIPRec) {
 	return ret
 }
 
+// Return true if the given address is of version 6
 func (g *GeoIP) IsIPv6(ip string) bool {
 	return strings.Contains(ip, ":")
 }
 
+// Return true if the given address is valid
 func (g *GeoIPRec) isValid() bool {
 	return g.GeoIPRecord != nil
 }
 
+// Return the IP address of a mirror and return an error
+// if the DNS returns more than one address
 func lookupMirrorIP(host string) (string, error) {
 	addrs, err := net.LookupIP(host)
 	if err != nil {

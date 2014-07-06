@@ -65,6 +65,7 @@ func (s *Stats) Terminate() {
 	s.wg.Wait()
 }
 
+// Lightweight method used to count a new download for a specific file and mirror
 func (s *Stats) CountDownload(m Mirror, fileinfo FileInfo) error {
 	if m.ID == "" {
 		return unknownMirror
@@ -77,6 +78,7 @@ func (s *Stats) CountDownload(m Mirror, fileinfo FileInfo) error {
 	return nil
 }
 
+// Process all stacked download messages
 func (s *Stats) processCountDownload() {
 	s.wg.Add(1)
 	pushTicker := time.NewTicker(500 * time.Millisecond)
@@ -98,6 +100,7 @@ func (s *Stats) processCountDownload() {
 	}
 }
 
+// Push the resulting stats on redis
 func (s *Stats) pushStats() {
 	if len(s.mapStats) <= 0 {
 		return
@@ -122,6 +125,8 @@ func (s *Stats) pushStats() {
 		object := k[separator+1:]
 
 		if typ == "f" {
+			// File
+
 			fkey := fmt.Sprintf("STATS_FILE_%s", date)
 
 			for i := 0; i < 4; i++ {
@@ -132,6 +137,8 @@ func (s *Stats) pushStats() {
 			// Increase the total too
 			rconn.Send("INCRBY", "STATS_TOTAL", v)
 		} else if typ == "m" {
+			// Mirror
+
 			mkey := fmt.Sprintf("STATS_MIRROR_%s", date)
 
 			for i := 0; i < 4; i++ {
@@ -139,6 +146,8 @@ func (s *Stats) pushStats() {
 				mkey = mkey[:strings.LastIndex(mkey, "_")]
 			}
 		} else if typ == "s" {
+			// Bytes
+
 			mkey := fmt.Sprintf("STATS_MIRROR_BYTES_%s", date)
 
 			for i := 0; i < 4; i++ {

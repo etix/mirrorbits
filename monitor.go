@@ -78,6 +78,7 @@ func (m *Monitor) Terminate() {
 	m.wg.Wait()
 }
 
+// Return an error if the endpoint is an unauthorized redirect
 func checkRedirect(req *http.Request, via []*http.Request) error {
 	if GetConfig().DisallowRedirects {
 		return redirectError
@@ -85,6 +86,7 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
+// Main monitor loop
 func (m *Monitor) monitorLoop() {
 	m.wg.Add(1)
 	m.syncSource()
@@ -152,6 +154,7 @@ func (m *Monitor) monitorLoop() {
 	}
 }
 
+// Returns a list of all mirrors ID
 func (m *Monitor) mirrorsID() ([]string, error) {
 	rconn := m.redis.pool.Get()
 	defer rconn.Close()
@@ -159,6 +162,8 @@ func (m *Monitor) mirrorsID() ([]string, error) {
 	return redis.Strings(rconn.Do("LRANGE", "MIRRORS", "0", "-1"))
 }
 
+// Sync the remote mirror struct with the local dataset
+// TODO needs improvements
 func (m *Monitor) syncMirrors(mirrorsIDs ...string) ([]Mirror, error) {
 
 	mirrors := make([]Mirror, 0, len(mirrorsIDs))
@@ -210,6 +215,8 @@ func (m *Monitor) syncMirrors(mirrorsIDs ...string) ([]Mirror, error) {
 	return mirrors, nil
 }
 
+// Main health check loop
+// TODO merge with the monitorLoop?
 func (m *Monitor) healthCheckLoop() {
 	m.wg.Add(1)
 	for {
@@ -234,6 +241,8 @@ func (m *Monitor) healthCheckLoop() {
 	}
 }
 
+// Main sync loop
+// TODO merge with the monitorLoop?
 func (m *Monitor) syncLoop() {
 	m.wg.Add(1)
 	for {
@@ -279,6 +288,7 @@ func (m *Monitor) syncLoop() {
 	}
 }
 
+// Do an actual health check against a given mirror
 func (m *Monitor) healthCheck(mirror Mirror) error {
 	file, size, err := m.getRandomFile(mirror.ID)
 	if err != nil {
@@ -349,6 +359,7 @@ func (m *Monitor) getRandomFile(identifier string) (file string, size int64, err
 	return
 }
 
+// Trigger a sync of the local repository
 func (m *Monitor) syncSource() {
 	err := Scan().ScanSource(m.stop)
 	if err != nil {
