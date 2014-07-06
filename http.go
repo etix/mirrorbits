@@ -94,6 +94,7 @@ func HTTPServer(redis *redisobj, cache *Cache) *HTTP {
 	h.stats = NewStats(redis)
 	http.Handle("/", NewGzipHandler(h.requestDispatcher))
 
+	// Load the GeoIP database
 	if err := h.geoip.LoadGeoIP(); err != nil {
 		log.Critical("Can't load the GeoIP databases: %v", err)
 		if len(GetConfig().Fallbacks) > 0 {
@@ -102,6 +103,8 @@ func HTTPServer(redis *redisobj, cache *Cache) *HTTP {
 			log.Error("Please configure fallback mirrors!")
 		}
 	}
+
+	// Initialize the random number generator
 	rand.Seed(time.Now().UnixNano())
 	return h
 }
