@@ -1,7 +1,7 @@
-{{define "mirrorstats"}}
-<html>
-    <head>
-        <title>Mirrorstats</title>
+{{define "title"}}Mirrorstats{{end}}
+{{define "headline"}}Mirrorstats{{end}}
+
+{{define "head"}}
         <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.2/leaflet.css" />
         <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/0.4.0/MarkerCluster.css" />
         <script src="//cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.2/leaflet.js"></script>
@@ -47,7 +47,7 @@
                 data.setColumnProperty(4, 'role', 'tooltip');
 
                 // Compute target height
-                var height = data.getNumberOfRows() * 30 + 30;
+                var height = data.getNumberOfRows() * 30;
 
                 // Create and draw the visualization.
                 new google.visualization.BarChart(document.getElementById('chart_div')).
@@ -69,9 +69,9 @@
                 });
             }
         </script>
-    </head>
-    <body>
-        <h1>Mirrorstats</h1>
+{{end}}
+
+{{define "body"}}
         <div id="map" style="width: 1024px; height: 512px;"></div>
         <div id="chart_div" style="width: 1024px;"></div>
 
@@ -187,6 +187,4 @@
 
             map.addLayer(markers);
     </script>
-</body>
-</html>
 {{end}}

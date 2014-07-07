@@ -1,0 +1,66 @@
+{{define "base"}}
+<html>
+	<head>
+		<title>{{template "title" .}}</title>
+		<meta http-equiv="content-type" content="text/html;charset=utf-8" />
+		<link href='//fonts.googleapis.com/css?family=Lato:400,900' rel='stylesheet' type='text/css'>
+		<link href="//maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet">
+		<style type="text/css">
+			body {
+				margin: 0px;
+				background: #fff;
+			}
+			#header {
+				position: fixed;
+				height: 50px;
+				width: 100%;
+				top: 0px;
+				background: #2980b9;
+				border-bottom:1px solid #dedede;
+				margin: 0px auto;
+				padding-left: 10px;
+				font-family: 'Lato', sans-serif;
+				font-weight: 900;
+				display: table;
+				z-index: 10000;
+			}
+			#content {
+				margin: 60px 1em 1em 1em;
+				font-family: 'Lato', sans-serif;
+				font-weight: 400;
+			}
+			.title {
+				text-shadow: 1px 2px 2px #2980b9, 0 0 0 #000, 1px 2px 2px #2980b9;
+				color: rgba(255, 255, 255, 0.8);
+				font-size: 30px;
+				display: table-cell;
+				vertical-align: middle;
+				white-space: nowrap;
+				width: 1px;
+			}
+			a.title {
+				color: inherit;
+			}
+			.headline {
+				color: #eee;
+				font-size: 20px;
+				display: table-cell;
+				vertical-align: middle;
+				text-align: center;
+			}
+		</style>
+{{template "head" .}}
+	</head>
+	<body>
+		<div id="header">
+			<div class="title">
+				<a href="http://github.com/etix/mirrorbits" target="_blank" style="text-decoration: none; color: inherit;">Mirrorbits <i class="fa fa-globe" style="vertical-align: middle;"></i></a>
+			</div>
+			<div class="headline">{{template "headline" .}}</div>
+		</div>
+		<div id="content">
+{{template "body" .}}
+		</div>
+	</body>
+</html>
+{{end}}

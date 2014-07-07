@@ -71,13 +71,13 @@ func (w *MirrorListRenderer) Type() string {
 }
 
 func (w *MirrorListRenderer) Write(ctx *Context, page *MirrorlistPage) (statusCode int, err error) {
-	if ctx.Templates() == nil {
+	if ctx.Templates().mirrorlist == nil {
 		return http.StatusInternalServerError, TemplatesNotFound
 	}
 	sort.Sort(ByExcludeReason{page.ExcludedList})
 	page.MapURL = getMirrorMapUrl(page.MirrorList, page.ClientInfo)
 	ctx.ResponseWriter().Header().Set("Content-Type", "text/html; charset=utf-8")
-	err = ctx.Templates().ExecuteTemplate(ctx.ResponseWriter(), "mirrorlist", page)
+	err = ctx.Templates().mirrorlist.ExecuteTemplate(ctx.ResponseWriter(), "base", page)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}

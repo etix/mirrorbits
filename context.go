@@ -4,7 +4,6 @@
 package main
 
 import (
-	"html/template"
 	"net/http"
 	"net/url"
 )
@@ -21,7 +20,7 @@ const (
 type Context struct {
 	r             *http.Request
 	w             http.ResponseWriter
-	t             *template.Template
+	t             Templates
 	v             url.Values
 	typ           RequestType
 	isMirrorList  bool
@@ -30,7 +29,7 @@ type Context struct {
 	isPretty      bool
 }
 
-func NewContext(w http.ResponseWriter, r *http.Request, t *template.Template) *Context {
+func NewContext(w http.ResponseWriter, r *http.Request, t Templates) *Context {
 	c := &Context{r: r, w: w, t: t, v: r.URL.Query()}
 
 	if c.paramBool("mirrorlist") {
@@ -61,7 +60,7 @@ func (c *Context) ResponseWriter() http.ResponseWriter {
 	return c.w
 }
 
-func (c *Context) Templates() *template.Template {
+func (c *Context) Templates() Templates {
 	return c.t
 }
 

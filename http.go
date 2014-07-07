@@ -22,12 +22,17 @@ import (
 type HTTP struct {
 	geoip      *GeoIP
 	redis      *redisobj
-	template   *template.Template
+	templates  Templates
 	SListener  *stoppableListener.StoppableListener
 	stats      *Stats
 	cache      *Cache
 	engine     MirrorSelection
 	Restarting bool
+}
+
+type Templates struct {
+	mirrorlist  *template.Template
+	mirrorstats *template.Template
 }
 
 type FileInfo struct {
@@ -51,7 +56,8 @@ func HTTPServer(redis *redisobj, cache *Cache) *HTTP {
 	h := new(HTTP)
 	h.redis = redis
 	h.geoip = NewGeoIP()
-	h.template = template.Must(h.LoadTemplates())
+	h.templates.mirrorlist = template.Must(h.LoadTemplates("mirrorlist"))
+	h.templates.mirrorstats = template.Must(h.LoadTemplates("mirrorstats"))
 	h.cache = cache
 	h.stats = NewStats(redis)
 	h.engine = DefaultEngine{}
@@ -87,10 +93,15 @@ func (h *HTTP) Terminate() {
 // Reload the configuration
 func (h *HTTP) Reload() {
 	// Reload the templates
-	if t, err := h.LoadTemplates(); err == nil {
-		h.template = t //XXX lock needed?
+	if t, err := h.LoadTemplates("mirrorlist"); err == nil {
+		h.templates.mirrorlist = t //XXX lock needed?
 	} else {
-		log.Error("could not reload templates: %s", err.Error())
+		log.Error("could not reload templates 'mirrorlist': %s", err.Error())
+	}
+	if t, err := h.LoadTemplates("mirrorstats"); err == nil {
+		h.templates.mirrorstats = t //XXX lock needed?
+	} else {
+		log.Error("could not reload templates 'mirrorstats': %s", err.Error())
 	}
 }
 
@@ -125,7 +136,7 @@ func (h *HTTP) RunServer() (err error) {
 }
 
 func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
-	ctx := NewContext(w, r, h.template)
+	ctx := NewContext(w, r, h.templates)
 	w.Header().Set("Server", "Mirrorbits/"+VERSION)
 
 	switch ctx.Type() {
@@ -243,13 +254,15 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 }
 
 // LoadTemplates pre-loads templates from the configured template directory
-func (h *HTTP) LoadTemplates() (t *template.Template, err error) {
+func (h *HTTP) LoadTemplates(name string) (t *template.Template, err error) {
 	t = template.New("t")
 	t.Funcs(template.FuncMap{
 		"add":    add,
 		"sizeof": readableSize,
 	})
-	t, err = t.ParseGlob(fmt.Sprintf("%s/*.html", GetConfig().Templates))
+	t, err = t.ParseFiles(
+		fmt.Sprintf("%s/base.html", GetConfig().Templates),
+		fmt.Sprintf("%s/%s.html", GetConfig().Templates, name))
 	if err != nil {
 		panic(err)
 	}
@@ -436,7 +449,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	// </map>
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err = ctx.Templates().ExecuteTemplate(ctx.ResponseWriter(), "mirrorstats", MirrorStatsPage{results, mirrors})
+	err = ctx.Templates().mirrorstats.ExecuteTemplate(ctx.ResponseWriter(), "base", MirrorStatsPage{results, mirrors})
 	if err != nil {
 		log.Error("HTTP error: %s", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)

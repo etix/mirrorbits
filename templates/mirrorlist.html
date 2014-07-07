@@ -1,7 +1,7 @@
-{{define "mirrorlist"}}
-<html>
-<head>
-<title>Mirrorlist {{.FileInfo.Path}}</title>
+{{define "title"}}Mirrorlist {{.FileInfo.Path}}{{end}}
+{{define "headline"}}{{.FileInfo.Path}}{{end}}
+
+{{define "head"}}
     <script type="text/javascript" src="https://www.google.com/jsapi"></script>
     <script type="text/javascript">
 
@@ -34,10 +34,9 @@
             chart.draw(data, options);
          }
     </script>
-</head>
-<body>
-<h1>File {{.FileInfo.Path}}</h1>
+{{end}}
 
+{{define "body"}}
 <div style="float: left;">
     <h2>Client</h2>
     <table>
@@ -98,8 +97,4 @@
     </table>
     {{end}}
 </div>
-
-<div style="position: fixed; left: 0px; bottom: 0px; height: 20px; width: 100%; text-align: center; background-color: white;">Powered by Mirrorbits</div>
-</body>
-</html>
 {{end}}
