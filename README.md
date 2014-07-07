@@ -3,6 +3,8 @@ Mirrorbits
 
 Mirrorbits is a geographic download redirector written in [Go](www.golang.org) for distributing files across a set of mirrors.
 
+![mirrorbits_screenshot](https://cloud.githubusercontent.com/assets/38853/3501038/a61daefe-0611-11e4-92ac-db79a3c09e8a.png)
+
 # Main Features
 
 * Automatic synchronization over **rsync** or **FTP**
