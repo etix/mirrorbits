@@ -152,7 +152,7 @@ func main() {
 
 		/* Check why the Serve loop exited */
 		if h.SListener.Stopped {
-			var alive int32 = h.SListener.ConnCount.Get()
+			alive := h.SListener.ConnCount.Get()
 			if alive > 0 {
 				log.Info("%d client(s) still connected…\n", alive)
 			}
