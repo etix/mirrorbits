@@ -123,13 +123,15 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 	// - mirrors targeting the given country (as primary or secondary country)
 	weights := map[string]int{}
 	boostWeights := map[string]int{}
-	var lastDistance float32 = -1
-	var lastBoostPoints = 0
-	var lastIsBoost = false
-	var totalBoost = 0
-	var lowestBoost = 0
-	var selected = 0
-	var relmax = len(mirrors)
+	var (
+		lastDistance       float32 = -1
+		lastSelectionScore         = 0
+		lastIsSelected             = false
+		totalScore                 = 0
+		lowestScore                = 0
+		totalSelected              = 0
+		relmax                     = len(mirrors)
+	)
 	for i := 0; i < len(mirrors); i++ {
 		m := &mirrors[i]
 		boost := false
@@ -138,10 +140,10 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 		if i == 0 {
 			boost = true
 			boostPoints += relmax
-			lowestBoost = boostPoints
+			lowestScore = boostPoints
 		} else if m.Distance == lastDistance {
-			boostPoints = lastBoostPoints
-			boost = lastIsBoost
+			boostPoints = lastSelectionScore
+			boost = lastIsSelected
 		} else if isPrimaryCountry(clientInfo.CountryCode, m.CountryFields) ||
 			m.Distance <= closestMirror*GetConfig().WeightDistributionRange {
 			boostPoints += int(float64(relmax) - float64(m.Distance/closestMirror)*float64(sameCountry))
@@ -157,19 +159,19 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 		}
 
 		lastDistance = m.Distance
-		lastBoostPoints = boostPoints
-		lastIsBoost = boost
+		lastSelectionScore = boostPoints
+		lastIsSelected = boost
 		boostPoints += int(float64(boostPoints)*(float64(m.Score)/100) + 0.5)
 		if boostPoints < 1 {
 			boostPoints = 1
 		}
-		if boost == true && boostPoints < lowestBoost {
-			lowestBoost = boostPoints
+		if boost == true && boostPoints < lowestScore {
+			lowestScore = boostPoints
 		}
-		if boost == true && boostPoints >= lowestBoost {
+		if boost == true && boostPoints >= lowestScore {
 			boostWeights[m.ID] = boostPoints
-			totalBoost += boostPoints
-			selected++
+			totalScore += boostPoints
+			totalSelected++
 		}
 		weights[m.ID] = boostPoints
 	}
@@ -181,15 +183,15 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 	// improve the processing speed.
 	if !ctx.IsMirrorlist() {
 		// Reduce the number of mirrors to process
-		v := math.Min(math.Max(5, float64(selected)), float64(len(mirrors)))
+		v := math.Min(math.Max(5, float64(totalSelected)), float64(len(mirrors)))
 		mirrors = mirrors[:int(v)]
 	}
 
-	if selected > 1 {
+	if totalSelected > 1 {
 		// Randomize the order of the selected mirrors considering their weights
-		weightedMirrors := make([]Mirror, selected)
-		rest := totalBoost
-		for i := 0; i < selected; i++ {
+		weightedMirrors := make([]Mirror, totalSelected)
+		rest := totalScore
+		for i := 0; i < totalSelected; i++ {
 			var id string
 			rv := rand.Int31n(int32(rest))
 			s := 0
@@ -202,7 +204,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 			}
 			for _, m := range mirrors {
 				if m.ID == id {
-					m.Weight = int(float64(boostWeights[id])*100/float64(totalBoost) + 0.5)
+					m.Weight = int(float64(boostWeights[id])*100/float64(totalScore) + 0.5)
 					weightedMirrors[i] = m
 					break
 				}
@@ -212,8 +214,8 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 		}
 
 		// Replace the head of the list by its reordered counterpart
-		mirrors = append(weightedMirrors, mirrors[selected:]...)
-	} else if selected == 1 && len(mirrors) > 0 {
+		mirrors = append(weightedMirrors, mirrors[totalSelected:]...)
+	} else if totalSelected == 1 && len(mirrors) > 0 {
 		mirrors[0].Weight = 100
 	}
 	return
