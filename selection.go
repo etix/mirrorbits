@@ -90,7 +90,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 		} else if closestMirror > m.Distance {
 			closestMirror = m.Distance
 		}
-		if isPrimaryCountry(clientInfo.CountryCode, m.CountryFields) {
+		if isPrimaryCountry(clientInfo, m.CountryFields) {
 			sameCountry++
 		}
 		mirrors[safeIndex] = mirrors[i]
@@ -144,11 +144,11 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 		} else if m.Distance == lastDistance {
 			boostPoints = lastSelectionScore
 			boost = lastIsSelected
-		} else if isPrimaryCountry(clientInfo.CountryCode, m.CountryFields) ||
+		} else if isPrimaryCountry(clientInfo, m.CountryFields) ||
 			m.Distance <= closestMirror*GetConfig().WeightDistributionRange {
 			boostPoints += int(float64(relmax) - float64(m.Distance/closestMirror)*float64(sameCountry))
 			boost = true
-		} else if isAdditionalCountry(clientInfo.CountryCode, m.CountryFields) {
+		} else if isAdditionalCountry(clientInfo, m.CountryFields) {
 			boostPoints += relmax / 2
 			boost = true
 		}

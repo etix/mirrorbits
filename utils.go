@@ -188,17 +188,23 @@ func isInSlice(a string, list []string) bool {
 	return false
 }
 
-func isAdditionalCountry(a string, list []string) bool {
+func isAdditionalCountry(clientInfo GeoIPRec, list []string) bool {
+	if clientInfo.GeoIPRecord == nil {
+		return false
+	}
 	for i, b := range list {
-		if i > 0 && b == a {
+		if i > 0 && b == clientInfo.CountryCode {
 			return true
 		}
 	}
 	return false
 }
 
-func isPrimaryCountry(a string, list []string) bool {
-	if len(list) > 0 && list[0] == a {
+func isPrimaryCountry(clientInfo GeoIPRec, list []string) bool {
+	if clientInfo.GeoIPRecord == nil {
+		return false
+	}
+	if len(list) > 0 && list[0] == clientInfo.CountryCode {
 		return true
 	}
 	return false
