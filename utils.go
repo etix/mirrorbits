@@ -188,6 +188,22 @@ func isInSlice(a string, list []string) bool {
 	return false
 }
 
+func isAdditionalCountry(a string, list []string) bool {
+	for i, b := range list {
+		if i > 0 && b == a {
+			return true
+		}
+	}
+	return false
+}
+
+func isPrimaryCountry(a string, list []string) bool {
+	if len(list) > 0 && list[0] == a {
+		return true
+	}
+	return false
+}
+
 // Return true if a stop has been requested
 func isStopped(stop chan bool) bool {
 	select {

@@ -34,6 +34,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 
 	// Filter
 	safeIndex := 0
+	sameCountry := 0
 	excluded = make([]Mirror, 0, len(mirrors))
 	var closestMirror float32
 	for i, m := range mirrors {
@@ -89,6 +90,9 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 		} else if closestMirror > m.Distance {
 			closestMirror = m.Distance
 		}
+		if isPrimaryCountry(clientInfo.CountryCode, m.CountryFields) {
+			sameCountry++
+		}
 		mirrors[safeIndex] = mirrors[i]
 		safeIndex++
 		continue
@@ -138,11 +142,11 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 		} else if m.Distance == lastDistance {
 			boostPoints = lastBoostPoints
 			boost = lastIsBoost
-		} else if m.Distance <= closestMirror*GetConfig().WeightDistributionRange {
-			limit := float64(closestMirror) * float64(GetConfig().WeightDistributionRange)
-			boostPoints += int((limit-float64(m.Distance))*float64(relmax)/limit + 0.5)
+		} else if isPrimaryCountry(clientInfo.CountryCode, m.CountryFields) ||
+			m.Distance <= closestMirror*GetConfig().WeightDistributionRange {
+			boostPoints += int(float64(relmax) - float64(m.Distance/closestMirror)*float64(sameCountry))
 			boost = true
-		} else if isInSlice(clientInfo.CountryCode, m.CountryFields) {
+		} else if isAdditionalCountry(clientInfo.CountryCode, m.CountryFields) {
 			boostPoints += relmax / 2
 			boost = true
 		}
