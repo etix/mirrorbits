@@ -40,9 +40,8 @@ func (w *JsonRenderer) Write(ctx *Context, page *MirrorlistPage) (statusCode int
 	}
 	ctx.ResponseWriter().Header().Set("Content-Type", "application/json; charset=utf-8")
 	ctx.ResponseWriter().Header().Set("Content-Length", strconv.Itoa(len(output)))
-	ctx.ResponseWriter().WriteHeader(http.StatusOK)
 	ctx.ResponseWriter().Write(output)
-	return http.StatusOK, err
+	return http.StatusOK, nil
 }
 
 type RedirectRenderer struct{}
@@ -52,8 +51,9 @@ func (w *RedirectRenderer) Type() string {
 }
 
 func (w *RedirectRenderer) Write(ctx *Context, page *MirrorlistPage) (statusCode int, err error) {
-	ctx.ResponseWriter().Header().Set("Content-Type", "text/html; charset=utf-8")
 	if len(page.MirrorList) > 0 {
+		ctx.ResponseWriter().Header().Set("Content-Type", "text/html; charset=utf-8")
+
 		for i, m := range page.MirrorList[1:] {
 			ctx.ResponseWriter().Header().Add("Link", fmt.Sprintf("<%s>; rel=duplicate; pri=%d; geo=%s", m.HttpURL+page.FileInfo.Path[1:], i+1, strings.ToLower(m.CountryFields[0])))
 		}
