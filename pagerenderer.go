@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -75,11 +76,13 @@ func (w *MirrorListRenderer) Write(ctx *Context, page *MirrorlistPage) (statusCo
 		return http.StatusInternalServerError, TemplatesNotFound
 	}
 	sort.Sort(ByExcludeReason{page.ExcludedList})
+	var buf bytes.Buffer
 	page.MapURL = getMirrorMapUrl(page.MirrorList, page.ClientInfo)
 	ctx.ResponseWriter().Header().Set("Content-Type", "text/html; charset=utf-8")
-	err = ctx.Templates().mirrorlist.ExecuteTemplate(ctx.ResponseWriter(), "base", page)
+	err = ctx.Templates().mirrorlist.ExecuteTemplate(&buf, "base", page)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
-	return http.StatusOK, err
+	buf.WriteTo(ctx.ResponseWriter())
+	return http.StatusOK, nil
 }
