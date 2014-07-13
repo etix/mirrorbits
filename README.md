@@ -1,11 +1,11 @@
 Mirrorbits
 ===========
 
-Mirrorbits is a geographic download redirector written in [Go](www.golang.org) for distributing files across a set of mirrors.
+Mirrorbits is a geographic download redirector written in [Go](www.golang.org) for distributing files efficiently across a set of mirrors.
 
 ![mirrorbits_screenshot](https://cloud.githubusercontent.com/assets/38853/3501038/a61daefe-0611-11e4-92ac-db79a3c09e8a.png)
 
-# Main Features
+## Main Features
 
 * Automatic synchronization over **rsync** or **FTP**
 * Response can be either JSON or HTTP redirect
@@ -23,20 +23,83 @@ Mirrorbits is a geographic download redirector written in [Go](www.golang.org) f
 * Full **IPv6** support
 * more...
 
-# Installation
+## Is it production ready?
+
+**Almost!** Mirrorbits is already running in production at [VideoLAN](http://www.videolan.org) to distribute [VLC media player](http://www.videolan.org/vlc/) since April 2014 but the JSON API and the configuration file are still subject to change.
+
+# Quick start
+
+## Prerequisites
+
+* Redis 2.8 (or later)
+* libgeoip
+* a recent geoip database (see contrib/geoip/)
+
+## Installation
+
+You can either get a [prebuilt version](https://github.com/etix/mirrorbits/releases) or choose to build it yourself.
+
+### Manual build
 
 ```
 $ go get github.com/etix/mirrorbits
 $ go install -v github.com/etix/mirrorbits
 ```
+The resulting executable should now be in your *$GOPATH/bin* directory.
 
-# Documentation
+If you plan to use the web UI be sure to copy the [templates](templates) into your system (usually in /usr/share/mirrorbits).
 
-Later.
+## Configuration
 
-# Is it production ready?
+A sample configuration file can be found [here](mirrorbits.conf).
 
-**Mostly!** Mirrorbits is already running in production at [VideoLAN](http://www.videolan.org) to distribute [VLC media player](http://www.videolan.org/vlc/) since April 2014 but the JSON API and the configuration file are still subject to change.
+Option | description
+------ | -----------
+Repository | Path to your own copy of the repository
+Templates | Path containing the templates
+OutputMode | auto: based on the *Accept* header content<br>redirect: do an HTTP redirect to the destination<br>json: return a JSON formatted document (also known as API mode)
+ListenAddress | Local address and port to bind
+Gzip | Use gzip compression for the JSON responses
+RedisAddress | Address and port of the Redis database
+RedisPassword | Password to access the Redis database
+LogDir | Path to the directory where to save log files
+GeoipDatabasePath | Path to the geoip databases
+ConcurrentSync | Maximum number of server sync (rsync/ftp) do to simultaneously
+DisallowRedirects | Disable any mirror trying to do an HTTP redirect
+WeightDistributionRange | Multiplier of the distance to the first mirror to find other possible mirrors in order to distribute the load
+DisableOnMissingFile | Disable a mirror if an advertised file on rsync/ftp appears to be missing on HTTP
+Fallbacks | A list of possible mirrors to use as fallback if a request fails or if the database is unreachable. **These mirrors are not tracked by mirrorbits.** It is assumed they have all the files available in the local repository.
+
+## Running
+
+Mirrorbits is a self-contained application and act, at the same time, as the server and the cli.
+
+To run the server:
+```
+mirrorbits -D
+```
+Additionnal options can be found with ```mirrobits -help```.
+
+To run the cli:
+```
+mirrorbits help
+```
+
+## Upgrading
+
+Mirrorbits has a mode called *seamless binary upgrade* to upgrade the server executable at runtime without service disruption. Once the binary has been replaced on the filesystem just issue the following command in the cli:
+```
+mirrorbits upgrade
+```
+
+## Considerations
+
+* When configured in redirect mode, Mirrorbits can easily serve client requests directly but it is usually recommended to set it behind a reverse proxy like nginx. In this case take care to pass the IP address of the client within a X-Forwarded-For header:
+```
+proxy_set_header X-Forwarded-For $remote_addr;
+```
+* It is advised to never cache requests intended for Mirrorbits since each request is supposed to be unique, caching the result might have unexpected consequences.
+* Having multiple instances of Mirrorbits sharing the same database is not yet (officially) supported, therefore don't do it in production.
 
 # License MIT
 
