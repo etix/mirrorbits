@@ -45,10 +45,10 @@ type configuration struct {
 	DisallowRedirects       bool       `yaml:"DisallowRedirects"`
 	WeightDistributionRange float32    `yaml:"WeightDistributionRange"`
 	DisableOnMissingFile    bool       `yaml:"DisableOnMissingFile"`
-	Fallbacks               []Fallback `yaml:"Fallbacks"`
+	Fallbacks               []fallback `yaml:"Fallbacks"`
 }
 
-type Fallback struct {
+type fallback struct {
 	Url           string `yaml:"URL"`
 	CountryCode   string `yaml:"CountryCode"`
 	ContinentCode string `yaml:"ContinentCode"`
