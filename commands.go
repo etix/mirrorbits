@@ -215,6 +215,7 @@ func (c *cli) CmdAdd(args ...string) error {
 	countryOnly := cmd.Bool("country-only", false, "The mirror should only handle its country")
 	asOnly := cmd.Bool("as-only", false, "The mirror should only handle clients in the same AS number")
 	score := cmd.Int("score", 0, "Weight to give to the mirror during selection")
+	comment := cmd.String("comment", "", "Comment")
 
 	if err := cmd.Parse(args); err != nil {
 		return nil
@@ -316,6 +317,7 @@ func (c *cli) CmdAdd(args ...string) error {
 		"continentCode", continentCode,
 		"countryCodes", countryCode,
 		"asnum", geoRec.ASNum,
+		"comment", strings.TrimSpace(*comment),
 		"enabled", false,
 		"up", false)
 	if err != nil {
