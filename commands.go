@@ -425,6 +425,7 @@ func (c *cli) CmdRemove(args ...string) error {
 
 func (c *cli) CmdScan(args ...string) error {
 	cmd := SubCmd("scan", "[IDENTIFIER]", "(Re-)Scan a mirror")
+	enable := cmd.Bool("enable", false, "Enable the mirror automatically if the scan is successful")
 
 	if err := cmd.Parse(args); err != nil {
 		return nil
@@ -489,6 +490,14 @@ func (c *cli) CmdScan(args ...string) error {
 	}
 	if err != nil && mirror.FtpURL != "" {
 		err = Scan().ScanFTP(mirror.FtpURL, id, nil)
+	}
+
+	// Finally enable the mirror if requested
+	if err == nil && *enable == true {
+		if err := enableMirror(id); err != nil {
+			log.Fatal("Couldn't enable the mirror: ", err)
+		}
+		fmt.Println("Mirror enabled successfully")
 	}
 	return err
 }
