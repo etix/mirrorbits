@@ -19,6 +19,7 @@ import (
 	"time"
 )
 
+// HTTP represents an instance of the HTTP webserver
 type HTTP struct {
 	geoip      *GeoIP
 	redis      *redisobj
@@ -30,11 +31,14 @@ type HTTP struct {
 	Restarting bool
 }
 
+// Templates is a struct embedding instances of the precompiled templates
 type Templates struct {
 	mirrorlist  *template.Template
 	mirrorstats *template.Template
 }
 
+// FileInfo is a struct embedding details about a file served by
+// the redirector.
 type FileInfo struct {
 	Path    string    `redis:"-"`
 	Size    int64     `redis:"size" json:",omitempty"`
@@ -42,6 +46,8 @@ type FileInfo struct {
 	Sha1    string    `redis:"sha1" json:",omitempty"`
 }
 
+// MirrorlistPage is the resulting struct of a request and is
+// used by the renderers to generate the final page.
 type MirrorlistPage struct {
 	FileInfo     FileInfo
 	MapURL       string `json:"-"`
@@ -52,6 +58,7 @@ type MirrorlistPage struct {
 	Fallback     bool    `json:",omitempty"`
 }
 
+// HTTPServer is the constructor of the HTTP server
 func HTTPServer(redis *redisobj, cache *Cache) *HTTP {
 	h := new(HTTP)
 	h.redis = redis
@@ -78,11 +85,14 @@ func HTTPServer(redis *redisobj, cache *Cache) *HTTP {
 	return h
 }
 
+// SetListener can be used to set a different listener that should be used by the
+// HTTP server. This is primarily used during seamless binary upgrade.
 func (h *HTTP) SetListener(l net.Listener) {
 	/* Make the listener stoppable to be able to shutdown the server gracefully */
 	h.SListener = stoppableListener.Handle(l)
 }
 
+// Terminate terminates the current HTTP server gracefully
 func (h *HTTP) Terminate() {
 	/* Close the listener, killing all active connections */
 	h.SListener.Close()
@@ -105,6 +115,7 @@ func (h *HTTP) Reload() {
 	}
 }
 
+// RunServer is the main function used to start the HTTP server
 func (h *HTTP) RunServer() (err error) {
 	// If SListener isn't nil that means that we're running a seamless
 	// binary upgrade and we have recovered an already running listener

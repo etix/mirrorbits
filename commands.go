@@ -21,11 +21,13 @@ import (
 )
 
 var (
+	// NoSyncMethod is returned when no sync protocol is available
 	NoSyncMethod = errors.New("Cannot scan a mirror without a proper rsync or FTP url")
 )
 
 type cli struct{}
 
+// ParseCommands parses the command line and call the appropriate functions
 func ParseCommands(args ...string) error {
 	c := &cli{}
 
@@ -74,6 +76,7 @@ func (c *cli) CmdHelp() error {
 	return nil
 }
 
+// SubCmd prints the usage of a subcommand
 func SubCmd(name, signature, description string) *flag.FlagSet {
 	flags := flag.NewFlagSet(name, flag.ContinueOnError)
 	flags.Usage = func() {

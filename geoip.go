@@ -20,6 +20,7 @@ const (
 	geoipUpdatedExt = ".updated"
 )
 
+// GeoIP contains methods to query the GeoIP database
 type GeoIP struct {
 	geo  *geoip.GeoIP
 	geo6 *geoip.GeoIP
@@ -27,6 +28,7 @@ type GeoIP struct {
 	asn6 *geoip.GeoIP
 }
 
+// GeoIPRec defines a GeoIP record for a given IP address
 type GeoIPRec struct {
 	*geoip.GeoIPRecord
 	ASName    string
@@ -34,6 +36,7 @@ type GeoIPRec struct {
 	ASNetmask int
 }
 
+// NewGeoIP instanciates a new instance of GeoIP
 func NewGeoIP() *GeoIP {
 	return &GeoIP{}
 }

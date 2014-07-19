@@ -20,6 +20,8 @@ const (
 	MIRROR_FILE_UPDATE = "mirror_file_update"
 )
 
+// Cache implements a local caching mechanism of type LRU for content available in the
+// redis database that is automatically invalidated if the object is updated in Redis.
 type Cache struct {
 	r        *redisobj
 	fiCache  *LRUCache
@@ -55,6 +57,7 @@ func (f *mirrorValue) Size() int {
 	return int(unsafe.Sizeof(f.value))
 }
 
+// NewCache constructs a new instance of Cache
 func NewCache(r *redisobj) *Cache {
 	cache := new(Cache)
 	cache.r = r
@@ -67,6 +70,8 @@ func NewCache(r *redisobj) *Cache {
 	return cache
 }
 
+// SubscribeEvent allows subscription to a particular kind of events and send a
+// notification to the given channel when an object is updated in the database.
 func (c *Cache) SubscribeEvent(event string, channel chan string) {
 	c.extSubscribersLock.Lock()
 	defer c.extSubscribersLock.Unlock()
@@ -155,6 +160,7 @@ func (c *Cache) handleMessage(channel string, data []byte) {
 	}
 }
 
+// Clear clears the local cache
 func (c *Cache) Clear() {
 	c.fiCache.Clear()
 	c.fmCache.Clear()
@@ -162,6 +168,8 @@ func (c *Cache) Clear() {
 	c.fimCache.Clear()
 }
 
+// GetFileInfo returns file informations for a given file either from the cache
+// or directly from the database if the object is not yet stored in the cache.
 func (c *Cache) GetFileInfo(path string) (f FileInfo, err error) {
 	v, ok := c.fiCache.Get(path)
 	if ok {
@@ -189,6 +197,8 @@ func (c *Cache) fetchFileInfo(path string) (f FileInfo, err error) {
 	return
 }
 
+// GetMirrors returns all the mirrors serving a given file either from the cache
+// or directly from the database if the object is not yet stored in the cache.
 func (c *Cache) GetMirrors(path string, clientInfo GeoIPRec) (mirrors []Mirror, err error) {
 	var mirrorsIDs []string
 	v, ok := c.fmCache.Get(path)
@@ -286,6 +296,8 @@ func (c *Cache) fetchFileInfoMirror(id, path string) (fileInfo FileInfo, err err
 	return
 }
 
+// GetMirror returns all information about a given mirror either from the cache
+// or directly from the database if the object is not yet stored in the cache.
 func (c *Cache) GetMirror(identifier string) (mirror Mirror, err error) {
 	v, ok := c.mCache.Get(identifier)
 	if ok {

@@ -26,6 +26,7 @@ func (w *gzipResponseWriter) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
 
+// NewGzipHandler is an HTTP handler used to compress responses if supported by the client
 func NewGzipHandler(fn http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !GetConfig().Gzip || !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {

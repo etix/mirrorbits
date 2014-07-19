@@ -7,6 +7,7 @@ import (
 	"math/rand"
 )
 
+// Mirror is the structure representing all the informations about a mirror
 type Mirror struct {
 	ID             string   `redis:"ID" yaml:"-"`
 	HttpURL        string   `redis:"http" yaml:"HttpURL"`
@@ -39,11 +40,13 @@ type Mirror struct {
 	FileInfo *FileInfo `redis:"-" json:"-" yaml:"-"` // Details of the requested file on this specific mirror
 }
 
+// Mirrors represents a slice of Mirror
 type Mirrors []Mirror
 
 func (s Mirrors) Len() int      { return len(s) }
 func (s Mirrors) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
+// ByRank is used to sort a slice of Mirror by their rank
 type ByRank struct {
 	Mirrors
 	clientInfo GeoIPRec
@@ -86,6 +89,7 @@ func (m ByRank) Less(i, j int) bool {
 	}
 }
 
+// ByWeight is used to sort a slice of Mirror by their computed weight
 type ByWeight struct {
 	Mirrors
 	weights map[string]int
@@ -104,6 +108,7 @@ func (b ByWeight) Less(i, j int) bool {
 	return false
 }
 
+// ByExcludeReason is used to sort a slice of Mirror alphabetically by their exclude reason
 type ByExcludeReason struct {
 	Mirrors
 }

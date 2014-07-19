@@ -54,6 +54,7 @@ type fallback struct {
 	ContinentCode string `yaml:"ContinentCode"`
 }
 
+// LoadConfig loads the configuration file if it has not yet been loaded
 func LoadConfig() {
 	if config != nil {
 		return
@@ -64,6 +65,7 @@ func LoadConfig() {
 	}
 }
 
+// ReloadConfig reloads the configuration file and update it globally
 func ReloadConfig() error {
 	if configFile == "" {
 		if fileExists("mirrorbits.conf") {
@@ -105,6 +107,8 @@ func ReloadConfig() error {
 	return nil
 }
 
+// GetConfig returns a pointer to a configuration object
+// FIXME reading from the pointer could cause a race!
 func GetConfig() *configuration {
 	configMutex.RLock()
 	defer configMutex.RUnlock()
