@@ -113,7 +113,7 @@ func (c *cli) CmdList(args ...string) error {
 
 	mirrorsIDs, err := redis.Strings(conn.Do("LRANGE", "MIRRORS", "0", "-1"))
 	if err != nil {
-		log.Fatal("Cannot fetch the list of mirrors:", err)
+		log.Fatal("Cannot fetch the list of mirrors: ", err)
 	}
 
 	conn.Send("MULTI")
@@ -721,7 +721,7 @@ func (c *cli) CmdExport(args ...string) error {
 
 	mirrorsIDs, err := redis.Strings(conn.Do("LRANGE", "MIRRORS", "0", "-1"))
 	if err != nil {
-		log.Fatal("Cannot fetch the list of mirrors:", err)
+		log.Fatal("Cannot fetch the list of mirrors: ", err)
 	}
 
 	conn.Send("MULTI")
