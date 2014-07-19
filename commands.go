@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"flag"
 	"fmt"
@@ -602,6 +603,7 @@ func (c *cli) CmdEdit(args ...string) error {
 	// Checksum the original file
 	chk, _ := hashFile(f.Name())
 
+reopen:
 	// Launch the editor with the filename as first parameter
 	exe := exec.Command(editor, f.Name())
 	exe.Stdin = os.Stdin
@@ -629,7 +631,19 @@ func (c *cli) CmdEdit(args ...string) error {
 	// Fill the struct from the yaml
 	err = goyaml.Unmarshal(out, &mirror)
 	if err != nil {
-		log.Fatal("Parse error: ", err.Error())
+	eagain:
+		fmt.Printf("%s\nRetry? [Y/n]", err.Error())
+		reader := bufio.NewReader(os.Stdin)
+		s, _ := reader.ReadString('\n')
+		switch s[0] {
+		case 'y', 'Y', 10:
+			goto reopen
+		case 'n', 'N':
+			fmt.Println("Aborted")
+			return nil
+		default:
+			goto eagain
+		}
 	}
 
 	// Reformat contry codes
