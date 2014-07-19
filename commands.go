@@ -21,6 +21,10 @@ import (
 	"time"
 )
 
+const (
+	commentSeparator = "##### Comments goes below this line #####"
+)
+
 var (
 	// NoSyncMethod is returned when no sync protocol is available
 	NoSyncMethod = errors.New("Cannot scan a mirror without a proper rsync or FTP url")
@@ -598,6 +602,7 @@ func (c *cli) CmdEdit(args ...string) error {
 	f.WriteString("# You can now edit this mirror configuration.\n" +
 		"# Just save and quit when you're done.\n\n")
 	f.WriteString(string(out))
+	f.WriteString(fmt.Sprintf("\n%s\n\n%s\n", commentSeparator, mirror.Comment))
 	f.Close()
 
 	// Checksum the original file
@@ -628,8 +633,19 @@ reopen:
 		return nil
 	}
 
+	var (
+		yaml    string = string(out)
+		comment string
+	)
+
+	commentIndex := strings.Index(yaml, commentSeparator)
+	if commentIndex > 0 {
+		comment = strings.TrimSpace(yaml[commentIndex+len(commentSeparator):])
+		yaml = yaml[:commentIndex]
+	}
+
 	// Fill the struct from the yaml
-	err = goyaml.Unmarshal(out, &mirror)
+	err = goyaml.Unmarshal([]byte(yaml), &mirror)
 	if err != nil {
 	eagain:
 		fmt.Printf("%s\nRetry? [Y/n]", err.Error())
@@ -670,6 +686,8 @@ reopen:
 		mirror.FtpURL = normalizeURL(mirror.FtpURL)
 	}
 
+	mirror.Comment = comment
+
 	// Save the values back into redis
 	_, err = conn.Do("HMSET", key,
 		"ID", id,
@@ -691,6 +709,7 @@ reopen:
 		"continentCode", mirror.ContinentCode,
 		"countryCodes", mirror.CountryCodes,
 		"asnum", mirror.Asnum,
+		"comment", mirror.Comment,
 		"enabled", mirror.Enabled)
 
 	if err != nil {

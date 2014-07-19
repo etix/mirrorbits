@@ -28,6 +28,7 @@ type Mirror struct {
 	ContinentCode  string   `redis:"continentCode" yaml:"ContinentCode"`
 	CountryCodes   string   `redis:"countryCodes" yaml:"CountryCodes"`
 	Asnum          int      `redis:"asnum" yaml:"ASNum"`
+	Comment        string   `redis:"comment" yaml:"-"`
 	Enabled        bool     `redis:"enabled" yaml:"Enabled"`
 	Up             bool     `redis:"up" json:"-" yaml:"-"`
 	ExcludeReason  string   `redis:"excludeReason" json:",omitempty" yaml:"-"`
