@@ -1,12 +1,14 @@
 Mirrorbits
 ===========
 
-Mirrorbits is a geographic download redirector written in [Go](www.golang.org) for distributing files efficiently across a set of mirrors.
+Mirrorbits is a geographical download redirector written in [Go](www.golang.org) for distributing files efficiently across a set of mirrors. It offers a simple and economic way to create a full Content Delivery Network layer using a pure software stack. It is primarily designed for the distribution of large-scale Open-Source projects with a lot of traffic.
 
-![mirrorbits_screenshot](https://cloud.githubusercontent.com/assets/38853/3501038/a61daefe-0611-11e4-92ac-db79a3c09e8a.png)
+![mirrorbits_screenshot](https://cloud.githubusercontent.com/assets/38853/3636687/ab6bba38-0fd8-11e4-9d69-01543ed2531a.png)
 
 ## Main Features
 
+* Blazing fast, can reach 8K req/s on a single laptop
+* Easy to deploy and maintain, everything is packed in a single binary
 * Automatic synchronization over **rsync** or **FTP**
 * Response can be either JSON or HTTP redirect
 * Support partial repositories
@@ -25,7 +27,7 @@ Mirrorbits is a geographic download redirector written in [Go](www.golang.org) f
 
 ## Is it production ready?
 
-**Almost!** Mirrorbits is already running in production at [VideoLAN](http://www.videolan.org) to distribute [VLC media player](http://www.videolan.org/vlc/) since April 2014 but the JSON API and the configuration file are still subject to change.
+**Almost!** Mirrorbits is already running in production at [VideoLAN](http://www.videolan.org) to distribute [VLC media player](http://www.videolan.org/vlc/) since April 2014. Yet some things might change before the 1.0 release, notably the response of a JSON request and few configuration items. If you intend to deploy Mirrorbits in a production system it is strongly advised to contact the author first!
 
 # Quick start
 
@@ -100,6 +102,11 @@ proxy_set_header X-Forwarded-For $remote_addr;
 ```
 * It is advised to never cache requests intended for Mirrorbits since each request is supposed to be unique, caching the result might have unexpected consequences.
 * Having multiple instances of Mirrorbits sharing the same database is not yet (officially) supported, therefore don't do it in production.
+
+# We're social!
+
+The best place to discuss about mirrorbits is to join the #VideoLAN IRC channel on Freenode.  
+For the latest news, you can follow [@mirrorbits](http://twitter.com/mirrorbits) on Twitter.
 
 # License MIT
 
