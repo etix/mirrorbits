@@ -426,11 +426,12 @@ func (c *cli) CmdRemove(args ...string) error {
 func (c *cli) CmdScan(args ...string) error {
 	cmd := SubCmd("scan", "[IDENTIFIER]", "(Re-)Scan a mirror")
 	enable := cmd.Bool("enable", false, "Enable the mirror automatically if the scan is successful")
+	all := cmd.Bool("all", false, "Scan all mirrors at once")
 
 	if err := cmd.Parse(args); err != nil {
 		return nil
 	}
-	if cmd.NArg() != 1 {
+	if !*all && cmd.NArg() != 1 || *all && cmd.NArg() != 0 {
 		cmd.Usage()
 		return nil
 	}
@@ -452,54 +453,68 @@ func (c *cli) CmdScan(args ...string) error {
 		os.Exit(-1)
 	}
 
-	list, err := c.matchMirror(cmd.Arg(0))
-	if err != nil {
-		return err
-	}
-	if len(list) == 0 {
-		fmt.Fprintf(os.Stderr, "No match for %s\n", cmd.Arg(0))
-		return nil
-	} else if len(list) > 1 {
-		for _, e := range list {
-			fmt.Fprintf(os.Stderr, "%s\n", e)
+	var list []string
+
+	if *all == true {
+		list, err = redis.Strings(conn.Do("LRANGE", "MIRRORS", "0", "-1"))
+		if err != nil {
+			return errors.New("Cannot fetch the list of mirrors")
 		}
-		return nil
-	}
-
-	id := list[0]
-
-	key := fmt.Sprintf("MIRROR_%s", id)
-	m, err := redis.Values(conn.Do("HGETALL", key))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Cannot fetch mirror details: %s\n", err)
-		return err
-	}
-
-	var mirror Mirror
-	err = redis.ScanStruct(m, &mirror)
-	if err != nil {
-		return err
-	}
-
-	log.Notice("Scanning %s...", id)
-
-	err = NoSyncMethod
-
-	if mirror.RsyncURL != "" {
-		err = Scan().ScanRsync(mirror.RsyncURL, id, nil)
-	}
-	if err != nil && mirror.FtpURL != "" {
-		err = Scan().ScanFTP(mirror.FtpURL, id, nil)
-	}
-
-	// Finally enable the mirror if requested
-	if err == nil && *enable == true {
-		if err := enableMirror(id); err != nil {
-			log.Fatal("Couldn't enable the mirror: ", err)
+	} else {
+		list, err = c.matchMirror(cmd.Arg(0))
+		if err != nil {
+			return err
 		}
-		fmt.Println("Mirror enabled successfully")
+		if len(list) == 0 {
+			fmt.Fprintf(os.Stderr, "No match for %s\n", cmd.Arg(0))
+			return nil
+		} else if len(list) > 1 {
+			for _, e := range list {
+				fmt.Fprintf(os.Stderr, "%s\n", e)
+			}
+			return nil
+		}
 	}
-	return err
+
+	for _, id := range list {
+
+		key := fmt.Sprintf("MIRROR_%s", id)
+		m, err := redis.Values(conn.Do("HGETALL", key))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot fetch mirror details: %s\n", err)
+			return err
+		}
+
+		var mirror Mirror
+		err = redis.ScanStruct(m, &mirror)
+		if err != nil {
+			return err
+		}
+
+		log.Notice("Scanning %s...", id)
+
+		err = NoSyncMethod
+
+		if mirror.RsyncURL != "" {
+			err = Scan().ScanRsync(mirror.RsyncURL, id, nil)
+		}
+		if err != nil && mirror.FtpURL != "" {
+			err = Scan().ScanFTP(mirror.FtpURL, id, nil)
+		}
+
+		if err != nil {
+			log.Error("Scanning %s failed: %s", id, err.Error())
+		}
+
+		// Finally enable the mirror if requested
+		if err == nil && *enable == true {
+			if err := enableMirror(id); err != nil {
+				log.Fatal("Couldn't enable the mirror: ", err)
+			}
+			fmt.Println("Mirror enabled successfully")
+		}
+	}
+	return nil
 }
 
 func (c *cli) CmdRefresh(args ...string) error {
