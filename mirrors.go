@@ -37,6 +37,7 @@ type Mirror struct {
 	CountryFields  []string `redis:"-" json:"-" yaml:"-"`
 	Weight         int      `redis:"-" json:"-" yaml:"-"`
 	LastSync       int64    `redis:"lastSync" yaml:"-"`
+	ComputedScore  int      `redis:"lastSync" yaml:"-"`
 
 	FileInfo *FileInfo `redis:"-" json:"-" yaml:"-"` // Details of the requested file on this specific mirror
 }
@@ -85,28 +86,17 @@ func (m ByRank) Less(i, j int) bool {
 		return m.Mirrors[i].Distance < m.Mirrors[j].Distance
 	} else {
 		// Randomize the output if we miss client info
-		//TODO randomize accross "primary" mirrors only (4-5 biggest)
 		return rand.Intn(2) == 0
 	}
 }
 
-// ByWeight is used to sort a slice of Mirror by their computed weight
-type ByWeight struct {
+// ByComputedScore is used to sort a slice of Mirror by their rank
+type ByComputedScore struct {
 	Mirrors
-	weights map[string]int
 }
 
-func (b ByWeight) Less(i, j int) bool {
-	w1, ok1 := b.weights[b.Mirrors[i].ID]
-	w2, ok2 := b.weights[b.Mirrors[j].ID]
-	if ok1 && ok2 {
-		return w1 > w2
-	} else if ok1 && !ok2 {
-		return true
-	} else if !ok1 && ok2 {
-		return false
-	}
-	return false
+func (b ByComputedScore) Less(i, j int) bool {
+	return b.Mirrors[i].ComputedScore > b.Mirrors[j].ComputedScore
 }
 
 // ByExcludeReason is used to sort a slice of Mirror alphabetically by their exclude reason

@@ -34,9 +34,9 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 
 	// Filter
 	safeIndex := 0
-	sameCountry := 0
 	excluded = make([]Mirror, 0, len(mirrors))
 	var closestMirror float32
+	var farthestMirror float32
 	for i, m := range mirrors {
 		// Does it support http? Is it well formated?
 		if !strings.HasPrefix(m.HttpURL, "http://") {
@@ -90,8 +90,8 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 		} else if closestMirror > m.Distance {
 			closestMirror = m.Distance
 		}
-		if isPrimaryCountry(clientInfo, m.CountryFields) {
-			sameCountry++
+		if m.Distance > farthestMirror {
+			farthestMirror = m.Distance
 		}
 		mirrors[safeIndex] = mirrors[i]
 		safeIndex++
@@ -103,10 +103,14 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 	// Reduce the slice to its new size
 	mirrors = mirrors[:safeIndex]
 
-	// Sort by distance, ASNum and additional countries
-	sort.Sort(ByRank{mirrors, clientInfo})
-
 	if !clientInfo.isValid() {
+		// Shuffle the list
+		//XXX Should we use the fallbacks instead?
+		for i := range mirrors {
+			j := rand.Intn(i + 1)
+			mirrors[i], mirrors[j] = mirrors[j], mirrors[i]
+		}
+
 		// Shortcut
 		if !ctx.IsMirrorlist() {
 			// Reduce the number of mirrors to process
@@ -117,85 +121,62 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 
 	/* Weight distribution for random selection [Probabilistic weight] */
 
-	// Compute weights for each mirror and return the mirrors eligible for weight distribution.
+	// Compute score for each mirror and return the mirrors eligible for weight distribution.
 	// This includes:
 	// - mirrors found in a 1.5x (configurable) range from the closest mirror
-	// - mirrors targeting the given country (as primary or secondary country)
+	// - mirrors targeting the given country (as primary or secondary)
+	// - mirrors being in the same AS number
+	totalScore := 0
+	baseScore := int(farthestMirror)
 	weights := map[string]int{}
-	boostWeights := map[string]int{}
-	var (
-		lastDistance       float32 = -1
-		lastSelectionScore         = 0
-		lastIsSelected             = false
-		totalScore                 = 0
-		lowestScore                = 0
-		totalSelected              = 0
-		relmax                     = len(mirrors)
-	)
 	for i := 0; i < len(mirrors); i++ {
 		m := &mirrors[i]
-		boost := false
-		boostPoints := len(mirrors) - i
 
-		if i == 0 {
-			boost = true
-			boostPoints += relmax
-			lowestScore = boostPoints
-		} else if m.Distance == lastDistance {
-			boostPoints = lastSelectionScore
-			boost = lastIsSelected
-		} else if isPrimaryCountry(clientInfo, m.CountryFields) ||
-			m.Distance <= closestMirror*GetConfig().WeightDistributionRange {
-			boostPoints += int(float64(relmax) - float64(m.Distance/closestMirror)*float64(sameCountry))
-			boost = true
+		m.ComputedScore = baseScore - int(m.Distance)
+
+		if m.Distance <= closestMirror*GetConfig().WeightDistributionRange {
+			m.ComputedScore += int(float32(baseScore) - ((m.Distance / closestMirror) * closestMirror))
+		} else if isPrimaryCountry(clientInfo, m.CountryFields) {
+			m.ComputedScore += int(float32(baseScore)-((m.Distance/closestMirror)*closestMirror)) / 2
 		} else if isAdditionalCountry(clientInfo, m.CountryFields) {
-			boostPoints += relmax / 2
-			boost = true
+			m.ComputedScore += int(float32(baseScore) - closestMirror)
 		}
 
 		if m.Asnum == clientInfo.ASNum {
-			boostPoints += relmax / 2
-			boost = true
+			m.ComputedScore += baseScore / 2
 		}
 
-		lastDistance = m.Distance
-		lastSelectionScore = boostPoints
-		lastIsSelected = boost
-		boostPoints += int(float64(boostPoints)*(float64(m.Score)/100) + 0.5)
-		if boostPoints < 1 {
-			boostPoints = 1
+		m.ComputedScore += int(math.Max(float64(m.ComputedScore)*(float64(m.Score)/100)+0.5, 1))
+
+		if m.ComputedScore >= baseScore {
+			totalScore += m.ComputedScore - baseScore
+			weights[m.ID] = m.ComputedScore - baseScore
 		}
-		if boost == true && boostPoints < lowestScore {
-			lowestScore = boostPoints
-		}
-		if boost == true && boostPoints >= lowestScore {
-			boostWeights[m.ID] = boostPoints
-			totalScore += boostPoints
-			totalSelected++
-		}
-		weights[m.ID] = boostPoints
 	}
 
-	// Sort all mirrors by weight
-	sort.Sort(ByWeight{mirrors, weights})
+	// Get the final number of mirrors selected for weight distribution
+	selected := len(weights)
+
+	// Sort mirrors by computed score
+	sort.Sort(ByComputedScore{mirrors})
 
 	// If mirrorlist is not requested we can discard most mirrors to
 	// improve the processing speed.
 	if !ctx.IsMirrorlist() {
 		// Reduce the number of mirrors to process
-		v := math.Min(math.Max(5, float64(totalSelected)), float64(len(mirrors)))
+		v := math.Min(math.Max(5, float64(selected)), float64(len(mirrors)))
 		mirrors = mirrors[:int(v)]
 	}
 
-	if totalSelected > 1 {
+	if selected > 1 {
 		// Randomize the order of the selected mirrors considering their weights
-		weightedMirrors := make([]Mirror, totalSelected)
+		weightedMirrors := make([]Mirror, selected)
 		rest := totalScore
-		for i := 0; i < totalSelected; i++ {
+		for i := 0; i < selected; i++ {
 			var id string
 			rv := rand.Int31n(int32(rest))
 			s := 0
-			for k, v := range boostWeights {
+			for k, v := range weights {
 				s += v
 				if int32(s) > rv {
 					id = k
@@ -204,18 +185,18 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 			}
 			for _, m := range mirrors {
 				if m.ID == id {
-					m.Weight = int(float64(boostWeights[id])*100/float64(totalScore) + 0.5)
+					m.Weight = int(float64(weights[id])*100/float64(totalScore) + 0.5)
 					weightedMirrors[i] = m
 					break
 				}
 			}
-			rest -= boostWeights[id]
-			delete(boostWeights, id)
+			rest -= weights[id]
+			delete(weights, id)
 		}
 
 		// Replace the head of the list by its reordered counterpart
-		mirrors = append(weightedMirrors, mirrors[totalSelected:]...)
-	} else if totalSelected == 1 && len(mirrors) > 0 {
+		mirrors = append(weightedMirrors, mirrors[selected:]...)
+	} else if selected == 1 && len(mirrors) > 0 {
 		mirrors[0].Weight = 100
 	}
 	return
