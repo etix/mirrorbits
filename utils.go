@@ -177,6 +177,10 @@ func add(x, y int) int {
 	return x + y
 }
 
+func version() string {
+	return VERSION
+}
+
 // Return true is `a` is contained in `list`
 // Warning: this is slow, don't use it for long datasets
 func isInSlice(a string, list []string) bool {

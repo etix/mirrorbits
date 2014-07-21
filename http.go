@@ -268,8 +268,9 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 func (h *HTTP) LoadTemplates(name string) (t *template.Template, err error) {
 	t = template.New("t")
 	t.Funcs(template.FuncMap{
-		"add":    add,
-		"sizeof": readableSize,
+		"add":     add,
+		"sizeof":  readableSize,
+		"version": version,
 	})
 	t, err = t.ParseFiles(
 		fmt.Sprintf("%s/base.html", GetConfig().Templates),

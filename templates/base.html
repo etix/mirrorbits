@@ -10,6 +10,10 @@
 				margin: 0px;
 				background: #fff;
 			}
+			#wrapper {
+				min-height:100%;
+				position:relative;
+			}
 			#header {
 				position: fixed;
 				height: 50px;
@@ -28,6 +32,14 @@
 				margin: 60px 1em 1em 1em;
 				font-family: 'Lato', sans-serif;
 				font-weight: 400;
+				padding-bottom: 20px;
+			}
+			#footer {
+				text-align: center;
+				height: 20px;
+				bottom: 0;
+				font-family: Arial, Helvetica, sans-serif;
+				font-size: 0.8em;
 			}
 			.title {
 				text-shadow: 1px 2px 2px #2980b9, 0 0 0 #000, 1px 2px 2px #2980b9;
@@ -52,14 +64,19 @@
 {{template "head" .}}
 	</head>
 	<body>
-		<div id="header">
-			<div class="title">
-				<a href="http://github.com/etix/mirrorbits" target="_blank" style="text-decoration: none; color: inherit;">Mirrorbits <i class="fa fa-globe" style="vertical-align: middle;"></i></a>
+		<div id="wrapper">
+			<div id="header">
+				<div class="title">
+					<a href="http://github.com/etix/mirrorbits" target="_blank" style="text-decoration: none; color: inherit;">Mirrorbits <i class="fa fa-globe" style="vertical-align: middle;"></i></a>
+				</div>
+				<div class="headline">{{template "headline" .}}</div>
 			</div>
-			<div class="headline">{{template "headline" .}}</div>
-		</div>
-		<div id="content">
+			<div id="content">
 {{template "body" .}}
+			</div>
+			<div id="footer">
+			v{{version}}
+			</div>
 		</div>
 	</body>
 </html>
