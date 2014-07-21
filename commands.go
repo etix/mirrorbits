@@ -448,7 +448,7 @@ func (c *cli) CmdScan(args ...string) error {
 		return err
 	}
 	if !exists {
-		fmt.Fprintf(os.Stderr, "Local repository not index.\nYou should run 'refresh' first!\n")
+		fmt.Fprintf(os.Stderr, "Local repository not yet indexed.\nYou should run 'refresh' first!\n")
 		os.Exit(-1)
 	}
 
