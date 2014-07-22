@@ -81,7 +81,7 @@ func (s *scan) ScanRsync(url, identifier string, stop chan bool) (err error) {
 		return err
 	}
 
-	log.Info("[%s] Requesting file list...", identifier)
+	log.Info("[%s] Requesting file list via rsync...", identifier)
 
 	// Get the list of all source files (we do not want to
 	// index files than are not provided by the source)
@@ -286,7 +286,7 @@ func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 		return err
 	}
 
-	log.Info("[%s] Requesting file list...", identifier)
+	log.Info("[%s] Requesting file list via ftp...", identifier)
 
 	var files []*filedata = make([]*filedata, 0, 1000)
 
