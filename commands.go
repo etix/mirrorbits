@@ -27,7 +27,7 @@ const (
 
 var (
 	// NoSyncMethod is returned when no sync protocol is available
-	NoSyncMethod = errors.New("Cannot scan a mirror without a proper rsync or FTP url")
+	NoSyncMethod = errors.New("no suitable URL for the scan")
 )
 
 type cli struct{}
@@ -427,6 +427,8 @@ func (c *cli) CmdScan(args ...string) error {
 	cmd := SubCmd("scan", "[IDENTIFIER]", "(Re-)Scan a mirror")
 	enable := cmd.Bool("enable", false, "Enable the mirror automatically if the scan is successful")
 	all := cmd.Bool("all", false, "Scan all mirrors at once")
+	ftp := cmd.Bool("ftp", false, "Force a scan using FTP")
+	rsync := cmd.Bool("rsync", false, "Force a scan using rsync")
 
 	if err := cmd.Parse(args); err != nil {
 		return nil
@@ -495,11 +497,21 @@ func (c *cli) CmdScan(args ...string) error {
 
 		err = NoSyncMethod
 
-		if mirror.RsyncURL != "" {
-			err = Scan().ScanRsync(mirror.RsyncURL, id, nil)
-		}
-		if err != nil && mirror.FtpURL != "" {
-			err = Scan().ScanFTP(mirror.FtpURL, id, nil)
+		if *rsync == true || *ftp == true {
+			// Use the requested protocol
+			if *rsync == true && mirror.RsyncURL != "" {
+				err = Scan().ScanRsync(mirror.RsyncURL, id, nil)
+			} else if *ftp == true && mirror.FtpURL != "" {
+				err = Scan().ScanFTP(mirror.FtpURL, id, nil)
+			}
+		} else {
+			// Use rsync (if applicable) and fallback to FTP
+			if mirror.RsyncURL != "" {
+				err = Scan().ScanRsync(mirror.RsyncURL, id, nil)
+			}
+			if err != nil && mirror.FtpURL != "" {
+				err = Scan().ScanFTP(mirror.FtpURL, id, nil)
+			}
 		}
 
 		if err != nil {
