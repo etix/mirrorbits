@@ -119,6 +119,11 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 		return
 	}
 
+	// We're not interested in divisions by zero
+	if closestMirror == 0 {
+		closestMirror = math.SmallestNonzeroFloat32
+	}
+
 	/* Weight distribution for random selection [Probabilistic weight] */
 
 	// Compute score for each mirror and return the mirrors eligible for weight distribution.
