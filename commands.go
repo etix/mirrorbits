@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strconv"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -72,6 +73,7 @@ func (c *cli) CmdHelp() error {
 		{"reload", "Reload configuration"},
 		{"remove", "Remove a mirror"},
 		{"scan", "(Re-)Scan a mirror"},
+		{"stats", "Show download stats"},
 		{"upgrade", "Seamless binary upgrade"},
 		{"version", "Print version informations"},
 	} {
@@ -919,6 +921,100 @@ func (c *cli) CmdDisable(args ...string) error {
 
 	fmt.Println("Mirror disabled successfully")
 
+	return nil
+}
+
+func (c *cli) CmdStats(args ...string) error {
+	cmd := SubCmd("stats", "[OPTIONS] [IDENTIFIER]", "Show download stats for a given mirror")
+	dateStart := cmd.String("start-date", "", "Starting date (format YYYY-MM-DD)")
+	dateEnd := cmd.String("end-date", "", "Ending date (format YYYY-MM-DD)")
+	human := cmd.Bool("h", true, "Human readable version")
+
+	if err := cmd.Parse(args); err != nil {
+		return nil
+	}
+	if cmd.NArg() != 1 {
+		cmd.Usage()
+		return nil
+	}
+
+	r := NewRedis()
+	conn, err := r.connect()
+	if err != nil {
+		log.Fatal("Redis: ", err)
+	}
+	defer conn.Close()
+
+	list, err := c.matchMirror(cmd.Arg(0))
+	if err != nil {
+		return err
+	}
+	if len(list) == 0 {
+		fmt.Fprintf(os.Stderr, "No match for %s\n", cmd.Arg(0))
+		return nil
+	} else if len(list) > 1 {
+		for _, e := range list {
+			fmt.Fprintf(os.Stderr, "%s\n", e)
+		}
+		return nil
+	}
+
+	start, err := time.Parse("2006-1-2", *dateStart)
+	if err != nil {
+		start = time.Now()
+	}
+
+	end, err := time.Parse("2006-1-2", *dateEnd)
+	if err != nil {
+		end = time.Now()
+	}
+
+	conn.Send("MULTI")
+
+	for {
+		// XXX instead of doing an iteration by day it would be nice
+		// to use the precomputed month and year values
+		conn.Send("HGET", "STATS_MIRROR_"+start.Format("2006_01_02"), list[0])
+		conn.Send("HGET", "STATS_MIRROR_BYTES_"+start.Format("2006_01_02"), list[0])
+		if start.Year() == end.Year() &&
+			start.Month() == end.Month() &&
+			start.Day() == end.Day() {
+			break
+		}
+		start = start.Add(24 * time.Hour)
+	}
+
+	stats, err := redis.Strings(conn.Do("EXEC"))
+	if err != nil {
+		log.Critical("Cannot fetch stats: %s", err)
+		return err
+	}
+
+	var (
+		requests int64
+		bytes    int64
+	)
+
+	for i := 0; i < len(stats); i += 2 {
+		v1, _ := strconv.ParseInt(stats[i], 10, 64)
+		v2, _ := strconv.ParseInt(stats[i+1], 10, 64)
+		requests += v1
+		bytes += v2
+	}
+
+	// Format the results
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
+
+	fmt.Fprintf(w, "Identifier:\t%s\n", list[0])
+	fmt.Fprintf(w, "Download requests:\t%d\n", requests)
+	fmt.Fprint(w, "Bytes transfered:\t")
+	if *human {
+		fmt.Fprintln(w, readableSize(bytes))
+	} else {
+		fmt.Fprintln(w, bytes)
+	}
+	w.Flush()
 	return nil
 }
 
