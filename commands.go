@@ -981,7 +981,7 @@ func (c *cli) CmdStats(args ...string) error {
 			start.Day() == end.Day() {
 			break
 		}
-		start = start.Add(24 * time.Hour)
+		start = start.AddDate(0, 0, 1)
 	}
 
 	stats, err := redis.Strings(conn.Do("EXEC"))
