@@ -74,7 +74,7 @@ Fallbacks | A list of possible mirrors to use as fallback if a request fails or 
 
 ## Running
 
-Mirrorbits is a self-contained application and act, at the same time, as the server and the cli.
+Mirrorbits is a self-contained application and can act, at the same time, as the server and the cli.
 
 To run the server:
 ```
