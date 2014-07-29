@@ -34,7 +34,6 @@ type DownloadsLogger struct {
 
 // ReloadLogs will reopen the logs to allow rotations
 func ReloadLogs() {
-	LoadConfig()
 	ReloadRuntimeLogs()
 	ReloadDownloadLogs()
 }
