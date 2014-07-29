@@ -68,8 +68,8 @@ func LoadConfig() {
 // ReloadConfig reloads the configuration file and update it globally
 func ReloadConfig() error {
 	if configFile == "" {
-		if fileExists("mirrorbits.conf") {
-			configFile = "mirrorbits.conf"
+		if fileExists("./mirrorbits.conf") {
+			configFile = "./mirrorbits.conf"
 		} else if fileExists("/etc/mirrorbits.conf") {
 			configFile = "/etc/mirrorbits.conf"
 		}
@@ -90,7 +90,7 @@ func ReloadConfig() error {
 	// Overload the default configuration with the user's one
 	err = goyaml.Unmarshal(content, &c)
 	if err != nil {
-		return fmt.Errorf("Config: syntax error: %s", err)
+		return fmt.Errorf("%s in %s", err, configFile)
 	}
 
 	// Sanitize
