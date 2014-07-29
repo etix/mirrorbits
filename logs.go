@@ -112,12 +112,6 @@ func ReloadDownloadLogs() {
 
 // This function will write a download result in the logs.
 func logDownload(typ string, statuscode int, p *MirrorlistPage, err error) {
-	/*defer func() {
-		if r := recover(); r != nil {
-			logger.l.Println("Recovered from panic in logDownload", r)
-		}
-	}()*/
-
 	dlogger.RLock()
 	defer dlogger.RUnlock()
 
