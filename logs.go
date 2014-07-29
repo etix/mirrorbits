@@ -27,9 +27,9 @@ type RuntimeLogger struct {
 }
 
 type DownloadsLogger struct {
-	l     *stdlog.Logger
-	mutex sync.RWMutex
-	f     *os.File
+	sync.RWMutex
+	l *stdlog.Logger
+	f *os.File
 }
 
 // ReloadLogs will reopen the logs to allow rotations
@@ -76,7 +76,7 @@ func ReloadRuntimeLogs() {
 }
 
 func ReloadDownloadLogs() {
-	dlogger.mutex.Lock()
+	dlogger.Lock()
 
 	logfile := GetConfig().LogDir + "/downloads.log"
 	createHeader := true
@@ -107,7 +107,7 @@ func ReloadDownloadLogs() {
 	}
 
 	dlogger.l = stdlog.New(dlogger.f, "", stdlog.Ldate|stdlog.Lmicroseconds)
-	dlogger.mutex.Unlock()
+	dlogger.Unlock()
 }
 
 // This function will write a download result in the logs.
@@ -118,8 +118,8 @@ func logDownload(typ string, statuscode int, p *MirrorlistPage, err error) {
 		}
 	}()*/
 
-	dlogger.mutex.RLock()
-	defer dlogger.mutex.RUnlock()
+	dlogger.RLock()
+	defer dlogger.RUnlock()
 
 	if statuscode == 302 || statuscode == 200 {
 		var distance, countries string
