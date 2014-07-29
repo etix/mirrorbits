@@ -20,7 +20,7 @@ var (
 		Gzip:                    false,
 		RedisAddress:            "127.0.0.1:6379",
 		RedisPassword:           "",
-		LogDir:                  "/var/log/mirrorbits",
+		LogDir:                  "",
 		GeoipDatabasePath:       "/usr/share/GeoIP/",
 		ConcurrentSync:          2,
 		DisallowRedirects:       false,

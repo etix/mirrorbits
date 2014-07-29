@@ -35,8 +35,8 @@ type DownloadsLogger struct {
 // ReloadLogs will reopen the logs to allow rotations
 func ReloadLogs() {
 	LoadConfig()
-	ReloadDownloadLogs()
 	ReloadRuntimeLogs()
+	ReloadDownloadLogs()
 }
 
 func ReloadRuntimeLogs() {
@@ -77,6 +77,16 @@ func ReloadRuntimeLogs() {
 
 func ReloadDownloadLogs() {
 	dlogger.Lock()
+	defer dlogger.Unlock()
+
+	if GetConfig().LogDir == "" {
+		if dlogger.f != nil {
+			dlogger.f.Close()
+		}
+		dlogger.f = nil
+		dlogger.l = nil
+		return
+	}
 
 	logfile := GetConfig().LogDir + "/downloads.log"
 	createHeader := true
@@ -92,9 +102,8 @@ func ReloadDownloadLogs() {
 	dlogger.f, err = os.OpenFile(logfile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 
 	if err != nil {
-		fmt.Fprint(os.Stderr, "Warning: cannot open log file\n")
-		createHeader = false
-		dlogger.f = os.Stderr
+		log.Critical("Warning: cannot open log file %s", logfile)
+		return
 	}
 
 	if createHeader {
@@ -107,13 +116,17 @@ func ReloadDownloadLogs() {
 	}
 
 	dlogger.l = stdlog.New(dlogger.f, "", stdlog.Ldate|stdlog.Lmicroseconds)
-	dlogger.Unlock()
 }
 
 // This function will write a download result in the logs.
 func logDownload(typ string, statuscode int, p *MirrorlistPage, err error) {
 	dlogger.RLock()
 	defer dlogger.RUnlock()
+
+	if dlogger.l == nil {
+		// Logs are disabled
+		return
+	}
 
 	if statuscode == 302 || statuscode == 200 {
 		var distance, countries string
