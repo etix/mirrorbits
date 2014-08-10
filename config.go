@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -100,6 +101,7 @@ func ReloadConfig() error {
 	if !isInSlice(c.OutputMode, []string{"auto", "json", "redirect"}) {
 		return fmt.Errorf("Config: outputMode can only be set to 'auto', 'json' or 'redirect'")
 	}
+	c.Repository = strings.TrimRight(c.Repository, "/")
 
 	configMutex.Lock()
 	config = &c
