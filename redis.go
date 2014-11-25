@@ -19,10 +19,7 @@ var (
 )
 
 type redisobj struct {
-	server             string
-	password           string
-	pool               *redis.Pool
-	redisReconnectChan chan bool
+	pool *redis.Pool
 }
 
 func NewRedis() *redisobj {
@@ -57,7 +54,7 @@ func (r *redisobj) connect() (redis.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	if r.password != "" {
+	if GetConfig().RedisPassword != "" {
 		if _, err := c.Do("AUTH", GetConfig().RedisPassword); err != nil {
 			c.Close()
 			return nil, err
