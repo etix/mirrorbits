@@ -137,7 +137,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 	for i := 0; i < len(mirrors); i++ {
 		m := &mirrors[i]
 
-		m.ComputedScore = baseScore - int(m.Distance)
+		m.ComputedScore = baseScore - int(m.Distance) + 1
 
 		if m.Distance <= closestMirror*GetConfig().WeightDistributionRange {
 			m.ComputedScore += int(float32(baseScore) - ((m.Distance / closestMirror) * closestMirror))
@@ -153,7 +153,8 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 
 		m.ComputedScore += int(math.Max(float64(m.ComputedScore)*(float64(m.Score)/100)+0.5, 1))
 
-		if m.ComputedScore >= baseScore {
+		if m.ComputedScore > baseScore {
+			// The weight must always be > 0 to not break the randomization below
 			totalScore += m.ComputedScore - baseScore
 			weights[m.ID] = m.ComputedScore - baseScore
 		}
