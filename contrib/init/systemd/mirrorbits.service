@@ -1,5 +1,11 @@
 [Unit]
 Description=Mirrorbits redirector
+After=network.target
 
 [Service]
+PIDFile=/run/mirrorbits.pid
 ExecStart=/usr/bin/mirrorbits -D
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=-/bin/kill -QUIT $MAINPID
+TimeoutStopSec=5
+KillMode=mixed
