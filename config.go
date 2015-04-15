@@ -47,12 +47,19 @@ type configuration struct {
 	WeightDistributionRange float32    `yaml:"WeightDistributionRange"`
 	DisableOnMissingFile    bool       `yaml:"DisableOnMissingFile"`
 	Fallbacks               []fallback `yaml:"Fallbacks"`
+
+	RedisSentinelMasterName string      `yaml:"RedisSentinelMasterName"`
+	RedisSentinels          []sentinels `yaml:"RedisSentinels"`
 }
 
 type fallback struct {
 	Url           string `yaml:"URL"`
 	CountryCode   string `yaml:"CountryCode"`
 	ContinentCode string `yaml:"ContinentCode"`
+}
+
+type sentinels struct {
+	Host string `yaml:"Host"`
 }
 
 // LoadConfig loads the configuration file if it has not yet been loaded
