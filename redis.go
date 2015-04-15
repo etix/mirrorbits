@@ -37,14 +37,6 @@ func NewRedis() *redisobj {
 		},
 	}
 
-	c := r.pool.Get()
-	defer c.Close()
-
-	_, err := c.Do("PING")
-	if err != nil {
-		log.Error("Redis: %s", err.Error())
-	}
-
 	return r
 }
 
