@@ -65,6 +65,9 @@ func main() {
 	if daemon {
 		writePidFile()
 
+		// Show our nice welcome logo
+		fmt.Println(welcome)
+
 		/* Connect to the database */
 		r := NewRedis()
 		c := NewCache(r)
@@ -123,9 +126,6 @@ func main() {
 				}
 			}
 		}()
-
-		// Show our nice welcome logo
-		fmt.Println(welcome)
 
 		/* Start the background monitor */
 		m := NewMonitor(r, c)
