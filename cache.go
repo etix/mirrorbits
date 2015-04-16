@@ -121,7 +121,7 @@ connect:
 				c.handleMessage(v.Channel, v.Data)
 			case redis.Subscription:
 				if os.Getenv("DEBUG") != "" {
-					log.Debug("Redis subscription event on channel %s: %s %d\n", v.Channel, v.Kind, v.Count)
+					log.Debug("Redis subscription event on channel %s: %s %d", v.Channel, v.Kind, v.Count)
 				}
 			case error:
 				log.Error("UpdateEvents error: %s", v)
