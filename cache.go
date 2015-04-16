@@ -92,11 +92,12 @@ connect:
 			continue
 		}
 		if _, err := rconn.Do("PING"); err != nil {
-			// Doing a PING after (re-connection) prevents cases where redis
-			// is currently loading the dataset and is still not ready.
-			// "LOADING Redis is loading the dataset in memory"
 			rconn.Close()
-			log.Info("Redis is loading the dataset in memory")
+			if RedisIsLoading(err) {
+				// Doing a PING after (re-connection) prevents cases where redis
+				// is currently loading the dataset and is still not ready.
+				log.Warning("Redis is still loading the dataset in memory")
+			}
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}

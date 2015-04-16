@@ -188,3 +188,12 @@ func (r *redisobj) logError(format string, args ...interface{}) {
 		log.Error(format, args...)
 	}
 }
+
+// RedisIsLoading returns true if the error is of type LOADING
+func RedisIsLoading(err error) bool {
+	// PARSING: "LOADING Redis is loading the dataset in memory"
+	if err != nil && err.Error()[:7] == "LOADING" {
+		return true
+	}
+	return false
+}
