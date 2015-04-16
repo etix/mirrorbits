@@ -92,7 +92,7 @@ func (m *Monitor) monitorLoop() {
 	m.syncSource()
 
 	mirrorUpdateEvent := make(chan string, 10)
-	m.cache.SubscribeEvent(MIRROR_UPDATE, mirrorUpdateEvent)
+	m.redis.pubsub.SubscribeEvent(MIRROR_UPDATE, mirrorUpdateEvent)
 
 	for {
 		ids, err := m.mirrorsID()

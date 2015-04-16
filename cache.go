@@ -6,18 +6,10 @@ package main
 import (
 	"fmt"
 	"github.com/garyburd/redigo/redis"
-	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unsafe"
-)
-
-const (
-	FILE_UPDATE        = "file_update"
-	MIRROR_UPDATE      = "mirror_update"
-	MIRROR_FILE_UPDATE = "mirror_file_update"
 )
 
 // Cache implements a local caching mechanism of type LRU for content available in the
@@ -29,8 +21,10 @@ type Cache struct {
 	mCache   *LRUCache
 	fimCache *LRUCache
 
-	extSubscribers     map[string][]chan string
-	extSubscribersLock sync.RWMutex
+	mirrorUpdateEvent      chan string
+	fileUpdateEvent        chan string
+	mirrorFileUpdateEvent  chan string
+	pubsubReconnectedEvent chan string
 }
 
 type fileInfoValue struct {
@@ -59,106 +53,44 @@ func (f *mirrorValue) Size() int {
 
 // NewCache constructs a new instance of Cache
 func NewCache(r *redisobj) *Cache {
-	cache := new(Cache)
-	cache.r = r
-	cache.fiCache = NewLRUCache(1024000)
-	cache.fmCache = NewLRUCache(2048000)
-	cache.mCache = NewLRUCache(1024000)
-	cache.fimCache = NewLRUCache(4096000)
-	cache.extSubscribers = make(map[string][]chan string)
-	go cache.updateEvents()
-	return cache
-}
+	c := new(Cache)
+	c.r = r
+	c.fiCache = NewLRUCache(1024000)
+	c.fmCache = NewLRUCache(2048000)
+	c.mCache = NewLRUCache(1024000)
+	c.fimCache = NewLRUCache(4096000)
 
-// SubscribeEvent allows subscription to a particular kind of events and send a
-// notification to the given channel when an object is updated in the database.
-func (c *Cache) SubscribeEvent(event string, channel chan string) {
-	c.extSubscribersLock.Lock()
-	defer c.extSubscribersLock.Unlock()
+	// Create event channels
+	c.mirrorUpdateEvent = make(chan string, 10)
+	c.fileUpdateEvent = make(chan string, 10)
+	c.mirrorFileUpdateEvent = make(chan string, 10)
+	c.pubsubReconnectedEvent = make(chan string)
 
-	listeners := c.extSubscribers[event]
-	listeners = append(listeners, channel)
-	c.extSubscribers[event] = listeners
-}
+	// Subscribe to events
+	c.r.pubsub.SubscribeEvent(MIRROR_UPDATE, c.mirrorUpdateEvent)
+	c.r.pubsub.SubscribeEvent(FILE_UPDATE, c.fileUpdateEvent)
+	c.r.pubsub.SubscribeEvent(MIRROR_FILE_UPDATE, c.mirrorFileUpdateEvent)
+	c.r.pubsub.SubscribeEvent(PUBSUB_RECONNECTED, c.pubsubReconnectedEvent)
 
-func (c *Cache) updateEvents() {
-	var disconnected bool = false
-connect:
-	for {
-		rconn := c.r.pool.Get()
-		if rconn == nil {
-			disconnected = true
-			time.Sleep(50 * time.Millisecond)
-			continue
-		}
-		if _, err := rconn.Do("PING"); err != nil {
-			rconn.Close()
-			if RedisIsLoading(err) {
-				// Doing a PING after (re-connection) prevents cases where redis
-				// is currently loading the dataset and is still not ready.
-				log.Warning("Redis is still loading the dataset in memory")
-			}
-			time.Sleep(500 * time.Millisecond)
-			continue
-		}
-		log.Info("Redis connected, subscribing pubsub.")
-		psc := redis.PubSubConn{Conn: rconn}
-		psc.Subscribe(FILE_UPDATE)
-		psc.Subscribe(MIRROR_UPDATE)
-		psc.Subscribe(MIRROR_FILE_UPDATE)
-		if disconnected == true {
-			// This is a way to keep the cache active while disconnected
-			// from redis but still clear the cache (possibly outdated)
-			// after a successful reconnection.
-			disconnected = false
-			c.Clear()
-		}
+	go func() {
 		for {
-			switch v := psc.Receive().(type) {
-			case redis.Message:
-				//if os.Getenv("DEBUG") != "" {
-				//	fmt.Printf("Redis message on channel %s: message: %s\n", v.Channel, v.Data)
-				//}
-				c.handleMessage(v.Channel, v.Data)
-			case redis.Subscription:
-				if os.Getenv("DEBUG") != "" {
-					log.Debug("Redis subscription event on channel %s: %s %d", v.Channel, v.Kind, v.Count)
-				}
-			case error:
-				log.Error("UpdateEvents error: %s", v)
-				psc.Close()
-				rconn.Close()
-				time.Sleep(50 * time.Millisecond)
-				disconnected = true
-				goto connect
+			//FIXME add a close channel
+			select {
+			case data := <-c.mirrorUpdateEvent:
+				c.mCache.Delete(data)
+			case data := <-c.fileUpdateEvent:
+				c.fiCache.Delete(data)
+			case data := <-c.mirrorFileUpdateEvent:
+				s := strings.SplitN(data, " ", 2)
+				c.fmCache.Delete(s[1])
+				c.fimCache.Delete(fmt.Sprintf("%s|%s", s[0], s[1]))
+			case <-c.pubsubReconnectedEvent:
+				c.Clear()
 			}
 		}
-	}
-}
+	}()
 
-func (c *Cache) handleMessage(channel string, data []byte) {
-	switch channel {
-	case FILE_UPDATE:
-		c.fiCache.Delete(string(data))
-	case MIRROR_UPDATE:
-		c.mCache.Delete(string(data))
-	case MIRROR_FILE_UPDATE:
-		s := strings.SplitN(string(data), " ", 2)
-		c.fmCache.Delete(s[1])
-		c.fimCache.Delete(fmt.Sprintf("%s|%s", s[0], s[1]))
-	}
-
-	// Notify external subscribers
-	c.extSubscribersLock.RLock()
-	defer c.extSubscribersLock.RUnlock()
-
-	listeners := c.extSubscribers[channel]
-	for _, listener := range listeners {
-		select {
-		case listener <- string(data):
-		default:
-		}
-	}
+	return c
 }
 
 // Clear clears the local cache

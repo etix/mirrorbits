@@ -66,6 +66,7 @@ func main() {
 
 		/* Connect to the database */
 		r := NewRedis()
+		r.ConnectPubsub()
 		c := NewCache(r)
 		h := HTTPServer(r, c)
 

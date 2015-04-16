@@ -21,6 +21,7 @@ var (
 
 type redisobj struct {
 	pool        *redis.Pool
+	pubsub      *Pubsub
 	failure     bool
 	knownMaster string
 }
@@ -45,6 +46,13 @@ func NewRedis() *redisobj {
 
 func (r *redisobj) Close() {
 	r.pool.Close()
+	//TODO close pubsub
+}
+
+func (r *redisobj) ConnectPubsub() {
+	if r.pubsub == nil {
+		r.pubsub = NewPubsub(r)
+	}
 }
 
 func (r *redisobj) connect() (redis.Conn, error) {
