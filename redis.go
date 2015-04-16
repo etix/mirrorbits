@@ -20,7 +20,8 @@ var (
 )
 
 type redisobj struct {
-	pool *redis.Pool
+	pool    *redis.Pool
+	failure bool
 }
 
 func NewRedis() *redisobj {
@@ -51,7 +52,7 @@ func (r *redisobj) connect() (redis.Conn, error) {
 	if len(sentinels) > 0 {
 
 		if len(GetConfig().RedisSentinelMasterName) == 0 {
-			log.Error("Config: RedisSentinelMasterName cannot be empty!")
+			r.logError("Config: RedisSentinelMasterName cannot be empty!")
 			goto single
 		}
 
@@ -63,26 +64,26 @@ func (r *redisobj) connect() (redis.Conn, error) {
 
 			c, err := r.connectTo(s.Host)
 			if err != nil {
-				log.Error("Sentinel: %s", err.Error())
+				r.logError("Sentinel: %s", err.Error())
 				continue
 			}
 			//AUTH?
 			role, err := r.askRole(c)
 			if err != nil {
-				log.Error("Sentinel: %s", err.Error())
+				r.logError("Sentinel: %s", err.Error())
 				goto closeSentinel
 			}
 			if role != "sentinel" {
-				log.Error("Sentinel: %s is not a sentinel but a %s", s.Host, role)
+				r.logError("Sentinel: %s is not a sentinel but a %s", s.Host, role)
 				goto closeSentinel
 			}
 
 			master, err = redis.Strings(c.Do("SENTINEL", "get-master-addr-by-name", GetConfig().RedisSentinelMasterName))
 			if err == redis.ErrNil {
-				log.Error("Sentinel: %s doesn't know the master-name %s", s.Host, GetConfig().RedisSentinelMasterName)
+				r.logError("Sentinel: %s doesn't know the master-name %s", s.Host, GetConfig().RedisSentinelMasterName)
 				goto closeSentinel
 			} else if err != nil {
-				log.Error("Sentinel: %s", err.Error())
+				r.logError("Sentinel: %s", err.Error())
 				goto closeSentinel
 			}
 
@@ -90,27 +91,28 @@ func (r *redisobj) connect() (redis.Conn, error) {
 
 			cm, err = r.connectTo(masterhost)
 			if err != nil {
-				log.Error("Redis master: %s", err.Error())
+				r.logError("Redis master: %s", err.Error())
 				goto closeSentinel
 			}
 
 			if r.auth(cm) != nil {
-				log.Error("Redis master: auth failed")
+				r.logError("Redis master: auth failed")
 				goto closeMaster
 			}
 
 			role, err = r.askRole(cm)
 			if err != nil {
-				log.Error("Redis master: %s", err.Error())
+				r.logError("Redis master: %s", err.Error())
 				goto closeMaster
 			}
 			if role != "master" {
-				log.Error("Redis master: %s is not a master but a %s", masterhost, role)
+				r.logError("Redis master: %s is not a master but a %s", masterhost, role)
 				goto closeMaster
 			}
 
 			// Close the connection to the sentinel
 			c.Close()
+			r.failure = false
 
 			log.Debug("Connected to redis master %s", masterhost)
 			return cm, nil
@@ -129,10 +131,13 @@ single:
 		if len(sentinels) == 0 {
 			log.Error("No redis master available")
 		}
+		r.failure = true
 		return nil, errUnreachable
 	}
 
-	log.Warning("No redis master available, trying using the configured RedisAddress as fallback")
+	if r.failure == false {
+		log.Warning("No redis master available, trying using the configured RedisAddress as fallback")
+	}
 
 	c, err := r.connectTo(GetConfig().RedisAddress)
 	if err != nil {
@@ -144,13 +149,16 @@ single:
 	}
 	role, err := r.askRole(c)
 	if err != nil {
-		log.Error("Redis master: %s", err.Error())
+		r.logError("Redis master: %s", err.Error())
+		r.failure = true
 		return nil, errUnreachable
 	}
 	if role != "master" {
-		log.Error("Redis master: %s is not a master but a %s", GetConfig().RedisAddress, role)
+		r.logError("Redis master: %s is not a master but a %s", GetConfig().RedisAddress, role)
+		r.failure = true
 		return nil, errUnreachable
 	}
+	r.failure = false
 	log.Debug("Connected to redis master %s", GetConfig().RedisAddress)
 	return c, err
 
@@ -171,4 +179,12 @@ func (r *redisobj) auth(c redis.Conn) (err error) {
 		_, err = c.Do("AUTH", GetConfig().RedisPassword)
 	}
 	return
+}
+
+func (r *redisobj) logError(format string, args ...interface{}) {
+	if r.failure {
+		log.Debug(format, args...)
+	} else {
+		log.Error(format, args...)
+	}
 }
