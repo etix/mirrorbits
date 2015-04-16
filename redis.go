@@ -20,8 +20,9 @@ var (
 )
 
 type redisobj struct {
-	pool    *redis.Pool
-	failure bool
+	pool        *redis.Pool
+	failure     bool
+	knownMaster string
 }
 
 func NewRedis() *redisobj {
@@ -114,7 +115,7 @@ func (r *redisobj) connect() (redis.Conn, error) {
 			c.Close()
 			r.failure = false
 
-			log.Debug("Connected to redis master %s", masterhost)
+			r.printConnectedMaster(masterhost)
 			return cm, nil
 
 		closeMaster:
@@ -159,7 +160,7 @@ single:
 		return nil, errUnreachable
 	}
 	r.failure = false
-	log.Debug("Connected to redis master %s", GetConfig().RedisAddress)
+	r.printConnectedMaster(GetConfig().RedisAddress)
 	return c, err
 
 }
@@ -186,6 +187,15 @@ func (r *redisobj) logError(format string, args ...interface{}) {
 		log.Debug(format, args...)
 	} else {
 		log.Error(format, args...)
+	}
+}
+
+func (r *redisobj) printConnectedMaster(address string) {
+	if address != r.knownMaster {
+		r.knownMaster = address
+		log.Info("Connected to redis master %s", address)
+	} else {
+		log.Debug("Connected to redis master %s", address)
 	}
 }
 
