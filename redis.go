@@ -12,7 +12,7 @@ import (
 
 const (
 	redisConnectionTimeout = 200 * time.Millisecond
-	redisReadWriteTimeout  = 5000 * time.Millisecond
+	redisReadWriteTimeout  = 300 * time.Second
 )
 
 var (
