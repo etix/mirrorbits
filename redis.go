@@ -41,6 +41,10 @@ func NewRedis() *redisobj {
 	return r
 }
 
+func (r *redisobj) Close() {
+	r.pool.Close()
+}
+
 func (r *redisobj) connect() (redis.Conn, error) {
 	sentinels := GetConfig().RedisSentinels
 

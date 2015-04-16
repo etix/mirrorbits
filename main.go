@@ -70,6 +70,8 @@ func main() {
 		c := NewCache(r)
 		h := HTTPServer(r, c)
 
+		defer r.Close()
+
 		/* Handle SIGNALS */
 		k := make(chan os.Signal, 1)
 		signal.Notify(k,
