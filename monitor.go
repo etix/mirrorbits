@@ -104,9 +104,8 @@ func (m *Monitor) monitorLoop() {
 		case <-m.stop:
 			m.wg.Done()
 			return
-		default:
+		case <-time.After(500 * time.Millisecond):
 		}
-		time.Sleep(500 * time.Millisecond)
 	}
 
 	for i := 0; i < healthCheckThreads; i++ {
