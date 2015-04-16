@@ -39,16 +39,6 @@ func ReloadLogs() {
 }
 
 func ReloadRuntimeLogs() {
-	logging.SetFormatter(logging.MustStringFormatter("%{time:2006/01/02 15:04:05.000 MST} %{message}"))
-	logFlags := 0
-
-	if debug {
-		logFlags = stdlog.Lshortfile
-		logging.SetLevel(logging.DEBUG, "main")
-	} else {
-		logging.SetLevel(logging.INFO, "main")
-	}
-
 	logColor := false
 
 	stat, _ := os.Stdout.Stat()
@@ -73,10 +63,18 @@ func ReloadRuntimeLogs() {
 		}
 	}
 
-	logBackend := logging.NewLogBackend(rlogger.f, "", logFlags)
+	logBackend := logging.NewLogBackend(rlogger.f, "", 0)
 	logBackend.Color = logColor
 
 	logging.SetBackend(logBackend)
+
+	if debug {
+		logging.SetFormatter(logging.MustStringFormatter("%{shortfile:-20s}%{time:2006/01/02 15:04:05.000 MST} %{message}"))
+		logging.SetLevel(logging.DEBUG, "main")
+	} else {
+		logging.SetFormatter(logging.MustStringFormatter("%{time:2006/01/02 15:04:05.000 MST} %{message}"))
+		logging.SetLevel(logging.INFO, "main")
+	}
 }
 
 func ReloadDownloadLogs() {
