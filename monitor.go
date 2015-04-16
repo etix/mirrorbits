@@ -97,7 +97,7 @@ func (m *Monitor) monitorLoop() {
 	for {
 		ids, err := m.mirrorsID()
 		if err == nil {
-			m.syncMirrors(ids...)
+			m.syncMirrorList(ids...)
 			break
 		}
 		select {
@@ -125,7 +125,7 @@ func (m *Monitor) monitorLoop() {
 			m.wg.Done()
 			return
 		case id := <-mirrorUpdateEvent:
-			m.syncMirrors(id)
+			m.syncMirrorList(id)
 		case <-sourceSyncTicker.C:
 			m.syncSource()
 		case <-time.After(1 * time.Second):
@@ -163,7 +163,7 @@ func (m *Monitor) mirrorsID() ([]string, error) {
 
 // Sync the remote mirror struct with the local dataset
 // TODO needs improvements
-func (m *Monitor) syncMirrors(mirrorsIDs ...string) ([]Mirror, error) {
+func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
 
 	mirrors := make([]Mirror, 0, len(mirrorsIDs))
 
