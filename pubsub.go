@@ -47,11 +47,6 @@ func (p *Pubsub) updateEvents() {
 connect:
 	for {
 		rconn := p.r.pool.Get()
-		if rconn == nil {
-			disconnected = true
-			time.Sleep(50 * time.Millisecond)
-			continue
-		}
 		if _, err := rconn.Do("PING"); err != nil {
 			disconnected = true
 			rconn.Close()
