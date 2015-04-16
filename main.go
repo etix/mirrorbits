@@ -62,7 +62,7 @@ func main() {
 		writePidFile()
 
 		// Show our nice welcome logo
-		fmt.Println(welcome)
+		fmt.Printf(welcome+"\n\n", VERSION)
 
 		/* Connect to the database */
 		r := NewRedis()
