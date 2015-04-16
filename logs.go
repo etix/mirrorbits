@@ -49,7 +49,12 @@ func ReloadRuntimeLogs() {
 		logging.SetLevel(logging.INFO, "main")
 	}
 
-	logColor := true //TODO make it optionnal
+	logColor := false
+
+	stat, _ := os.Stdout.Stat()
+	if (stat.Mode() & os.ModeCharDevice) != 0 {
+		logColor = true //TODO make it optionnal
+	}
 
 	if rlogger.f != nil {
 		rlogger.f.Close()
