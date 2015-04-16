@@ -85,13 +85,13 @@ func (c *Cache) updateEvents() {
 	var disconnected bool = false
 connect:
 	for {
-		rconn, err := redis.DialTimeout("tcp", GetConfig().RedisAddress, redisConnectionTimeout, 0, 200*time.Millisecond)
-		if err != nil {
+		rconn := c.r.pool.Get()
+		if rconn == nil {
 			disconnected = true
 			time.Sleep(50 * time.Millisecond)
 			continue
 		}
-		if _, err = rconn.Do("PING"); err != nil {
+		if _, err := rconn.Do("PING"); err != nil {
 			// Doing a PING after (re-connection) prevents cases where redis
 			// is currently loading the dataset and is still not ready.
 			// "LOADING Redis is loading the dataset in memory"
