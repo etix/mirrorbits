@@ -85,7 +85,7 @@ connect:
 			case redis.Subscription:
 				log.Debug("Redis subscription on channel %s: %s (%d)", v.Channel, v.Kind, v.Count)
 			case error:
-				log.Error("UpdateEvents error: %s", v)
+				log.Error("Pubsub disconnected: %s", v)
 				psc.Close()
 				rconn.Close()
 				time.Sleep(50 * time.Millisecond)
