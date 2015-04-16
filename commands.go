@@ -378,7 +378,7 @@ func (c *cli) CmdRemove(args ...string) error {
 	defer conn.Close()
 
 	// First disable the mirror
-	disableMirror(identifier)
+	disableMirror(r, identifier)
 
 	// Get all files supported by the given mirror
 	files, err := redis.Strings(conn.Do("SMEMBERS", fmt.Sprintf("MIRROR_%s_FILES", identifier)))
@@ -502,17 +502,17 @@ func (c *cli) CmdScan(args ...string) error {
 		if *rsync == true || *ftp == true {
 			// Use the requested protocol
 			if *rsync == true && mirror.RsyncURL != "" {
-				err = Scan().ScanRsync(mirror.RsyncURL, id, nil)
+				err = Scan(r).ScanRsync(mirror.RsyncURL, id, nil)
 			} else if *ftp == true && mirror.FtpURL != "" {
-				err = Scan().ScanFTP(mirror.FtpURL, id, nil)
+				err = Scan(r).ScanFTP(mirror.FtpURL, id, nil)
 			}
 		} else {
 			// Use rsync (if applicable) and fallback to FTP
 			if mirror.RsyncURL != "" {
-				err = Scan().ScanRsync(mirror.RsyncURL, id, nil)
+				err = Scan(r).ScanRsync(mirror.RsyncURL, id, nil)
 			}
 			if err != nil && mirror.FtpURL != "" {
-				err = Scan().ScanFTP(mirror.FtpURL, id, nil)
+				err = Scan(r).ScanFTP(mirror.FtpURL, id, nil)
 			}
 		}
 
@@ -522,7 +522,7 @@ func (c *cli) CmdScan(args ...string) error {
 
 		// Finally enable the mirror if requested
 		if err == nil && *enable == true {
-			if err := enableMirror(id); err != nil {
+			if err := enableMirror(r, id); err != nil {
 				log.Fatal("Couldn't enable the mirror: ", err)
 			}
 			fmt.Println("Mirror enabled successfully")
@@ -542,7 +542,7 @@ func (c *cli) CmdRefresh(args ...string) error {
 		return nil
 	}
 
-	err := Scan().ScanSource(nil)
+	err := Scan(NewRedis()).ScanSource(nil)
 	return err
 }
 
@@ -877,7 +877,7 @@ func (c *cli) CmdEnable(args ...string) error {
 		return nil
 	}
 
-	err = enableMirror(list[0])
+	err = enableMirror(NewRedis(), list[0])
 	if err != nil {
 		log.Fatal("Couldn't enable the mirror:", err)
 	}
@@ -914,7 +914,7 @@ func (c *cli) CmdDisable(args ...string) error {
 		return nil
 	}
 
-	err = disableMirror(list[0])
+	err = disableMirror(NewRedis(), list[0])
 	if err != nil {
 		log.Fatal("Couldn't disable the mirror:", err)
 	}

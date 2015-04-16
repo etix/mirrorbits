@@ -38,8 +38,10 @@ type scan struct {
 	walkRedisConn   redis.Conn
 }
 
-func Scan() *scan {
-	return &scan{}
+func Scan(r *redisobj) *scan {
+	return &scan{
+		redis: r,
+	}
 }
 
 // Scan an rsync repository and index its files
@@ -62,11 +64,7 @@ func (s *scan) ScanRsync(url, identifier string, stop chan bool) (err error) {
 	}
 
 	// Connect to the database
-	s.redis = NewRedis()
-	conn, err := s.redis.connect()
-	if err != nil {
-		return err
-	}
+	conn := s.redis.pool.Get()
 	defer conn.Close()
 
 	// Pipe stdout
@@ -314,12 +312,7 @@ func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 	}
 
 	// Connect to the database
-	s.redis = NewRedis()
-	conn, err := s.redis.connect()
-	if err != nil {
-		log.Error("[%s] Redis: %s", identifier, err)
-		return err
-	}
+	conn := s.redis.pool.Get()
 	defer conn.Close()
 
 	conn.Send("MULTI")
@@ -477,8 +470,8 @@ func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 }
 
 func (s *scan) ScanSource(stop chan bool) (err error) {
-	s.redis = NewRedis()
-	s.walkRedisConn, err = s.redis.connect()
+	s.walkRedisConn = s.redis.pool.Get()
+	defer s.walkRedisConn.Close()
 	if err != nil {
 		return fmt.Errorf("redis %s", err.Error())
 	}

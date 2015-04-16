@@ -28,24 +28,20 @@ var welcome = ` _______ __                        __     __ __
 |__|_|__|__||__| |__| |_____|__|  |_____||__|____|_____|
                                                         `
 
-func enableMirror(id string) error {
-	return setMirrorEnabled(id, true)
+func enableMirror(r *redisobj, id string) error {
+	return setMirrorEnabled(r, id, true)
 }
 
-func disableMirror(id string) error {
-	return setMirrorEnabled(id, false)
+func disableMirror(r *redisobj, id string) error {
+	return setMirrorEnabled(r, id, false)
 }
 
-func setMirrorEnabled(id string, state bool) error {
-	r := NewRedis()
-	conn, err := r.connect()
-	if err != nil {
-		return err
-	}
+func setMirrorEnabled(r *redisobj, id string, state bool) error {
+	conn := r.pool.Get()
 	defer conn.Close()
 
 	key := fmt.Sprintf("MIRROR_%s", id)
-	_, err = conn.Do("HMSET", key, "enabled", state)
+	_, err := conn.Do("HMSET", key, "enabled", state)
 
 	// Publish update
 	conn.Do("PUBLISH", MIRROR_UPDATE, id)
@@ -53,20 +49,16 @@ func setMirrorEnabled(id string, state bool) error {
 	return err
 }
 
-func markMirrorUp(id string) error {
-	return setMirrorState(id, true, "")
+func markMirrorUp(r *redisobj, id string) error {
+	return setMirrorState(r, id, true, "")
 }
 
-func markMirrorDown(id string, reason string) error {
-	return setMirrorState(id, false, reason)
+func markMirrorDown(r *redisobj, id string, reason string) error {
+	return setMirrorState(r, id, false, reason)
 }
 
-func setMirrorState(id string, state bool, reason string) error {
-	r := NewRedis()
-	conn, err := r.connect()
-	if err != nil {
-		return err
-	}
+func setMirrorState(r *redisobj, id string, state bool, reason string) error {
+	conn := r.pool.Get()
 	defer conn.Close()
 
 	key := fmt.Sprintf("MIRROR_%s", id)

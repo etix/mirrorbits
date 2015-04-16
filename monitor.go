@@ -261,12 +261,12 @@ func (m *Monitor) syncLoop() {
 
 			// First try to scan with rsync
 			if mirror.RsyncURL != "" {
-				err = Scan().ScanRsync(mirror.RsyncURL, k, m.stop)
+				err = Scan(m.redis).ScanRsync(mirror.RsyncURL, k, m.stop)
 			}
 			// If it failed or rsync wasn't supported
 			// fallback to FTP
 			if err != nil && mirror.FtpURL != "" {
-				err = Scan().ScanFTP(mirror.FtpURL, k, m.stop)
+				err = Scan(m.redis).ScanFTP(mirror.FtpURL, k, m.stop)
 			}
 
 			if err != nil {
@@ -310,7 +310,7 @@ func (m *Monitor) healthCheck(mirror Mirror) error {
 		if opErr, ok := err.(*net.OpError); ok {
 			log.Debug("Op: %s | Net: %s | Addr: %s | Err: %s | Temporary: %t", opErr.Op, opErr.Net, opErr.Addr, opErr.Error(), opErr.Temporary())
 		}
-		markMirrorDown(mirror.ID, "Unreachable")
+		markMirrorDown(m.redis, mirror.ID, "Unreachable")
 		log.Error("%-30.30s Error: %s (%dms)", mirror.ID, err.Error(), elapsed/time.Millisecond)
 		return err
 	}
@@ -319,16 +319,16 @@ func (m *Monitor) healthCheck(mirror Mirror) error {
 	contentLength := resp.Header.Get("Content-Length")
 
 	if resp.StatusCode == 404 {
-		markMirrorDown(mirror.ID, fmt.Sprintf("File not found %s (error 404)", file))
+		markMirrorDown(m.redis, mirror.ID, fmt.Sprintf("File not found %s (error 404)", file))
 		if GetConfig().DisableOnMissingFile {
-			disableMirror(mirror.ID)
+			disableMirror(m.redis, mirror.ID)
 		}
 		log.Error("%-30.30s Error: File %s not found (error 404)", mirror.ID, file)
 	} else if resp.StatusCode != 200 {
-		markMirrorDown(mirror.ID, fmt.Sprintf("Got status code %d", resp.StatusCode))
+		markMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", resp.StatusCode))
 		log.Warning("%-30.30s Down! Status: %d", mirror.ID, resp.StatusCode)
 	} else {
-		markMirrorUp(mirror.ID)
+		markMirrorUp(m.redis, mirror.ID)
 		rsize, err := strconv.ParseInt(contentLength, 10, 64)
 		if err == nil && rsize != size {
 			log.Warning("%-30.30s File size mismatch! [%s] (%dms)", mirror.ID, file, elapsed/time.Millisecond)
@@ -361,7 +361,7 @@ func (m *Monitor) getRandomFile(identifier string) (file string, size int64, err
 
 // Trigger a sync of the local repository
 func (m *Monitor) syncSource() {
-	err := Scan().ScanSource(m.stop)
+	err := Scan(m.redis).ScanSource(m.stop)
 	if err != nil {
 		log.Error("Scanning source failed: %s", err.Error())
 	}
