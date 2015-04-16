@@ -1,4 +1,4 @@
-// Copyright (c) 2014 Ludovic Fauvet
+// Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
 package main
