@@ -42,7 +42,7 @@ func ReloadRuntimeLogs() {
 	logging.SetFormatter(logging.MustStringFormatter("%{time:2006/01/02 15:04:05.000 MST} %{message}"))
 	logFlags := 0
 
-	if os.Getenv("DEBUG") != "" {
+	if debug {
 		logFlags = stdlog.Lshortfile
 		logging.SetLevel(logging.DEBUG, "main")
 	} else {

@@ -48,10 +48,6 @@ func init() {
 
 func main() {
 
-	if debug {
-		os.Setenv("DEBUG", "1")
-	}
-
 	if cpuProfile != "" {
 		f, err := os.Create(cpuProfile)
 		if err != nil {
