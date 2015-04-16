@@ -140,7 +140,7 @@ func (h *HTTP) RunServer() (err error) {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	fmt.Println("Service listening on", GetConfig().ListenAddress)
+	log.Info("Service listening on %s", GetConfig().ListenAddress)
 
 	/* Serve until we receive a SIGTERM */
 	return server.Serve(h.SListener)
