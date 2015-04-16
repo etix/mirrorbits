@@ -142,6 +142,15 @@ single:
 		c.Close()
 		return nil, err
 	}
+	role, err := r.askRole(c)
+	if err != nil {
+		log.Error("Redis master: %s", err.Error())
+		return nil, errUnreachable
+	}
+	if role != "master" {
+		log.Error("Redis master: %s is not a master but a %s", GetConfig().RedisAddress, role)
+		return nil, errUnreachable
+	}
 	log.Debug("Connected to redis master %s", GetConfig().RedisAddress)
 	return c, err
 
