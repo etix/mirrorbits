@@ -37,6 +37,10 @@ Mirrorbits is a geographical download redirector written in [Go](www.golang.org)
 * libgeoip
 * a recent geoip database (see contrib/geoip/)
 
+**Optional:**
+
+* redis-sentinel (for high-availability support)
+
 ## Installation
 
 You can either get a [prebuilt version](https://github.com/etix/mirrorbits/releases) or choose to build it yourself.
