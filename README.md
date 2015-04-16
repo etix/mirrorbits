@@ -33,7 +33,7 @@ Mirrorbits is a geographical download redirector written in [Go](www.golang.org)
 
 ## Prerequisites
 
-* Redis 2.8 (or later)
+* Redis 2.8.12 (or later)
 * libgeoip
 * a recent geoip database (see contrib/geoip/)
 
