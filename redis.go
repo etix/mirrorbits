@@ -61,7 +61,7 @@ func (r *redisobj) connect() (redis.Conn, error) {
 			var masterhost string
 			var cm redis.Conn
 
-			c, err := redis.DialTimeout("tcp", s.Host, redisConnectionTimeout, redisReadWriteTimeout, redisReadWriteTimeout)
+			c, err := r.connectTo(s.Host)
 			if err != nil {
 				log.Error("Sentinel: %s", err.Error())
 				continue
@@ -88,7 +88,7 @@ func (r *redisobj) connect() (redis.Conn, error) {
 
 			masterhost = fmt.Sprintf("%s:%s", master[0], master[1])
 
-			cm, err = redis.DialTimeout("tcp", masterhost, redisConnectionTimeout, redisReadWriteTimeout, redisReadWriteTimeout)
+			cm, err = r.connectTo(masterhost)
 			if err != nil {
 				log.Error("Redis master: %s", err.Error())
 				goto closeSentinel
@@ -134,7 +134,7 @@ single:
 
 	log.Warning("No redis master available, trying using the configured RedisAddress as fallback")
 
-	c, err := redis.DialTimeout("tcp", GetConfig().RedisAddress, redisConnectionTimeout, redisReadWriteTimeout, redisReadWriteTimeout)
+	c, err := r.connectTo(GetConfig().RedisAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -145,6 +145,10 @@ single:
 	log.Debug("Connected to redis master %s", GetConfig().RedisAddress)
 	return c, err
 
+}
+
+func (r *redisobj) connectTo(address string) (redis.Conn, error) {
+	return redis.DialTimeout("tcp", address, redisConnectionTimeout, redisReadWriteTimeout, redisReadWriteTimeout)
 }
 
 func (r *redisobj) askRole(c redis.Conn) (string, error) {
