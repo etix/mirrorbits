@@ -110,6 +110,14 @@ func ReloadConfig() error {
 	}
 	c.Repository = strings.TrimRight(c.Repository, "/")
 
+	if config != nil &&
+		(c.RedisAddress != config.RedisAddress ||
+			c.RedisPassword != config.RedisPassword ||
+			!testSentinelsEq(c.RedisSentinels, config.RedisSentinels)) {
+		// TODO reload redis connections
+		// Currently established connections will be updated only in case of disconnection
+	}
+
 	configMutex.Lock()
 	config = &c
 	configMutex.Unlock()
@@ -132,4 +140,18 @@ func GetConfig() *configuration {
 func fileExists(filename string) bool {
 	_, err := os.Stat(filename)
 	return err == nil
+}
+
+func testSentinelsEq(a, b []sentinels) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i].Host != b[i].Host {
+			return false
+		}
+	}
+
+	return true
 }
