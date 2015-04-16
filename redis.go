@@ -52,7 +52,7 @@ func (r *redisobj) connect() (redis.Conn, error) {
 		}
 
 		for _, s := range sentinels {
-			log.Info("Connecting to redis sentinel %s", s.Host)
+			log.Debug("Connecting to redis sentinel %s", s.Host)
 			var master []string
 			var masterhost string
 			var cm redis.Conn
@@ -108,7 +108,7 @@ func (r *redisobj) connect() (redis.Conn, error) {
 			// Close the connection to the sentinel
 			c.Close()
 
-			log.Info("Connected to redis master %s", masterhost)
+			log.Debug("Connected to redis master %s", masterhost)
 			return cm, nil
 
 		closeMaster:
@@ -138,7 +138,7 @@ single:
 		c.Close()
 		return nil, err
 	}
-	log.Info("Connected to redis master %s", GetConfig().RedisAddress)
+	log.Debug("Connected to redis master %s", GetConfig().RedisAddress)
 	return c, err
 
 }
