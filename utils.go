@@ -43,7 +43,7 @@ func setMirrorEnabled(r *redisobj, id string, state bool) error {
 	_, err := conn.Do("HMSET", key, "enabled", state)
 
 	// Publish update
-	conn.Do("PUBLISH", MIRROR_UPDATE, id)
+	Publish(conn, MIRROR_UPDATE, id)
 
 	return err
 }
@@ -78,7 +78,7 @@ func setMirrorState(r *redisobj, id string, state bool, reason string) error {
 
 	if state != previousState {
 		// Publish update
-		conn.Do("PUBLISH", MIRROR_UPDATE, id)
+		Publish(conn, MIRROR_UPDATE, id)
 	}
 
 	return err

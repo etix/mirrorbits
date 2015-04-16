@@ -9,12 +9,14 @@ import (
 	"time"
 )
 
-const (
-	FILE_UPDATE        = "file_update"
-	MIRROR_UPDATE      = "mirror_update"
-	MIRROR_FILE_UPDATE = "mirror_file_update"
+type PubsubEvent string
 
-	PUBSUB_RECONNECTED = "pubsub_reconnected"
+const (
+	FILE_UPDATE        PubsubEvent = "file_update"
+	MIRROR_UPDATE      PubsubEvent = "mirror_update"
+	MIRROR_FILE_UPDATE PubsubEvent = "mirror_file_update"
+
+	PUBSUB_RECONNECTED PubsubEvent = "pubsub_reconnected"
 )
 
 type Pubsub struct {
@@ -33,13 +35,13 @@ func NewPubsub(r *redisobj) *Pubsub {
 
 // SubscribeEvent allows subscription to a particular kind of events and receive a
 // notification when an event is dispatched on the given channel.
-func (p *Pubsub) SubscribeEvent(event string, channel chan string) {
+func (p *Pubsub) SubscribeEvent(event PubsubEvent, channel chan string) {
 	p.extSubscribersLock.Lock()
 	defer p.extSubscribersLock.Unlock()
 
-	listeners := p.extSubscribers[event]
+	listeners := p.extSubscribers[string(event)]
 	listeners = append(listeners, channel)
-	p.extSubscribers[event] = listeners
+	p.extSubscribers[string(event)] = listeners
 }
 
 func (p *Pubsub) updateEvents() {
@@ -70,7 +72,7 @@ connect:
 			// from redis but still clear the cache (possibly outdated)
 			// after a successful reconnection.
 			disconnected = false
-			p.handleMessage(PUBSUB_RECONNECTED, nil)
+			p.handleMessage(string(PUBSUB_RECONNECTED), nil)
 		}
 		for {
 			switch v := psc.Receive().(type) {
@@ -105,4 +107,14 @@ func (p *Pubsub) handleMessage(channel string, data []byte) {
 			// and drop the message.
 		}
 	}
+}
+
+func Publish(r redis.Conn, event PubsubEvent, message string) error {
+	_, err := r.Do("PUBLISH", string(event), message)
+	return err
+}
+
+func SendPublish(r redis.Conn, event PubsubEvent, message string) error {
+	err := r.Send("PUBLISH", string(event), message)
+	return err
 }

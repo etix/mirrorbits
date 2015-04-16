@@ -150,7 +150,7 @@ func (s *scan) ScanRsync(url, identifier string, stop chan bool) (err error) {
 		conn.Send("HSET", ik, "size", f.size)
 
 		// Publish update
-		conn.Send("PUBLISH", MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, f.path))
+		SendPublish(conn, MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, f.path))
 
 		count++
 	cont:
@@ -201,7 +201,8 @@ func (s *scan) ScanRsync(url, identifier string, stop chan bool) (err error) {
 			conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", e), identifier)
 			conn.Send("DEL", fmt.Sprintf("FILEINFO_%s_%s", identifier, e))
 			// Publish update
-			conn.Send("PUBLISH", MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, e))
+			SendPublish(conn, MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, e))
+
 		}
 		_, err1 = conn.Do("EXEC")
 		if err1 != nil {
@@ -343,7 +344,7 @@ func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 		conn.Send("HSET", ik, "size", f.size)
 
 		// Publish update
-		conn.Send("PUBLISH", MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, f.path))
+		SendPublish(conn, MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, f.path))
 
 		count++
 	}
@@ -366,7 +367,7 @@ func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 			log.Info("[%s] Removing %s from mirror", identifier, e)
 			conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", e), identifier)
 			conn.Send("DEL", fmt.Sprintf("FILEINFO_%s_%s", identifier, e))
-			conn.Send("PUBLISH", MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, e))
+			SendPublish(conn, MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, e))
 		}
 		_, err = conn.Do("EXEC")
 		if err != nil {
@@ -426,7 +427,8 @@ func (s *scan) setLastSync(conn redis.Conn, identifier string) error {
 	// Set the last sync time
 	_, err := conn.Do("HSET", fmt.Sprintf("MIRROR_%s", identifier), "lastSync", time.Now().UTC().Unix())
 	// Publish an update on redis
-	conn.Do("PUBLISH", MIRROR_UPDATE, identifier)
+	Publish(conn, MIRROR_UPDATE, identifier)
+
 	return err
 }
 
@@ -528,7 +530,7 @@ func (s *scan) ScanSource(stop chan bool) (err error) {
 			"sha1", e.sha1)
 
 		// Publish update
-		s.walkRedisConn.Send("PUBLISH", FILE_UPDATE, e.path)
+		SendPublish(s.walkRedisConn, FILE_UPDATE, e.path)
 	}
 
 	// Remove old keys
@@ -537,7 +539,7 @@ func (s *scan) ScanSource(stop chan bool) (err error) {
 			s.walkRedisConn.Send("DEL", fmt.Sprintf("FILE_%s", e))
 
 			// Publish update
-			s.walkRedisConn.Send("PUBLISH", FILE_UPDATE, e)
+			SendPublish(s.walkRedisConn, FILE_UPDATE, fmt.Sprintf("%s", e))
 		}
 	}
 

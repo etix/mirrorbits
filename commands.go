@@ -332,7 +332,7 @@ func (c *cli) CmdAdd(args ...string) error {
 	}
 
 	// Publish update
-	conn.Do("PUBLISH", MIRROR_UPDATE, cmd.Arg(0))
+	Publish(conn, MIRROR_UPDATE, cmd.Arg(0))
 
 	fmt.Println("Mirror added successfully")
 	return nil
@@ -419,7 +419,7 @@ func (c *cli) CmdRemove(args ...string) error {
 	}
 
 	// Publish update
-	conn.Do("PUBLISH", MIRROR_UPDATE, identifier)
+	Publish(conn, MIRROR_UPDATE, identifier)
 
 	fmt.Println("Mirror removed successfully")
 	return nil
@@ -757,7 +757,7 @@ reopen:
 	}
 
 	// Publish update
-	conn.Do("PUBLISH", MIRROR_UPDATE, id)
+	Publish(conn, MIRROR_UPDATE, id)
 
 	fmt.Println("Mirror edited successfully")
 
