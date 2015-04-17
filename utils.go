@@ -229,3 +229,10 @@ func readableSize(value int64) string {
 	}
 	return ""
 }
+
+func elapsedSec(lastTimestamp int64, elapsedTime int64) bool {
+	if lastTimestamp+elapsedTime < time.Now().UTC().Unix() {
+		return true
+	}
+	return false
+}

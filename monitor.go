@@ -130,16 +130,14 @@ func (m *Monitor) monitorLoop() {
 		case <-time.After(1 * time.Second):
 			m.mapLock.Lock()
 			for k, v := range m.mirrors {
-				if v.lastCheck+60 < time.Now().UTC().Unix() &&
-					m.mirrors[k].checking == false {
+				if elapsedSec(v.lastCheck, 60) && m.mirrors[k].checking == false {
 					select {
 					case m.healthCheckChan <- k:
 						m.mirrors[k].checking = true
 					default:
 					}
 				}
-				if v.LastSync+60*30 < time.Now().UTC().Unix() &&
-					m.mirrors[k].scanning == false {
+				if elapsedSec(v.LastSync, 60*30) && m.mirrors[k].scanning == false {
 					select {
 					case m.syncChan <- k:
 						m.mirrors[k].scanning = true
