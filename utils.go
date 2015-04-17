@@ -236,3 +236,11 @@ func elapsedSec(lastTimestamp int64, elapsedTime int64) bool {
 	}
 	return false
 }
+
+func plural(value interface{}) string {
+	n, ok := value.(int)
+	if ok && n > 1 || n < -1 {
+		return "s"
+	}
+	return ""
+}
