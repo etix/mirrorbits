@@ -117,6 +117,7 @@ func (m *Monitor) monitorLoop() {
 
 	// Setup recurrent tasks
 	sourceSyncTicker := time.NewTicker(5 * time.Minute)
+	mirrorCheckTicker := time.NewTicker(1 * time.Second)
 
 	for {
 		select {
@@ -127,7 +128,7 @@ func (m *Monitor) monitorLoop() {
 			m.syncMirrorList(id)
 		case <-sourceSyncTicker.C:
 			m.syncSource()
-		case <-time.After(1 * time.Second):
+		case <-mirrorCheckTicker.C:
 			m.mapLock.Lock()
 			for k, v := range m.mirrors {
 				if elapsedSec(v.lastCheck, 60) && m.mirrors[k].checking == false {
