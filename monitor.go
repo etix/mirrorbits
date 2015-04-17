@@ -37,9 +37,9 @@ type Monitor struct {
 
 type MMirror struct {
 	Mirror
-	checking   bool
-	scanning   bool
-	lastUpdate int64
+	checking  bool
+	scanning  bool
+	lastCheck int64
 }
 
 func NewMonitor(r *redisobj, c *Cache) *Monitor {
@@ -130,7 +130,7 @@ func (m *Monitor) monitorLoop() {
 		case <-time.After(1 * time.Second):
 			m.mapLock.Lock()
 			for k, v := range m.mirrors {
-				if v.lastUpdate+60 < time.Now().UTC().Unix() &&
+				if v.lastCheck+60 < time.Now().UTC().Unix() &&
 					m.mirrors[k].checking == false {
 					select {
 					case m.healthCheckChan <- k:
@@ -189,17 +189,17 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
 	for _, e := range mirrors {
 		var isChecking bool = false
 		var isScanning bool = false
-		var lastUpdate int64 = 0
+		var lastCheck int64 = 0
 		if _, ok := m.mirrors[e.ID]; ok {
 			isChecking = m.mirrors[e.ID].checking
 			isScanning = m.mirrors[e.ID].scanning
-			lastUpdate = m.mirrors[e.ID].lastUpdate
+			lastCheck = m.mirrors[e.ID].lastCheck
 		}
 		m.mirrors[e.ID] = &MMirror{
-			Mirror:     e,
-			checking:   isChecking,
-			scanning:   isScanning,
-			lastUpdate: lastUpdate,
+			Mirror:    e,
+			checking:  isChecking,
+			scanning:  isScanning,
+			lastCheck: lastCheck,
 		}
 	}
 	m.mapLock.Unlock()
@@ -226,7 +226,7 @@ func (m *Monitor) healthCheckLoop() {
 
 			m.mapLock.Lock()
 			if _, ok := m.mirrors[k]; ok {
-				m.mirrors[k].lastUpdate = time.Now().UTC().Unix()
+				m.mirrors[k].lastCheck = time.Now().UTC().Unix()
 				m.mirrors[k].checking = false
 			}
 			m.mapLock.Unlock()
