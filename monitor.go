@@ -202,7 +202,7 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
 	}
 	m.mapLock.Unlock()
 
-	log.Debug("Mirror list updated")
+	log.Debug("%d mirror(s) updated", len(mirrorsIDs))
 	return mirrors, nil
 }
 
