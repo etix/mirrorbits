@@ -21,6 +21,7 @@ var (
 	clientTimeout      = time.Duration(20 * time.Second)
 	clientDeadline     = time.Duration(40 * time.Second)
 	redirectError      = errors.New("Redirect not allowed")
+	mirrorNotScanned   = errors.New("Mirror has not yet been scanned")
 )
 
 type Monitor struct {
@@ -225,7 +226,11 @@ func (m *Monitor) healthCheckLoop() {
 			mirror := m.mirrors[k]
 			m.mapLock.Unlock()
 
-			m.healthCheck(mirror.Mirror)
+			if m.healthCheck(mirror.Mirror) == mirrorNotScanned {
+				// Not removing the 'checking' lock is intended here so the mirror won't
+				// be checked again until the rsync/ftp scan is finished.
+				continue
+			}
 
 			m.mapLock.Lock()
 			if _, ok := m.mirrors[k]; ok {
@@ -289,7 +294,9 @@ func (m *Monitor) healthCheck(mirror Mirror) error {
 
 	file, size, err := m.getRandomFile(mirror.ID)
 	if err != nil {
-		if err != redis.ErrNil {
+		if err == redis.ErrNil {
+			return mirrorNotScanned
+		} else {
 			log.Warning(format+"Error: Cannot obtain a random file: %s", mirror.ID, err)
 		}
 		return err
