@@ -224,7 +224,7 @@ func (s *scan) ScanRsync(url, identifier string, stop chan bool) (err error) {
 
 	if err == io.EOF {
 		s.setLastSync(conn, identifier)
-		log.Info("[%s] Indexed %d files (%d known)", identifier, count, common)
+		log.Info("[%s] Indexed %d files (%d known), %d removed", identifier, count, common, len(toremove))
 		return nil
 	}
 	return err
@@ -392,7 +392,7 @@ func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 	common, _ := redis.Int64(conn.Do("SINTERSTORE", sinterKey, "FILES", filesKey))
 
 	s.setLastSync(conn, identifier)
-	log.Info("[%s] Indexed %d files (%d known)", identifier, count, common)
+	log.Info("[%s] Indexed %d files (%d known), %d removed", identifier, count, common, toremove)
 
 	return nil
 }
