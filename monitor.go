@@ -40,7 +40,6 @@ type MMirror struct {
 	checking   bool
 	scanning   bool
 	lastUpdate int64
-	lastScan   int64 //FIXME this could be removed since the mirrors are updated after each events no?
 }
 
 func NewMonitor(r *redisobj, c *Cache) *Monitor {
@@ -139,7 +138,7 @@ func (m *Monitor) monitorLoop() {
 					default:
 					}
 				}
-				if v.lastScan+60*30 < time.Now().UTC().Unix() &&
+				if v.LastSync+60*30 < time.Now().UTC().Unix() &&
 					m.mirrors[k].scanning == false {
 					select {
 					case m.syncChan <- k:
@@ -191,21 +190,16 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
 		var isChecking bool = false
 		var isScanning bool = false
 		var lastUpdate int64 = 0
-		var lastScan int64 = e.LastSync
 		if _, ok := m.mirrors[e.ID]; ok {
 			isChecking = m.mirrors[e.ID].checking
 			isScanning = m.mirrors[e.ID].scanning
 			lastUpdate = m.mirrors[e.ID].lastUpdate
-			if m.mirrors[e.ID].lastScan > e.LastSync {
-				lastScan = m.mirrors[e.ID].lastScan
-			}
 		}
 		m.mirrors[e.ID] = &MMirror{
 			Mirror:     e,
 			checking:   isChecking,
 			scanning:   isScanning,
 			lastUpdate: lastUpdate,
-			lastScan:   lastScan,
 		}
 	}
 	m.mapLock.Unlock()
@@ -279,7 +273,6 @@ func (m *Monitor) syncLoop() {
 
 			m.mapLock.Lock()
 			if _, ok := m.mirrors[k]; ok {
-				m.mirrors[k].lastScan = time.Now().UTC().Unix()
 				m.mirrors[k].scanning = false
 			}
 			m.mapLock.Unlock()
