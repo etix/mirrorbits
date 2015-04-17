@@ -197,7 +197,7 @@ func (s *scan) ScanRsync(url, identifier string, stop chan bool) (err error) {
 	if len(toremove) > 0 {
 		conn.Send("MULTI")
 		for _, e := range toremove {
-			log.Info("[%s] Removing %s from mirror", identifier, e)
+			log.Debug("[%s] Removing %s from mirror", identifier, e)
 			conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", e), identifier)
 			conn.Send("DEL", fmt.Sprintf("FILEINFO_%s_%s", identifier, e))
 			// Publish update
@@ -364,7 +364,7 @@ func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 	if len(toremove) > 0 {
 		conn.Send("MULTI")
 		for _, e := range toremove {
-			log.Info("[%s] Removing %s from mirror", identifier, e)
+			log.Debug("[%s] Removing %s from mirror", identifier, e)
 			conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", e), identifier)
 			conn.Send("DEL", fmt.Sprintf("FILEINFO_%s_%s", identifier, e))
 			SendPublish(conn, MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, e))
