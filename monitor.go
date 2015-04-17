@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
+	"math/rand"
 	"net"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,6 +37,11 @@ type Monitor struct {
 	stop            chan bool
 	wg              sync.WaitGroup
 	formatLongestID int
+
+	nodes        []Node
+	nodeIndex    int
+	nodeTotal    int
+	mirrorsIndex []string
 }
 
 type MMirror struct {
@@ -52,6 +59,10 @@ func NewMonitor(r *redisobj, c *Cache) *Monitor {
 	monitor.healthCheckChan = make(chan string, healthCheckThreads*5)
 	monitor.syncChan = make(chan string)
 	monitor.stop = make(chan bool)
+	monitor.nodes = make([]Node, 0)
+	monitor.mirrorsIndex = make([]string, 0)
+
+	rand.Seed(time.Now().UnixNano())
 
 	transport := http.Transport{
 		DisableKeepAlives:   true,
@@ -109,6 +120,8 @@ func (m *Monitor) monitorLoop() {
 		}
 	}
 
+	go m.clusterLoop()
+
 	for i := 0; i < healthCheckThreads; i++ {
 		go m.healthCheckLoop()
 	}
@@ -133,14 +146,14 @@ func (m *Monitor) monitorLoop() {
 		case <-mirrorCheckTicker.C:
 			m.mapLock.Lock()
 			for k, v := range m.mirrors {
-				if elapsedSec(v.lastCheck, 60) && m.mirrors[k].checking == false {
+				if elapsedSec(v.lastCheck, 60) && m.mirrors[k].checking == false && m.isHandled(k) {
 					select {
 					case m.healthCheckChan <- k:
 						m.mirrors[k].checking = true
 					default:
 					}
 				}
-				if elapsedSec(v.LastSync, 60*30) && m.mirrors[k].scanning == false {
+				if elapsedSec(v.LastSync, 60*30) && m.mirrors[k].scanning == false && m.isHandled(k) {
 					select {
 					case m.syncChan <- k:
 						m.mirrors[k].scanning = true
@@ -161,6 +174,24 @@ func (m *Monitor) mirrorsID() ([]string, error) {
 	return redis.Strings(rconn.Do("LRANGE", "MIRRORS", "0", "-1"))
 }
 
+func removeMirrorIDFromSlice(slice []string, mirrorID string) []string {
+	// See https://golang.org/pkg/sort/#SearchStrings
+	idx := sort.SearchStrings(slice, mirrorID)
+	if idx < len(slice) && slice[idx] == mirrorID {
+		slice = append(slice[:idx], slice[idx+1:]...)
+	}
+	return slice
+}
+
+func addMirrorIDToSlice(slice []string, mirrorID string) []string {
+	// See https://golang.org/pkg/sort/#SearchStrings
+	idx := sort.SearchStrings(slice, mirrorID)
+	if idx >= len(slice) || slice[idx] != mirrorID {
+		slice = append(slice[:idx], append([]string{mirrorID}, slice[idx:]...)...)
+	}
+	return slice
+}
+
 // Sync the remote mirror struct with the local dataset
 // TODO needs improvements
 func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
@@ -179,11 +210,16 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
 			// Mirror has been deleted
 			m.mapLock.Lock()
 			delete(m.mirrors, id)
+			m.mirrorsIndex = removeMirrorIDFromSlice(m.mirrorsIndex, mirror.ID)
 			m.mapLock.Unlock()
 			continue
 		}
 		if mirror.Enabled {
 			mirrors = append(mirrors, mirror)
+
+			m.mapLock.Lock()
+			m.mirrorsIndex = addMirrorIDToSlice(m.mirrorsIndex, mirror.ID)
+			m.mapLock.Unlock()
 		}
 	}
 
@@ -369,4 +405,102 @@ func (m *Monitor) syncSource() {
 	if err != nil {
 		log.Error("Scanning source failed: %s", err.Error())
 	}
+}
+
+type Node struct {
+	ID           string
+	LastAnnounce int64
+}
+
+type ByNodeID []Node
+
+func (n ByNodeID) Len() int           { return len(n) }
+func (n ByNodeID) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
+func (n ByNodeID) Less(i, j int) bool { return n[i].ID < n[j].ID }
+
+func (m *Monitor) clusterLoop() {
+	clusterChan := make(chan string, 10)
+	announceTicker := time.NewTicker(1 * time.Second)
+
+	hostname := getHostname()
+	nodeID := fmt.Sprintf("%s-%05d", hostname, rand.Intn(32000))
+
+	m.refreshNodeList(nodeID, nodeID)
+	m.redis.pubsub.SubscribeEvent(CLUSTER, clusterChan)
+
+	m.wg.Add(1)
+	for {
+		select {
+		case <-m.stop:
+			m.wg.Done()
+			return
+		case <-announceTicker.C:
+			r := m.redis.pool.Get()
+			Publish(r, CLUSTER, fmt.Sprintf("HELLO %s", nodeID))
+			r.Close()
+		case data := <-clusterChan:
+			if !strings.HasPrefix(data, "HELLO ") {
+				// Garbarge
+				continue
+			}
+			m.refreshNodeList(data[6:], nodeID)
+		}
+	}
+}
+
+func (m *Monitor) refreshNodeList(nodeID, self string) {
+	found := false
+
+	// Expire unreachable nodes
+	for i := 0; i < len(m.nodes); i++ {
+		if elapsedSec(m.nodes[i].LastAnnounce, 5) && m.nodes[i].ID != nodeID && m.nodes[i].ID != self {
+			log.Notice("<- Node %s left the cluster", m.nodes[i].ID)
+			m.nodes = append(m.nodes[:i], m.nodes[i+1:]...)
+			i--
+		} else if m.nodes[i].ID == nodeID {
+			found = true
+			m.nodes[i].LastAnnounce = time.Now().UTC().Unix()
+		}
+	}
+
+	// Join new node
+	if !found {
+		if nodeID != self {
+			log.Notice("-> Node %s joined the cluster", nodeID)
+		}
+		n := Node{
+			ID:           nodeID,
+			LastAnnounce: time.Now().UTC().Unix(),
+		}
+		// TODO use binary search here
+		// See https://golang.org/pkg/sort/#Search
+		m.nodes = append(m.nodes, n)
+		sort.Sort(ByNodeID(m.nodes))
+	}
+
+	m.nodeTotal = len(m.nodes)
+
+	// TODO use binary search here
+	// See https://golang.org/pkg/sort/#Search
+	for i, n := range m.nodes {
+		if n.ID == self {
+			m.nodeIndex = i
+			break
+		}
+	}
+}
+
+func (m *Monitor) isHandled(mirrorID string) bool {
+	index := sort.SearchStrings(m.mirrorsIndex, mirrorID)
+
+	mRange := int(float32(len(m.mirrorsIndex))/float32(m.nodeTotal) + 0.5)
+	start := mRange * m.nodeIndex
+
+	// Check bounding to see if this mirror must be handled by this node.
+	// The distribution of the nodes should be balanced except for the last node
+	// that could contain one more node.
+	if index >= start && (index < start+mRange || m.nodeIndex == m.nodeTotal-1) {
+		return true
+	}
+	return false
 }

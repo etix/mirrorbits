@@ -12,6 +12,7 @@ import (
 type PubsubEvent string
 
 const (
+	CLUSTER            PubsubEvent = "_mirrorbits_cluster"
 	FILE_UPDATE        PubsubEvent = "_mirrorbits_file_update"
 	MIRROR_UPDATE      PubsubEvent = "_mirrorbits_mirror_update"
 	MIRROR_FILE_UPDATE PubsubEvent = "_mirrorbits_mirror_file_update"
@@ -63,6 +64,7 @@ connect:
 		log.Info("Subscribing pubsub")
 		psc := redis.PubSubConn{Conn: rconn}
 
+		psc.Subscribe(CLUSTER)
 		psc.Subscribe(FILE_UPDATE)
 		psc.Subscribe(MIRROR_UPDATE)
 		psc.Subscribe(MIRROR_FILE_UPDATE)

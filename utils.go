@@ -244,3 +244,11 @@ func plural(value interface{}) string {
 	}
 	return ""
 }
+
+func getHostname() string {
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "hostname"
+	}
+	return hostname
+}
