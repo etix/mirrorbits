@@ -12,11 +12,11 @@ import (
 type PubsubEvent string
 
 const (
-	FILE_UPDATE        PubsubEvent = "file_update"
-	MIRROR_UPDATE      PubsubEvent = "mirror_update"
-	MIRROR_FILE_UPDATE PubsubEvent = "mirror_file_update"
+	FILE_UPDATE        PubsubEvent = "_mirrorbits_file_update"
+	MIRROR_UPDATE      PubsubEvent = "_mirrorbits_mirror_update"
+	MIRROR_FILE_UPDATE PubsubEvent = "_mirrorbits_mirror_file_update"
 
-	PUBSUB_RECONNECTED PubsubEvent = "pubsub_reconnected"
+	PUBSUB_RECONNECTED PubsubEvent = "_mirrorbits_pubsub_reconnected"
 )
 
 type Pubsub struct {
