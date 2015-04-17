@@ -33,6 +33,7 @@ type Monitor struct {
 	syncChan        chan string
 	stop            chan bool
 	wg              sync.WaitGroup
+	formatLongestID int
 }
 
 type MMirror struct {
@@ -166,6 +167,9 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
 	mirrors := make([]Mirror, 0, len(mirrorsIDs))
 
 	for _, id := range mirrorsIDs {
+		if len(id) > m.formatLongestID {
+			m.formatLongestID = len(id)
+		}
 		mirror, err := m.cache.GetMirror(id)
 		if err != nil && err != redis.ErrNil {
 			log.Error("Fetching mirror %s failed: %s", id, err.Error())
@@ -281,10 +285,12 @@ func (m *Monitor) syncLoop() {
 
 // Do an actual health check against a given mirror
 func (m *Monitor) healthCheck(mirror Mirror) error {
+	format := "%-" + fmt.Sprintf("%d.%ds", m.formatLongestID+4, m.formatLongestID+4)
+
 	file, size, err := m.getRandomFile(mirror.ID)
 	if err != nil {
 		if err != redis.ErrNil {
-			log.Warning("%-30.30s Error: Cannot obtain a random file: %s", mirror.ID, err)
+			log.Warning(format+"Error: Cannot obtain a random file: %s", mirror.ID, err)
 		}
 		return err
 	}
@@ -302,7 +308,7 @@ func (m *Monitor) healthCheck(mirror Mirror) error {
 			log.Debug("Op: %s | Net: %s | Addr: %s | Err: %s | Temporary: %t", opErr.Op, opErr.Net, opErr.Addr, opErr.Error(), opErr.Temporary())
 		}
 		markMirrorDown(m.redis, mirror.ID, "Unreachable")
-		log.Error("%-30.30s Error: %s (%dms)", mirror.ID, err.Error(), elapsed/time.Millisecond)
+		log.Error(format+"Error: %s (%dms)", mirror.ID, err.Error(), elapsed/time.Millisecond)
 		return err
 	}
 	resp.Body.Close()
@@ -314,17 +320,17 @@ func (m *Monitor) healthCheck(mirror Mirror) error {
 		if GetConfig().DisableOnMissingFile {
 			disableMirror(m.redis, mirror.ID)
 		}
-		log.Error("%-30.30s Error: File %s not found (error 404)", mirror.ID, file)
+		log.Error(format+"Error: File %s not found (error 404)", mirror.ID, file)
 	} else if resp.StatusCode != 200 {
 		markMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", resp.StatusCode))
-		log.Warning("%-30.30s Down! Status: %d", mirror.ID, resp.StatusCode)
+		log.Warning(format+"Down! Status: %d", mirror.ID, resp.StatusCode)
 	} else {
 		markMirrorUp(m.redis, mirror.ID)
 		rsize, err := strconv.ParseInt(contentLength, 10, 64)
 		if err == nil && rsize != size {
-			log.Warning("%-30.30s File size mismatch! [%s] (%dms)", mirror.ID, file, elapsed/time.Millisecond)
+			log.Warning(format+"File size mismatch! [%s] (%dms)", mirror.ID, file, elapsed/time.Millisecond)
 		} else {
-			log.Notice("%-30.30s Up! (%dms)", mirror.ID, elapsed/time.Millisecond)
+			log.Notice(format+"Up! (%dms)", mirror.ID, elapsed/time.Millisecond)
 		}
 	}
 	return nil
