@@ -4,19 +4,13 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
-	"github.com/jlaffaye/ftp"
-	"io"
-	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -24,6 +18,17 @@ var (
 	scanAborted     = errors.New("scan aborted")
 	rsyncOutputLine = regexp.MustCompile(`^.+\s+([0-9,]+)\s+([0-9/]+)+\s+([0-9:]+)\s+(.*)$`)
 )
+
+type ScannerType int8
+
+const (
+	RSYNC ScannerType = iota
+	FTP
+)
+
+type Scanner interface {
+	Scan(url, identifier string, conn redis.Conn, stop chan bool) error
+}
 
 type filedata struct {
 	path    string
@@ -36,161 +41,66 @@ type scan struct {
 	redis           *redisobj
 	walkSourceFiles []*filedata
 	walkRedisConn   redis.Conn
+
+	conn        redis.Conn
+	identifier  string
+	filesKey    string
+	filesTmpKey string
+	count       uint
 }
 
-func Scan(r *redisobj) *scan {
-	return &scan{
-		redis: r,
-	}
-}
-
-// Scan an rsync repository and index its files
-func (s *scan) ScanRsync(url, identifier string, stop chan bool) (err error) {
-	if !strings.HasPrefix(url, "rsync://") {
-		log.Warning("[%s] %s does not start with rsync://", identifier, url)
-		return
+func Scan(typ ScannerType, r *redisobj, url, identifier string, stop chan bool) error {
+	s := &scan{
+		redis:      r,
+		identifier: identifier,
 	}
 
-	// Always ensures there's a trailing slash
-	if url[len(url)-1] != '/' {
-		url = url + "/"
-	}
-
-	cmd := exec.Command("rsync", "-r", "--no-motd", "--timeout=30", "--contimeout=30", url)
-	stdout, err := cmd.StdoutPipe()
-
-	if err != nil {
-		return err
+	var scanner Scanner
+	switch typ {
+	case RSYNC:
+		scanner = &RsyncScanner{
+			scan: s,
+		}
+	case FTP:
+		scanner = &FTPScanner{
+			scan: s,
+		}
+	default:
+		panic(fmt.Sprintf("Unknown scanner"))
 	}
 
 	// Connect to the database
 	conn := s.redis.pool.Get()
 	defer conn.Close()
 
-	// Pipe stdout
-	r := bufio.NewReader(stdout)
-
-	if isStopped(stop) {
-		return scanAborted
-	}
-
-	// Start the process
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	log.Info("[%s] Requesting file list via rsync...", identifier)
-
-	// Get the list of all source files (we do not want to
-	// index files than are not provided by the source)
-	//sourceFiles, err := redis.Values(conn.Do("SMEMBERS", "FILES"))
-	//if err != nil {
-	//	log.Error("[%s] Cannot get the list of source files", identifier)
-	//	return err
-	//}
+	s.conn = conn
 
 	conn.Send("MULTI")
 
-	filesKey := fmt.Sprintf("MIRROR_%s_FILES", identifier)
-	filesTmpKey := fmt.Sprintf("MIRROR_%s_FILES_TMP", identifier)
+	s.filesKey = fmt.Sprintf("MIRROR_%s_FILES", identifier)
+	s.filesTmpKey = fmt.Sprintf("MIRROR_%s_FILES_TMP", identifier)
 
 	// Remove any left over
-	conn.Send("DEL", filesTmpKey)
+	conn.Send("DEL", s.filesTmpKey)
 
-	count := 0
-
-	line, err := readln(r)
-	for err == nil {
-		var size int64
-		var f filedata
-		var rk, ik string
-
-		if isStopped(stop) {
-			return scanAborted
-		}
-
-		// Parse one line returned by rsync
-		ret := rsyncOutputLine.FindStringSubmatch(line)
-		if ret[0][0] == 'd' || ret[0][0] == 'l' {
-			// Skip directories and links
-			goto cont
-		}
-
-		// Add the leading slash
-		if ret[4][0] != '/' {
-			ret[4] = "/" + ret[4]
-		}
-
-		// Remove the commas in the file size
-		ret[1] = strings.Replace(ret[1], ",", "", -1)
-		// Convert the size to int
-		size, err = strconv.ParseInt(ret[1], 10, 64)
-		if err != nil {
-			log.Error("[%s] ScanRsync: Invalid size: %s", identifier, ret[1])
-			goto cont
-		}
-
-		// Fill the struct
-		f.size = size
-		f.path = ret[4]
-
-		if os.Getenv("DEBUG") != "" {
-			//fmt.Printf("[%s] %s", identifier, f.path)
-		}
-
-		// Add all the files to a temporary key
-		conn.Send("SADD", filesTmpKey, f.path)
-
-		// Mark the file as being supported by this mirror
-		rk = fmt.Sprintf("FILEMIRRORS_%s", f.path)
-		conn.Send("SADD", rk, identifier)
-
-		// Save the size of the current file found on this mirror
-		ik = fmt.Sprintf("FILEINFO_%s_%s", identifier, f.path)
-		conn.Send("HSET", ik, "size", f.size)
-
-		// Publish update
-		SendPublish(conn, MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, f.path))
-
-		count++
-	cont:
-		line, err = readln(r)
-	}
-
-	if err1 := cmd.Wait(); err1 != nil {
+	err := scanner.Scan(url, identifier, conn, stop)
+	if err != nil {
 		// Discard MULTI
-		conn.Do("DISCARD")
+		s.ScannerDiscard()
 
-		switch err1.Error() {
-		case "exit status 5":
-			err1 = errors.New("rsync: Error starting client-server protocol")
-			break
-		case "exit status 10":
-			err1 = errors.New("rsync: Error in socket I/O")
-			break
-		case "exit status 11":
-			err1 = errors.New("rsync: Error in file I/O")
-			break
-		case "exit status 30":
-			err1 = errors.New("rsync: Timeout in data send/receive")
-			break
-		default:
-			err1 = errors.New("rsync: " + err1.Error())
-		}
-		return err1
+		// Remove the temporary key
+		conn.Do("DEL", s.filesTmpKey)
+
+		return err
 	}
 
-	if err == io.EOF {
-		_, err1 := conn.Do("EXEC")
-		if err1 != nil {
-			return err1
-		}
-	}
+	// Exec multi
+	s.ScannerCommit()
 
 	// Get the list of files no more present on this mirror
-	toremove, err1 := redis.Values(conn.Do("SDIFF", filesKey, filesTmpKey))
-	if err1 != nil {
-		return err1
+	toremove, err := redis.Values(conn.Do("SDIFF", s.filesKey, s.filesTmpKey))
+	if err != nil {
+		return err
 	}
 
 	// Remove this mirror from the given file SET
@@ -204,171 +114,6 @@ func (s *scan) ScanRsync(url, identifier string, stop chan bool) (err error) {
 			SendPublish(conn, MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, e))
 
 		}
-		_, err1 = conn.Do("EXEC")
-		if err1 != nil {
-			return err1
-		}
-	}
-
-	// Finally rename the temporary sets containing the list
-	// of files for this mirror to the production key
-	_, err1 = conn.Do("RENAME", filesTmpKey, filesKey)
-	if err1 != nil {
-		return err1
-	}
-
-	sinterKey := fmt.Sprintf("HANDLEDFILES_%s", identifier)
-
-	// Count the number of files known on the remote end
-	common, _ := redis.Int64(conn.Do("SINTERSTORE", sinterKey, "FILES", filesKey))
-
-	if err == io.EOF {
-		s.setLastSync(conn, identifier)
-		log.Info("[%s] Indexed %d files (%d known), %d removed", identifier, count, common, len(toremove))
-		return nil
-	}
-	return err
-}
-
-func readln(r *bufio.Reader) (string, error) {
-	var (
-		isPrefix bool = true
-		err      error
-		line, ln []byte
-	)
-	for isPrefix && err == nil {
-		line, isPrefix, err = r.ReadLine()
-		ln = append(ln, line...)
-	}
-	return string(ln), err
-}
-
-// Scan an FTP repository and index its files
-func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
-	if !strings.HasPrefix(ftpURL, "ftp://") {
-		log.Error("%s does not start with ftp://", ftpURL)
-		return
-	}
-
-	ftpurl, err := url.Parse(ftpURL)
-	if err != nil {
-		return err
-	}
-
-	host := ftpurl.Host
-	if !strings.Contains(host, ":") {
-		host += ":21"
-	}
-
-	if isStopped(stop) {
-		return scanAborted
-	}
-
-	c, err := ftp.Connect(host)
-	if err != nil {
-		return err
-	}
-	defer c.Quit()
-
-	username, password := "anonymous", "anonymous"
-
-	if ftpurl.User != nil {
-		username = ftpurl.User.Username()
-		pass, hasPassword := ftpurl.User.Password()
-		if hasPassword {
-			password = pass
-		}
-	}
-
-	err = c.Login(username, password)
-	if err != nil {
-		return err
-	}
-
-	log.Info("[%s] Requesting file list via ftp...", identifier)
-
-	var files []*filedata = make([]*filedata, 0, 1000)
-
-	err = c.ChangeDir(ftpurl.Path)
-	if err != nil {
-		return fmt.Errorf("[%s] ftp error %s", identifier, err.Error())
-	}
-
-	prefixDir, err := c.CurrentDir()
-	if err != nil {
-		return fmt.Errorf("[%s] ftp error %s", identifier, err.Error())
-	}
-	if os.Getenv("DEBUG") != "" {
-		_ = prefixDir
-		//fmt.Printf("[%s] Current dir: %s\n", identifier, prefixDir)
-	}
-	prefix := ftpurl.Path
-
-	// Remove the trailing slash
-	prefix = strings.TrimRight(prefix, "/")
-
-	files, err = s.walkFtp(c, files, prefix+"/", stop)
-	if err != nil {
-		return fmt.Errorf("[%s] ftp error %s", identifier, err.Error())
-	}
-
-	// Connect to the database
-	conn := s.redis.pool.Get()
-	defer conn.Close()
-
-	conn.Send("MULTI")
-
-	filesKey := fmt.Sprintf("MIRROR_%s_FILES", identifier)
-	filesTmpKey := fmt.Sprintf("MIRROR_%s_FILES_TMP", identifier)
-
-	// Remove any left over
-	conn.Send("DEL", filesTmpKey)
-
-	count := 0
-	for _, f := range files {
-		f.path = strings.TrimPrefix(f.path, prefix)
-
-		if os.Getenv("DEBUG") != "" {
-			fmt.Printf("%s\n", f.path)
-		}
-
-		// Add all the files to a temporary key
-		conn.Send("SADD", filesTmpKey, f.path)
-
-		// Mark the file as being supported by this mirror
-		rk := fmt.Sprintf("FILEMIRRORS_%s", f.path)
-		conn.Send("SADD", rk, identifier)
-
-		// Save the size of the current file found on this mirror
-		ik := fmt.Sprintf("FILEINFO_%s_%s", identifier, f.path)
-		conn.Send("HSET", ik, "size", f.size)
-
-		// Publish update
-		SendPublish(conn, MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, f.path))
-
-		count++
-	}
-
-	_, err = conn.Do("EXEC")
-	if err != nil {
-		return err
-	}
-
-	// Get the list of files no more present on this mirror
-	toremove, err := redis.Values(conn.Do("SDIFF", filesKey, filesTmpKey))
-	if err != nil {
-		return err
-	}
-
-	// Remove this mirror from the given file SET
-	if len(toremove) > 0 {
-		conn.Send("MULTI")
-		for _, e := range toremove {
-			log.Debug("[%s] Removing %s from mirror", identifier, e)
-			conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", e), identifier)
-			conn.Send("DEL", fmt.Sprintf("FILEINFO_%s_%s", identifier, e))
-			SendPublish(conn, MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, e))
-		}
 		_, err = conn.Do("EXEC")
 		if err != nil {
 			return err
@@ -377,50 +122,50 @@ func (s *scan) ScanFTP(ftpURL, identifier string, stop chan bool) (err error) {
 
 	// Finally rename the temporary sets containing the list
 	// of files for this mirror to the production key
-	if count > 0 {
-		_, err = conn.Do("RENAME", filesTmpKey, filesKey)
-		if err != nil {
-			return err
-		}
-	} else {
-		_, _ = conn.Do("DEL", filesKey)
+	_, err = conn.Do("RENAME", s.filesTmpKey, s.filesKey)
+	if err != nil {
+		return err
 	}
 
 	sinterKey := fmt.Sprintf("HANDLEDFILES_%s", identifier)
 
 	// Count the number of files known on the remote end
-	common, _ := redis.Int64(conn.Do("SINTERSTORE", sinterKey, "FILES", filesKey))
+	common, _ := redis.Int64(conn.Do("SINTERSTORE", sinterKey, "FILES", s.filesKey))
+
+	if err != nil {
+		return err
+	}
 
 	s.setLastSync(conn, identifier)
-	log.Info("[%s] Indexed %d files (%d known), %d removed", identifier, count, common, toremove)
-
+	log.Info("[%s] Indexed %d files (%d known), %d removed", identifier, s.count, common, len(toremove))
 	return nil
 }
 
-// Walk inside an FTP repository
-func (s *scan) walkFtp(c *ftp.ServerConn, files []*filedata, path string, stop chan bool) ([]*filedata, error) {
-	if isStopped(stop) {
-		return nil, scanAborted
-	}
+func (s *scan) ScannerAddFile(f filedata) {
+	s.count++
 
-	f, err := c.List(path)
-	if err != nil {
-		return nil, err
-	}
-	for _, e := range f {
-		if e.Type == ftp.EntryTypeFile {
-			newf := &filedata{}
-			newf.path = path + e.Name
-			newf.size = int64(e.Size)
-			files = append(files, newf)
-		} else if e.Type == ftp.EntryTypeFolder {
-			files, err = s.walkFtp(c, files, path+e.Name+"/", stop)
-			if err != nil {
-				return files, err
-			}
-		}
-	}
-	return files, err
+	// Add all the files to a temporary key
+	s.conn.Send("SADD", s.filesTmpKey, f.path)
+
+	// Mark the file as being supported by this mirror
+	rk := fmt.Sprintf("FILEMIRRORS_%s", f.path)
+	s.conn.Send("SADD", rk, s.identifier)
+
+	// Save the size of the current file found on this mirror
+	ik := fmt.Sprintf("FILEINFO_%s_%s", s.identifier, f.path)
+	s.conn.Send("HSET", ik, "size", f.size)
+
+	// Publish update
+	SendPublish(s.conn, MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", s.identifier, f.path))
+}
+
+func (s *scan) ScannerDiscard() {
+	s.conn.Do("DISCARD")
+}
+
+func (s *scan) ScannerCommit() error {
+	_, err := s.conn.Do("EXEC")
+	return err
 }
 
 func (s *scan) setLastSync(conn redis.Conn, identifier string) error {
@@ -471,7 +216,11 @@ func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 	return nil
 }
 
-func (s *scan) ScanSource(stop chan bool) (err error) {
+func ScanSource(r *redisobj, stop chan bool) (err error) {
+	s := &scan{
+		redis: r,
+	}
+
 	s.walkRedisConn = s.redis.pool.Get()
 	defer s.walkRedisConn.Close()
 	if err != nil {
