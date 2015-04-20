@@ -11,8 +11,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
+)
+
+var (
+	rsyncOutputLine = regexp.MustCompile(`^.+\s+([0-9,]+)\s+([0-9/]+)+\s+([0-9:]+)\s+(.*)$`)
 )
 
 type RsyncScanner struct {

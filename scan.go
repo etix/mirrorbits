@@ -9,14 +9,12 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"time"
 )
 
 var (
 	scanAborted     = errors.New("scan aborted")
-	rsyncOutputLine = regexp.MustCompile(`^.+\s+([0-9,]+)\s+([0-9/]+)+\s+([0-9:]+)\s+(.*)$`)
 )
 
 type ScannerType int8
