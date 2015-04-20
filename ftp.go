@@ -18,7 +18,7 @@ type FTPScanner struct {
 
 func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan bool) error {
 	if !strings.HasPrefix(scanurl, "ftp://") {
-		return fmt.Errorf("[%s] %s does not start with ftp://", identifier, scanurl)
+		return fmt.Errorf("%s does not start with ftp://", scanurl)
 	}
 
 	ftpurl, err := url.Parse(scanurl)
@@ -62,12 +62,12 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 
 	err = c.ChangeDir(ftpurl.Path)
 	if err != nil {
-		return fmt.Errorf("[%s] ftp error %s", identifier, err.Error())
+		return fmt.Errorf("ftp error %s", err.Error())
 	}
 
 	prefixDir, err := c.CurrentDir()
 	if err != nil {
-		return fmt.Errorf("[%s] ftp error %s", er, err.Error())
+		return fmt.Errorf("ftp error %s", err.Error())
 	}
 	if os.Getenv("DEBUG") != "" {
 		_ = prefixDir
@@ -80,7 +80,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 
 	files, err = f.walkFtp(c, files, prefix+"/", stop)
 	if err != nil {
-		return fmt.Errorf("[%s] ftp error %s", identifier, err.Error())
+		return fmt.Errorf("ftp error %s", err.Error())
 	}
 
 	count := 0

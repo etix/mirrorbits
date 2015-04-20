@@ -21,7 +21,7 @@ type RsyncScanner struct {
 
 func (r *RsyncScanner) Scan(url, identifier string, conn redis.Conn, stop chan bool) error {
 	if !strings.HasPrefix(url, "rsync://") {
-		return fmt.Errorf("[%s] %s does not start with rsync://", identifier, url)
+		return fmt.Errorf("%s does not start with rsync://", url)
 	}
 
 	// Always ensures there's a trailing slash
