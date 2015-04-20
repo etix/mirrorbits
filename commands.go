@@ -502,17 +502,17 @@ func (c *cli) CmdScan(args ...string) error {
 		if *rsync == true || *ftp == true {
 			// Use the requested protocol
 			if *rsync == true && mirror.RsyncURL != "" {
-				err = Scan(r).ScanRsync(mirror.RsyncURL, id, nil)
+				err = Scan(RSYNC, r, mirror.RsyncURL, id, nil)
 			} else if *ftp == true && mirror.FtpURL != "" {
-				err = Scan(r).ScanFTP(mirror.FtpURL, id, nil)
+				err = Scan(FTP, r, mirror.FtpURL, id, nil)
 			}
 		} else {
 			// Use rsync (if applicable) and fallback to FTP
 			if mirror.RsyncURL != "" {
-				err = Scan(r).ScanRsync(mirror.RsyncURL, id, nil)
+				err = Scan(RSYNC, r, mirror.RsyncURL, id, nil)
 			}
 			if err != nil && mirror.FtpURL != "" {
-				err = Scan(r).ScanFTP(mirror.FtpURL, id, nil)
+				err = Scan(FTP, r, mirror.FtpURL, id, nil)
 			}
 		}
 
@@ -542,7 +542,7 @@ func (c *cli) CmdRefresh(args ...string) error {
 		return nil
 	}
 
-	err := Scan(NewRedis()).ScanSource(nil)
+	err := ScanSource(NewRedis(), nil)
 	return err
 }
 

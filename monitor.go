@@ -298,12 +298,12 @@ func (m *Monitor) syncLoop() {
 
 			// First try to scan with rsync
 			if mirror.RsyncURL != "" {
-				err = Scan(m.redis).ScanRsync(mirror.RsyncURL, k, m.stop)
+				err = Scan(RSYNC, m.redis, mirror.RsyncURL, k, m.stop)
 			}
 			// If it failed or rsync wasn't supported
 			// fallback to FTP
 			if err != nil && mirror.FtpURL != "" {
-				err = Scan(m.redis).ScanFTP(mirror.FtpURL, k, m.stop)
+				err = Scan(FTP, m.redis, mirror.FtpURL, k, m.stop)
 			}
 
 			if err != nil {
@@ -401,7 +401,7 @@ func (m *Monitor) getRandomFile(identifier string) (file string, size int64, err
 
 // Trigger a sync of the local repository
 func (m *Monitor) syncSource() {
-	err := Scan(m.redis).ScanSource(m.stop)
+	err := ScanSource(m.redis, m.stop)
 	if err != nil {
 		log.Error("Scanning source failed: %s", err.Error())
 	}
