@@ -405,7 +405,8 @@ func (c *cli) CmdRemove(args ...string) error {
 		fmt.Sprintf("MIRROR_%s", identifier),
 		fmt.Sprintf("MIRROR_%s_FILES", identifier),
 		fmt.Sprintf("MIRROR_%s_FILES_TMP", identifier),
-		fmt.Sprintf("HANDLEDFILES_%s", identifier))
+		fmt.Sprintf("HANDLEDFILES_%s", identifier),
+		fmt.Sprintf("SCANNING_%s", identifier))
 
 	if err != nil {
 		log.Fatal("Error: MIRROR keys could not be removed: ", err)

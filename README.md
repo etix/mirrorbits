@@ -69,6 +69,8 @@ ListenAddress | Local address and port to bind
 Gzip | Use gzip compression for the JSON responses
 RedisAddress | Address and port of the Redis database
 RedisPassword | Password to access the Redis database
+RedisSentinelMasterName | Name of the redis-sentinel cluster
+RedisSentinels | List of redis-sentinel hosts
 LogDir | Path to the directory where to save log files
 GeoipDatabasePath | Path to the geoip databases
 ConcurrentSync | Maximum number of server sync (rsync/ftp) do to simultaneously
@@ -92,6 +94,12 @@ To run the cli:
 mirrorbits help
 ```
 
+## Clustering / High availability
+
+**Note: Clustering support has been added recently and should be treated as experimental.**
+
+Multiple instances of mirrorbits can be started simultanously on different servers, discovery of other nodes should be automatic as long as all the instances are connected to the same redis server. In addition to the clustering it is advised to use redis-sentinel to monitor the database and gracefuly handle failover.
+
 ## Upgrading
 
 Mirrorbits has a mode called *seamless binary upgrade* to upgrade the server executable at runtime without service disruption. Once the binary has been replaced on the filesystem just issue the following command in the cli:
@@ -106,7 +114,6 @@ mirrorbits upgrade
 proxy_set_header X-Forwarded-For $remote_addr;
 ```
 * It is advised to never cache requests intended for Mirrorbits since each request is supposed to be unique, caching the result might have unexpected consequences.
-* Having multiple instances of Mirrorbits sharing the same database is not yet (officially) supported, therefore don't do it in production.
 
 # We're social!
 

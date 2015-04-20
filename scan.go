@@ -14,7 +14,8 @@ import (
 )
 
 var (
-	scanAborted     = errors.New("scan aborted")
+	scanAborted    = errors.New("scan aborted")
+	scanInProgress = errors.New("scan already in progress")
 )
 
 type ScannerType int8
@@ -47,6 +48,10 @@ type scan struct {
 	count       uint
 }
 
+func IsScanning(conn redis.Conn, identifier string) (bool, error) {
+	return redis.Bool(conn.Do("EXISTS", fmt.Sprintf("SCANNING_%s", identifier)))
+}
+
 func Scan(typ ScannerType, r *redisobj, url, identifier string, stop chan bool) error {
 	s := &scan{
 		redis:      r,
@@ -73,6 +78,23 @@ func Scan(typ ScannerType, r *redisobj, url, identifier string, stop chan bool) 
 
 	s.conn = conn
 
+	lockKey := fmt.Sprintf("SCANNING_%s", identifier)
+
+	// Try to aquire a lock so we don't have a scanning race
+	// from different nodes.
+	lock, err := redis.Bool(conn.Do("SETNX", lockKey, 1))
+	if err != nil {
+		return err
+	}
+	if lock {
+		// Lock aquired.
+		defer conn.Do("DEL", lockKey)
+		// Make the key expire automatically in case our process gets killed
+		conn.Do("EXPIRE", lockKey, 600)
+	} else {
+		return scanInProgress
+	}
+
 	conn.Send("MULTI")
 
 	s.filesKey = fmt.Sprintf("MIRROR_%s_FILES", identifier)
@@ -81,7 +103,7 @@ func Scan(typ ScannerType, r *redisobj, url, identifier string, stop chan bool) 
 	// Remove any left over
 	conn.Send("DEL", s.filesTmpKey)
 
-	err := scanner.Scan(url, identifier, conn, stop)
+	err = scanner.Scan(url, identifier, conn, stop)
 	if err != nil {
 		// Discard MULTI
 		s.ScannerDiscard()
