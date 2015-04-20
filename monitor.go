@@ -292,9 +292,22 @@ func (m *Monitor) syncLoop() {
 			mirror := m.mirrors[k]
 			m.mapLock.Unlock()
 
+			conn := m.redis.pool.Get()
+			scanning, err := IsScanning(conn, k)
+			if err != nil {
+				log.Error("syncloop: ", err.Error())
+				conn.Close()
+				goto unlock
+			} else if scanning {
+				// A scan is already in progress on another node
+				conn.Close()
+				goto unlock
+			}
+			conn.Close()
+
 			log.Debug("Scanning %s", k)
 
-			var err error = NoSyncMethod
+			err = NoSyncMethod
 
 			// First try to scan with rsync
 			if mirror.RsyncURL != "" {
@@ -306,7 +319,10 @@ func (m *Monitor) syncLoop() {
 				err = Scan(FTP, m.redis, mirror.FtpURL, k, m.stop)
 			}
 
-			if err != nil {
+			if err == scanInProgress {
+				log.Warning("%-30.30s Scan already in progress", k)
+				goto unlock
+			} else if err != nil {
 				log.Error("%-30.30s Scan failed: %s", k, err.Error())
 			}
 
@@ -315,6 +331,7 @@ func (m *Monitor) syncLoop() {
 			default:
 			}
 
+		unlock:
 			m.mapLock.Lock()
 			if _, ok := m.mirrors[k]; ok {
 				m.mirrors[k].scanning = false
