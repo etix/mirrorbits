@@ -73,6 +73,7 @@ func (c *cli) CmdHelp() error {
 		{"reload", "Reload configuration"},
 		{"remove", "Remove a mirror"},
 		{"scan", "(Re-)Scan a mirror"},
+		{"show", "Print a mirror configuration"},
 		{"stats", "Show download stats"},
 		{"upgrade", "Seamless binary upgrade"},
 		{"version", "Print version informations"},
@@ -762,6 +763,63 @@ reopen:
 
 	fmt.Println("Mirror edited successfully")
 
+	return nil
+}
+
+func (c *cli) CmdShow(args ...string) error {
+	cmd := SubCmd("show", "[IDENTIFIER]", "Print a mirror configuration")
+
+	if err := cmd.Parse(args); err != nil {
+		return nil
+	}
+	if cmd.NArg() != 1 {
+		cmd.Usage()
+		return nil
+	}
+
+	// Guess which mirror to use
+	list, err := c.matchMirror(cmd.Arg(0))
+	if err != nil {
+		return err
+	}
+	if len(list) == 0 {
+		fmt.Fprintf(os.Stderr, "No match for %s\n", cmd.Arg(0))
+		return nil
+	} else if len(list) > 1 {
+		for _, e := range list {
+			fmt.Fprintf(os.Stderr, "%s\n", e)
+		}
+		return nil
+	}
+
+	id := list[0]
+
+	// Connect to the database
+	r := NewRedis()
+	conn, err := r.connect()
+	if err != nil {
+		log.Fatal("Redis: ", err)
+	}
+	defer conn.Close()
+
+	// Get the mirror informations
+	key := fmt.Sprintf("MIRROR_%s", id)
+	m, err := redis.Values(conn.Do("HGETALL", key))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot fetch mirror details: %s\n", err)
+		return err
+	}
+
+	var mirror Mirror
+	err = redis.ScanStruct(m, &mirror)
+	if err != nil {
+		return err
+	}
+
+	// Generate a yaml configuration string from the struct
+	out, err := goyaml.Marshal(mirror)
+
+	fmt.Printf("Mirror: %s\n%s\nComment:\n%s\n", id, out, mirror.Comment)
 	return nil
 }
 
