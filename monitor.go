@@ -41,6 +41,7 @@ type Monitor struct {
 	nodes        []Node
 	nodeIndex    int
 	nodeTotal    int
+	nodesLock    sync.RWMutex
 	mirrorsIndex []string
 }
 
@@ -210,7 +211,9 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
 			// Mirror has been deleted
 			m.mapLock.Lock()
 			delete(m.mirrors, id)
+			m.nodesLock.Lock()
 			m.mirrorsIndex = removeMirrorIDFromSlice(m.mirrorsIndex, mirror.ID)
+			m.nodesLock.Unlock()
 			m.mapLock.Unlock()
 			continue
 		}
@@ -218,7 +221,9 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
 			mirrors = append(mirrors, mirror)
 
 			m.mapLock.Lock()
+			m.nodesLock.Lock()
 			m.mirrorsIndex = addMirrorIDToSlice(m.mirrorsIndex, mirror.ID)
+			m.nodesLock.Unlock()
 			m.mapLock.Unlock()
 		}
 	}
@@ -466,6 +471,8 @@ func (m *Monitor) clusterLoop() {
 func (m *Monitor) refreshNodeList(nodeID, self string) {
 	found := false
 
+	m.nodesLock.Lock()
+
 	// Expire unreachable nodes
 	for i := 0; i < len(m.nodes); i++ {
 		if elapsedSec(m.nodes[i].LastAnnounce, 5) && m.nodes[i].ID != nodeID && m.nodes[i].ID != self {
@@ -503,13 +510,17 @@ func (m *Monitor) refreshNodeList(nodeID, self string) {
 			break
 		}
 	}
+
+	m.nodesLock.Unlock()
 }
 
 func (m *Monitor) isHandled(mirrorID string) bool {
+	m.nodesLock.RLock()
 	index := sort.SearchStrings(m.mirrorsIndex, mirrorID)
 
 	mRange := int(float32(len(m.mirrorsIndex))/float32(m.nodeTotal) + 0.5)
 	start := mRange * m.nodeIndex
+	m.nodesLock.RUnlock()
 
 	// Check bounding to see if this mirror must be handled by this node.
 	// The distribution of the nodes should be balanced except for the last node
