@@ -199,7 +199,7 @@ func (r *redisobj) logError(format string, args ...interface{}) {
 }
 
 func (r *redisobj) printConnectedMaster(address string) {
-	if address != r.knownMaster {
+	if address != r.knownMaster && daemon {
 		r.knownMaster = address
 		log.Info("Connected to redis master %s", address)
 	} else {
