@@ -76,7 +76,7 @@ func (c *cli) CmdHelp() error {
 		{"show", "Print a mirror configuration"},
 		{"stats", "Show download stats"},
 		{"upgrade", "Seamless binary upgrade"},
-		{"version", "Print version informations"},
+		{"version", "Print version information"},
 	} {
 		help += fmt.Sprintf("    %-10.10s%s\n", command[0], command[1])
 	}
@@ -618,7 +618,7 @@ func (c *cli) CmdEdit(args ...string) error {
 	}
 	defer conn.Close()
 
-	// Get the mirror informations
+	// Get the mirror information
 	key := fmt.Sprintf("MIRROR_%s", id)
 	m, err := redis.Values(conn.Do("HGETALL", key))
 	if err != nil {
@@ -802,7 +802,7 @@ func (c *cli) CmdShow(args ...string) error {
 	}
 	defer conn.Close()
 
-	// Get the mirror informations
+	// Get the mirror information
 	key := fmt.Sprintf("MIRROR_%s", id)
 	m, err := redis.Values(conn.Do("HGETALL", key))
 	if err != nil {

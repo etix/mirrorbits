@@ -40,6 +40,6 @@
 // command in the cli:
 //  mirrorbits upgrade
 //
-// For more informations visit the official page:
+// For more information visit the official page:
 // https://github.com/etix/mirrorbits/
 package main

@@ -101,7 +101,7 @@ func (c *Cache) Clear() {
 	c.fimCache.Clear()
 }
 
-// GetFileInfo returns file informations for a given file either from the cache
+// GetFileInfo returns file information for a given file either from the cache
 // or directly from the database if the object is not yet stored in the cache.
 func (c *Cache) GetFileInfo(path string) (f FileInfo, err error) {
 	v, ok := c.fiCache.Get(path)

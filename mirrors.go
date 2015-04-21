@@ -7,7 +7,7 @@ import (
 	"math/rand"
 )
 
-// Mirror is the structure representing all the informations about a mirror
+// Mirror is the structure representing all the information about a mirror
 type Mirror struct {
 	ID             string   `redis:"ID" yaml:"-"`
 	HttpURL        string   `redis:"http" yaml:"HttpURL"`
