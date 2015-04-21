@@ -111,6 +111,7 @@ func Scan(typ ScannerType, r *redisobj, url, identifier string, stop chan bool) 
 		// Remove the temporary key
 		conn.Do("DEL", s.filesTmpKey)
 
+		s.setLastSync(conn, identifier)
 		log.Error("[%s] %s", identifier, err.Error())
 		return err
 	}
