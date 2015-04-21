@@ -322,8 +322,6 @@ func (m *Monitor) syncLoop() {
 			if err == scanInProgress {
 				log.Warning("%-30.30s Scan already in progress", k)
 				goto unlock
-			} else if err != nil {
-				log.Error("%-30.30s Scan failed: %s", k, err.Error())
 			}
 
 			select {
