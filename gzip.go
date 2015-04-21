@@ -4,7 +4,7 @@
 package main
 
 import (
-	"github.com/youtube/vitess/go/cgzip"
+	"github.com/etix/mirrorbits/cgzip"
 	"io"
 	"net/http"
 	"strings"
