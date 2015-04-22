@@ -147,14 +147,14 @@ func (m *Monitor) monitorLoop() {
 		case <-mirrorCheckTicker.C:
 			m.mapLock.Lock()
 			for k, v := range m.mirrors {
-				if elapsedSec(v.lastCheck, 60) && m.mirrors[k].checking == false && m.isHandled(k) {
+				if elapsedSec(v.lastCheck, int64(60*GetConfig().CheckInterval)) && m.mirrors[k].checking == false && m.isHandled(k) {
 					select {
 					case m.healthCheckChan <- k:
 						m.mirrors[k].checking = true
 					default:
 					}
 				}
-				if elapsedSec(v.LastSync, 60*30) && m.mirrors[k].scanning == false && m.isHandled(k) {
+				if elapsedSec(v.LastSync, int64(60*GetConfig().ScanInterval)) && m.mirrors[k].scanning == false && m.isHandled(k) {
 					select {
 					case m.syncChan <- k:
 						m.mirrors[k].scanning = true

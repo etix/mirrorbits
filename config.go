@@ -24,6 +24,8 @@ var (
 		LogDir:                  "",
 		GeoipDatabasePath:       "/usr/share/GeoIP/",
 		ConcurrentSync:          2,
+		ScanInterval:            30,
+		CheckInterval:           1,
 		DisallowRedirects:       false,
 		WeightDistributionRange: 1.5,
 		DisableOnMissingFile:    false,
@@ -43,6 +45,8 @@ type configuration struct {
 	LogDir                  string     `yaml:"LogDir"`
 	GeoipDatabasePath       string     `yaml:"GeoipDatabasePath"`
 	ConcurrentSync          int        `yaml:"ConcurrentSync"`
+	ScanInterval            int        `yaml:"ScanInterval"`
+	CheckInterval           int        `yaml:"CheckInterval"`
 	DisallowRedirects       bool       `yaml:"DisallowRedirects"`
 	WeightDistributionRange float32    `yaml:"WeightDistributionRange"`
 	DisableOnMissingFile    bool       `yaml:"DisableOnMissingFile"`
