@@ -95,6 +95,8 @@ func Scan(typ ScannerType, r *redisobj, url, identifier string, stop chan bool) 
 		return scanInProgress
 	}
 
+	s.setLastSync(conn, identifier, false)
+
 	conn.Send("MULTI")
 
 	s.filesKey = fmt.Sprintf("MIRROR_%s_FILES", identifier)
@@ -111,7 +113,6 @@ func Scan(typ ScannerType, r *redisobj, url, identifier string, stop chan bool) 
 		// Remove the temporary key
 		conn.Do("DEL", s.filesTmpKey)
 
-		s.setLastSync(conn, identifier, false)
 		log.Error("[%s] %s", identifier, err.Error())
 		return err
 	}
