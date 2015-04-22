@@ -111,7 +111,7 @@ func Scan(typ ScannerType, r *redisobj, url, identifier string, stop chan bool) 
 		// Remove the temporary key
 		conn.Do("DEL", s.filesTmpKey)
 
-		s.setLastSync(conn, identifier)
+		s.setLastSync(conn, identifier, false)
 		log.Error("[%s] %s", identifier, err.Error())
 		return err
 	}
@@ -158,7 +158,7 @@ func Scan(typ ScannerType, r *redisobj, url, identifier string, stop chan bool) 
 		return err
 	}
 
-	s.setLastSync(conn, identifier)
+	s.setLastSync(conn, identifier, true)
 	log.Info("[%s] Indexed %d files (%d known), %d removed", identifier, s.count, common, len(toremove))
 	return nil
 }
@@ -190,9 +190,21 @@ func (s *scan) ScannerCommit() error {
 	return err
 }
 
-func (s *scan) setLastSync(conn redis.Conn, identifier string) error {
+func (s *scan) setLastSync(conn redis.Conn, identifier string, successful bool) error {
+	now := time.Now().UTC().Unix()
+
+	conn.Send("MULTI")
+
 	// Set the last sync time
-	_, err := conn.Do("HSET", fmt.Sprintf("MIRROR_%s", identifier), "lastSync", time.Now().UTC().Unix())
+	conn.Send("HSET", fmt.Sprintf("MIRROR_%s", identifier), "lastSync", now)
+
+	// Set the last successful sync time
+	if successful {
+		conn.Send("HSET", fmt.Sprintf("MIRROR_%s", identifier), "lastSuccessfulSync", now)
+	}
+
+	_, err := conn.Do("EXEC")
+
 	// Publish an update on redis
 	Publish(conn, MIRROR_UPDATE, identifier)
 
