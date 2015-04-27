@@ -44,6 +44,8 @@ type FileInfo struct {
 	Size    int64     `redis:"size" json:",omitempty"`
 	ModTime time.Time `redis:"modTime" json:",omitempty"`
 	Sha1    string    `redis:"sha1" json:",omitempty"`
+	Sha256  string    `redis:"sha256" json:",omitempty"`
+	Md5     string    `redis:"md5" json:",omitempty"`
 }
 
 // MirrorlistPage is the resulting struct of a request and is

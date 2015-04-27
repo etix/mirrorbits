@@ -6,7 +6,9 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/md5"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
@@ -93,7 +95,7 @@ func normalizeURL(url string) string {
 }
 
 // Generate a human readable sha1 hash of the given file path
-func hashFile(path string) (hash string, err error) {
+func hashFile(path string) (hashes FileInfo, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return
@@ -101,12 +103,28 @@ func hashFile(path string) (hash string, err error) {
 	defer f.Close()
 
 	reader := bufio.NewReader(f)
-	sha1Hash := sha1.New()
-	_, err = io.Copy(sha1Hash, reader)
-	if err != nil {
-		return
+
+	if GetConfig().Hashes.SHA1 {
+		sha1Hash := sha1.New()
+		_, err = io.Copy(sha1Hash, reader)
+		if err == nil {
+			hashes.Sha1 = hex.EncodeToString(sha1Hash.Sum(nil))
+		}
 	}
-	hash = hex.EncodeToString(sha1Hash.Sum(nil))
+	if GetConfig().Hashes.SHA256 {
+		sha256Hash := sha256.New()
+		_, err = io.Copy(sha256Hash, reader)
+		if err == nil {
+			hashes.Sha256 = hex.EncodeToString(sha256Hash.Sum(nil))
+		}
+	}
+	if GetConfig().Hashes.MD5 {
+		md5Hash := md5.New()
+		_, err = io.Copy(md5Hash, reader)
+		if err == nil {
+			hashes.Md5 = hex.EncodeToString(md5Hash.Sum(nil))
+		}
+	}
 	return
 }
 

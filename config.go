@@ -14,18 +14,23 @@ import (
 
 var (
 	defaultConfig = configuration{
-		Repository:              "",
-		Templates:               "",
-		OutputMode:              "auto",
-		ListenAddress:           ":8080",
-		Gzip:                    false,
-		RedisAddress:            "127.0.0.1:6379",
-		RedisPassword:           "",
-		LogDir:                  "",
-		GeoipDatabasePath:       "/usr/share/GeoIP/",
-		ConcurrentSync:          2,
-		ScanInterval:            30,
-		CheckInterval:           1,
+		Repository:        "",
+		Templates:         "",
+		OutputMode:        "auto",
+		ListenAddress:     ":8080",
+		Gzip:              false,
+		RedisAddress:      "127.0.0.1:6379",
+		RedisPassword:     "",
+		LogDir:            "",
+		GeoipDatabasePath: "/usr/share/GeoIP/",
+		ConcurrentSync:    2,
+		ScanInterval:      30,
+		CheckInterval:     1,
+		Hashes: hashing{
+			SHA1:   true,
+			SHA256: false,
+			MD5:    false,
+		},
 		DisallowRedirects:       false,
 		WeightDistributionRange: 1.5,
 		DisableOnMissingFile:    false,
@@ -47,6 +52,7 @@ type configuration struct {
 	ConcurrentSync          int        `yaml:"ConcurrentSync"`
 	ScanInterval            int        `yaml:"ScanInterval"`
 	CheckInterval           int        `yaml:"CheckInterval"`
+	Hashes                  hashing    `yaml:"Hashes"`
 	DisallowRedirects       bool       `yaml:"DisallowRedirects"`
 	WeightDistributionRange float32    `yaml:"WeightDistributionRange"`
 	DisableOnMissingFile    bool       `yaml:"DisableOnMissingFile"`
@@ -64,6 +70,12 @@ type fallback struct {
 
 type sentinels struct {
 	Host string `yaml:"Host"`
+}
+
+type hashing struct {
+	SHA1   bool `yaml:"SHA1"`
+	SHA256 bool `yaml:"SHA256"`
+	MD5    bool `yaml:"MD5"`
 }
 
 // LoadConfig loads the configuration file if it has not yet been loaded

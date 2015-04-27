@@ -116,7 +116,7 @@ func (c *Cache) GetFileInfo(path string) (f FileInfo, err error) {
 func (c *Cache) fetchFileInfo(path string) (f FileInfo, err error) {
 	rconn := c.r.pool.Get()
 	defer rconn.Close()
-	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILE_%s", path), "size", "modTime", "sha1"))
+	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILE_%s", path), "size", "modTime", "sha1", "sha256", "md5"))
 	if err != nil {
 		// Put at least the path in the response
 		f.Path = path
@@ -126,6 +126,8 @@ func (c *Cache) fetchFileInfo(path string) (f FileInfo, err error) {
 	f.Size, _ = strconv.ParseInt(reply[0], 10, 64)
 	f.ModTime, _ = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", reply[1])
 	f.Sha1 = reply[2]
+	f.Sha256 = reply[3]
+	f.Md5 = reply[4]
 	c.fiCache.Set(path, &fileInfoValue{value: f})
 	return
 }

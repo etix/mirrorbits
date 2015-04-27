@@ -32,6 +32,8 @@ type Scanner interface {
 type filedata struct {
 	path    string
 	sha1    string
+	sha256  string
+	md5     string
 	size    int64
 	modTime time.Time
 }
@@ -224,7 +226,7 @@ func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 	d.modTime = f.ModTime()
 
 	// Get the previous file properties
-	properties, err := redis.Strings(s.walkRedisConn.Do("HMGET", fmt.Sprintf("FILE_%s", d.path), "size", "modTime", "sha1"))
+	properties, err := redis.Strings(s.walkRedisConn.Do("HMGET", fmt.Sprintf("FILE_%s", d.path), "size", "modTime", "sha1", "sha256", "md5"))
 	if err != nil && err != redis.ErrNil {
 		return err
 	}
@@ -233,17 +235,35 @@ func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 		size, _ := strconv.ParseInt(properties[0], 10, 64)
 		modTime, _ := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", properties[1])
 		sha1 := properties[2]
-		if size != d.size || modTime != d.modTime {
+		sha256 := properties[3]
+		md5 := properties[4]
+
+		rehash := (GetConfig().Hashes.SHA1 && len(sha1) == 0) ||
+			(GetConfig().Hashes.SHA256 && len(sha256) == 0) ||
+			(GetConfig().Hashes.MD5 && len(md5) == 0)
+
+		if rehash || size != d.size || modTime != d.modTime {
 			h, err := hashFile(GetConfig().Repository + d.path)
 			if err != nil {
 				log.Warning("%s: hashing failed: %s", d.path, err.Error())
 			} else {
-				log.Info("%s: %s", d.path, h)
-				d.sha1 = h
+				d.sha1 = h.Sha1
+				d.sha256 = h.Sha256
+				d.md5 = h.Md5
+				if len(d.sha1) > 0 {
+					log.Info("%s: SHA1 %s", d.path, d.sha1)
+				}
+				if len(d.sha256) > 0 {
+					log.Info("%s: SHA256 %s", d.path, d.sha256)
+				}
+				if len(d.md5) > 0 {
+					log.Info("%s: MD5 %s", d.path, d.md5)
+				}
 			}
-		}
-		if d.sha1 == "" {
+		} else {
 			d.sha1 = sha1
+			d.sha256 = sha256
+			d.md5 = md5
 		}
 	}
 
@@ -311,7 +331,9 @@ func ScanSource(r *redisobj, stop chan bool) (err error) {
 		s.walkRedisConn.Send("HMSET", fmt.Sprintf("FILE_%s", e.path),
 			"size", e.size,
 			"modTime", e.modTime,
-			"sha1", e.sha1)
+			"sha1", e.sha1,
+			"sha256", e.sha256,
+			"md5", e.md5)
 
 		// Publish update
 		SendPublish(s.walkRedisConn, FILE_UPDATE, e.path)
