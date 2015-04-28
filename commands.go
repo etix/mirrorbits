@@ -15,6 +15,8 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -984,7 +986,7 @@ func (c *cli) CmdDisable(args ...string) error {
 }
 
 func (c *cli) CmdStats(args ...string) error {
-	cmd := SubCmd("stats", "[OPTIONS] [IDENTIFIER]", "Show download stats for a given mirror")
+	cmd := SubCmd("stats", "[OPTIONS] [mirror|file] [IDENTIFIER|PATTERN]", "Show download stats for a particular mirror or a file pattern")
 	dateStart := cmd.String("start-date", "", "Starting date (format YYYY-MM-DD)")
 	dateEnd := cmd.String("end-date", "", "Ending date (format YYYY-MM-DD)")
 	human := cmd.Bool("h", true, "Human readable version")
@@ -992,7 +994,7 @@ func (c *cli) CmdStats(args ...string) error {
 	if err := cmd.Parse(args); err != nil {
 		return nil
 	}
-	if cmd.NArg() != 1 {
+	if cmd.NArg() != 2 || (cmd.Arg(0) != "mirror" && cmd.Arg(0) != "file") {
 		cmd.Usage()
 		return nil
 	}
@@ -1004,20 +1006,6 @@ func (c *cli) CmdStats(args ...string) error {
 	}
 	defer conn.Close()
 
-	list, err := c.matchMirror(cmd.Arg(0))
-	if err != nil {
-		return err
-	}
-	if len(list) == 0 {
-		fmt.Fprintf(os.Stderr, "No match for %s\n", cmd.Arg(0))
-		return nil
-	} else if len(list) > 1 {
-		for _, e := range list {
-			fmt.Fprintf(os.Stderr, "%s\n", e)
-		}
-		return nil
-	}
-
 	start, err := time.Parse("2006-1-2", *dateStart)
 	if err != nil {
 		start = time.Now()
@@ -1028,52 +1016,144 @@ func (c *cli) CmdStats(args ...string) error {
 		end = time.Now()
 	}
 
-	conn.Send("MULTI")
+	if cmd.Arg(0) == "file" {
+		// File stats
 
-	for {
-		// XXX instead of doing an iteration by day it would be nice
-		// to use the precomputed month and year values
-		conn.Send("HGET", "STATS_MIRROR_"+start.Format("2006_01_02"), list[0])
-		conn.Send("HGET", "STATS_MIRROR_BYTES_"+start.Format("2006_01_02"), list[0])
-		if start.Year() == end.Year() &&
-			start.Month() == end.Month() &&
-			start.Day() == end.Day() {
-			break
+		re, err := regexp.Compile(cmd.Arg(1))
+		if err != nil {
+			return err
 		}
-		start = start.AddDate(0, 0, 1)
+
+		conn.Send("MULTI")
+
+		for {
+			// XXX instead of doing an iteration by day it would be nice
+			// to use the precomputed month and year values
+			conn.Send("HGETALL", "STATS_FILE_"+start.Format("2006_01_02"))
+			if start.Year() == end.Year() &&
+				start.Month() == end.Month() &&
+				start.Day() == end.Day() {
+				break
+			}
+			start = start.AddDate(0, 0, 1)
+		}
+
+		stats, err := redis.Values(conn.Do("EXEC"))
+		if err != nil {
+			log.Critical("Cannot fetch stats: %s", err)
+			return err
+		}
+
+		var requests int64
+		m := make(map[string]int64)
+
+		for _, res := range stats {
+			line, ok := res.([]interface{})
+			if !ok {
+				log.Fatal("Typecast failed")
+			} else {
+				stats := []interface{}(line)
+				for i := 0; i < len(stats); i += 2 {
+					path, _ := redis.String(stats[i], nil)
+					matched := re.MatchString(path)
+					if err != nil {
+						log.Error("%s", err.Error())
+					} else if matched {
+						reqs, _ := redis.Int64(stats[i+1], nil)
+						m[path] += reqs
+						requests += reqs
+					}
+				}
+			}
+		}
+
+		// Format the results
+		w := new(tabwriter.Writer)
+		w.Init(os.Stdout, 0, 8, 0, '\t', 0)
+
+		// Sort keys
+		var keys []string
+		for k := range m {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, k := range keys {
+			fmt.Fprintf(w, "%s:\t%d\n", k, m[k])
+		}
+
+		if len(keys) > 0 {
+			// Add a line separator
+			fmt.Fprintf(w, "\t\n")
+		}
+
+		fmt.Fprintf(w, "Total download requests:\t%d\n", requests)
+		w.Flush()
+	} else if cmd.Arg(0) == "mirror" {
+		// Mirror stats
+
+		list, err := c.matchMirror(cmd.Arg(1))
+		if err != nil {
+			return err
+		}
+		if len(list) == 0 {
+			fmt.Fprintf(os.Stderr, "No match for mirror %s\n", cmd.Arg(1))
+			return nil
+		} else if len(list) > 1 {
+			for _, e := range list {
+				fmt.Fprintf(os.Stderr, "%s\n", e)
+			}
+			return nil
+		}
+
+		conn.Send("MULTI")
+
+		for {
+			// XXX instead of doing an iteration by day it would be nice
+			// to use the precomputed month and year values
+			conn.Send("HGET", "STATS_MIRROR_"+start.Format("2006_01_02"), list[0])
+			conn.Send("HGET", "STATS_MIRROR_BYTES_"+start.Format("2006_01_02"), list[0])
+			if start.Year() == end.Year() &&
+				start.Month() == end.Month() &&
+				start.Day() == end.Day() {
+				break
+			}
+			start = start.AddDate(0, 0, 1)
+		}
+
+		stats, err := redis.Strings(conn.Do("EXEC"))
+		if err != nil {
+			log.Critical("Cannot fetch stats: %s", err)
+			return err
+		}
+
+		var (
+			requests int64
+			bytes    int64
+		)
+
+		for i := 0; i < len(stats); i += 2 {
+			v1, _ := strconv.ParseInt(stats[i], 10, 64)
+			v2, _ := strconv.ParseInt(stats[i+1], 10, 64)
+			requests += v1
+			bytes += v2
+		}
+
+		// Format the results
+		w := new(tabwriter.Writer)
+		w.Init(os.Stdout, 0, 8, 0, '\t', 0)
+
+		fmt.Fprintf(w, "Identifier:\t%s\n", list[0])
+		fmt.Fprintf(w, "Download requests:\t%d\n", requests)
+		fmt.Fprint(w, "Bytes transfered:\t")
+		if *human {
+			fmt.Fprintln(w, readableSize(bytes))
+		} else {
+			fmt.Fprintln(w, bytes)
+		}
+		w.Flush()
 	}
 
-	stats, err := redis.Strings(conn.Do("EXEC"))
-	if err != nil {
-		log.Critical("Cannot fetch stats: %s", err)
-		return err
-	}
-
-	var (
-		requests int64
-		bytes    int64
-	)
-
-	for i := 0; i < len(stats); i += 2 {
-		v1, _ := strconv.ParseInt(stats[i], 10, 64)
-		v2, _ := strconv.ParseInt(stats[i+1], 10, 64)
-		requests += v1
-		bytes += v2
-	}
-
-	// Format the results
-	w := new(tabwriter.Writer)
-	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
-
-	fmt.Fprintf(w, "Identifier:\t%s\n", list[0])
-	fmt.Fprintf(w, "Download requests:\t%d\n", requests)
-	fmt.Fprint(w, "Bytes transfered:\t")
-	if *human {
-		fmt.Fprintln(w, readableSize(bytes))
-	} else {
-		fmt.Fprintln(w, bytes)
-	}
-	w.Flush()
 	return nil
 }
 
