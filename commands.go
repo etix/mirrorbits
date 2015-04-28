@@ -1016,6 +1016,11 @@ func (c *cli) CmdStats(args ...string) error {
 		end = time.Now()
 	}
 
+	tkcoverage := timeKeyCoverage(start, end)
+	for _, b := range tkcoverage {
+		log.Debug("Requesting %s", b)
+	}
+
 	if cmd.Arg(0) == "file" {
 		// File stats
 
@@ -1026,16 +1031,8 @@ func (c *cli) CmdStats(args ...string) error {
 
 		conn.Send("MULTI")
 
-		for {
-			// XXX instead of doing an iteration by day it would be nice
-			// to use the precomputed month and year values
-			conn.Send("HGETALL", "STATS_FILE_"+start.Format("2006_01_02"))
-			if start.Year() == end.Year() &&
-				start.Month() == end.Month() &&
-				start.Day() == end.Day() {
-				break
-			}
-			start = start.AddDate(0, 0, 1)
+		for _, k := range tkcoverage {
+			conn.Send("HGETALL", "STATS_FILE_"+k)
 		}
 
 		stats, err := redis.Values(conn.Do("EXEC"))
@@ -1108,17 +1105,9 @@ func (c *cli) CmdStats(args ...string) error {
 
 		conn.Send("MULTI")
 
-		for {
-			// XXX instead of doing an iteration by day it would be nice
-			// to use the precomputed month and year values
-			conn.Send("HGET", "STATS_MIRROR_"+start.Format("2006_01_02"), list[0])
-			conn.Send("HGET", "STATS_MIRROR_BYTES_"+start.Format("2006_01_02"), list[0])
-			if start.Year() == end.Year() &&
-				start.Month() == end.Month() &&
-				start.Day() == end.Day() {
-				break
-			}
-			start = start.AddDate(0, 0, 1)
+		for _, k := range tkcoverage {
+			conn.Send("HGET", "STATS_MIRROR_"+k, list[0])
+			conn.Send("HGET", "STATS_MIRROR_BYTES_"+k, list[0])
 		}
 
 		stats, err := redis.Strings(conn.Do("EXEC"))

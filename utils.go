@@ -270,3 +270,47 @@ func getHostname() string {
 	}
 	return hostname
 }
+
+// timeKeyCoverage returns a slice of strings covering the date range
+// used in the redis backend.
+func timeKeyCoverage(start, end time.Time) (dates []string) {
+	if start.Equal(end) {
+		dates = append(dates, start.Format("2006_01_02"))
+		return
+	}
+
+	if start.Day() != 1 {
+		month := start.Month()
+		for {
+			if start.Month() != month || start.Equal(end) {
+				break
+			}
+			dates = append(dates, start.Format("2006_01_02"))
+			start = start.AddDate(0, 0, 1)
+		}
+	}
+
+	for {
+		tmpyear := time.Date(start.Year()+1, 1, 1, 0, 0, 0, 0, start.Location())
+		tmpmonth := time.Date(start.Year(), start.Month()+1, 1, 0, 0, 0, 0, start.Location())
+		if start.Day() == 1 && start.Month() == 1 && (tmpyear.Before(end) || tmpyear.Equal(end)) {
+			dates = append(dates, start.Format("2006"))
+			start = tmpyear
+		} else if tmpmonth.Before(end) || tmpmonth.Equal(end) {
+			dates = append(dates, start.Format("2006_01"))
+			start = tmpmonth
+		} else {
+			break
+		}
+	}
+
+	for {
+		if start.AddDate(0, 0, 1).After(end) {
+			break
+		}
+		dates = append(dates, start.Format("2006_01_02"))
+		start = start.AddDate(0, 0, 1)
+	}
+
+	return
+}
