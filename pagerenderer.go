@@ -60,13 +60,19 @@ func (w *RedirectRenderer) Write(ctx *Context, page *MirrorlistPage) (statusCode
 	if len(page.MirrorList) > 0 {
 		ctx.ResponseWriter().Header().Set("Content-Type", "text/html; charset=utf-8")
 
+		path := strings.TrimPrefix(page.FileInfo.Path, "/")
+
 		// Generate the header alternative links
 		for i, m := range page.MirrorList[1:] {
-			ctx.ResponseWriter().Header().Add("Link", fmt.Sprintf("<%s>; rel=duplicate; pri=%d; geo=%s", m.HttpURL+page.FileInfo.Path[1:], i+1, strings.ToLower(m.CountryFields[0])))
+			var countryCode string
+			if len(m.CountryFields) > 0 {
+				countryCode = strings.ToLower(m.CountryFields[0])
+			}
+			ctx.ResponseWriter().Header().Add("Link", fmt.Sprintf("<%s>; rel=duplicate; pri=%d; geo=%s", m.HttpURL+path, i+1, countryCode))
 		}
 
 		// Finally issue the redirect
-		http.Redirect(ctx.ResponseWriter(), ctx.Request(), page.MirrorList[0].HttpURL+page.FileInfo.Path[1:], http.StatusFound)
+		http.Redirect(ctx.ResponseWriter(), ctx.Request(), page.MirrorList[0].HttpURL+path, http.StatusFound)
 		return http.StatusFound, nil
 	}
 	// No mirror returned for this request
