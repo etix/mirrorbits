@@ -45,9 +45,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 		}
 		// Is it enabled?
 		if !m.Enabled {
-			if m.ExcludeReason == "" {
-				m.ExcludeReason = "Disabled"
-			}
+			m.ExcludeReason = "Disabled"
 			goto delete
 		}
 		// Is it up?
