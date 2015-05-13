@@ -147,6 +147,10 @@ func (m *Monitor) monitorLoop() {
 		case <-mirrorCheckTicker.C:
 			m.mapLock.Lock()
 			for k, v := range m.mirrors {
+				if !v.Enabled {
+					// Ignore disabled mirrors
+					continue
+				}
 				if elapsedSec(v.lastCheck, int64(60*GetConfig().CheckInterval)) && m.mirrors[k].checking == false && m.isHandled(k) {
 					select {
 					case m.healthCheckChan <- k:
@@ -217,15 +221,13 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
 			m.mapLock.Unlock()
 			continue
 		}
-		if mirror.Enabled {
-			mirrors = append(mirrors, mirror)
+		mirrors = append(mirrors, mirror)
 
-			m.mapLock.Lock()
-			m.nodesLock.Lock()
-			m.mirrorsIndex = addMirrorIDToSlice(m.mirrorsIndex, mirror.ID)
-			m.nodesLock.Unlock()
-			m.mapLock.Unlock()
-		}
+		m.mapLock.Lock()
+		m.nodesLock.Lock()
+		m.mirrorsIndex = addMirrorIDToSlice(m.mirrorsIndex, mirror.ID)
+		m.nodesLock.Unlock()
+		m.mapLock.Unlock()
 	}
 
 	m.mapLock.Lock()
