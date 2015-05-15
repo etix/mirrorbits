@@ -74,6 +74,9 @@ RedisSentinels | List of redis-sentinel hosts
 LogDir | Path to the directory where to save log files
 GeoipDatabasePath | Path to the geoip databases
 ConcurrentSync | Maximum number of server sync (rsync/ftp) do to simultaneously
+ScanInterval | Interval between rsync/ftp synchronizations (in minutes)
+CheckInterval | Interval between mirrors health's checks (in minutes)
+Hashes | List of file hashes to computes (SHA1, SHA256, MD5)
 DisallowRedirects | Disable any mirror trying to do an HTTP redirect
 WeightDistributionRange | Multiplier of the distance to the first mirror to find other possible mirrors in order to distribute the load
 DisableOnMissingFile | Disable a mirror if an advertised file on rsync/ftp appears to be missing on HTTP
