@@ -41,6 +41,12 @@ func ReloadLogs() {
 }
 
 func ReloadRuntimeLogs() {
+	if rlogger.f == os.Stderr && runLog == "" {
+		// Logger already set up and connected to the console.
+		// Don't reload to avoid breaking journald.
+		return
+	}
+
 	logColor := false
 
 	stat, _ := os.Stdout.Stat()
