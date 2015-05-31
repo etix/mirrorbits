@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 type FTPScanner struct {
@@ -35,7 +36,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 		return scanAborted
 	}
 
-	c, err := ftp.Connect(host)
+	c, err := ftp.DialTimeout(host, 5*time.Second)
 	if err != nil {
 		return err
 	}
