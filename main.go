@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"runtime"
 	"runtime/pprof"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -72,6 +73,12 @@ func main() {
 
 		defer r.Close()
 
+		/* Start the background monitor */
+		m := NewMonitor(r, c)
+		if monitor {
+			go m.monitorLoop()
+		}
+
 		/* Handle SIGNALS */
 		k := make(chan os.Signal, 1)
 		signal.Notify(k,
@@ -92,9 +99,10 @@ func main() {
 					removePidFile()
 					os.Exit(0)
 				case syscall.SIGQUIT:
-					if h.SListener != nil {
-						log.Notice("Waiting for running tasks for finish...")
-						h.SListener.Stop <- true
+					m.Stop()
+					if h.Listener != nil {
+						log.Notice("Waiting for running tasks to finish...")
+						h.Stop(5 * time.Second)
 					} else {
 						removePidFile()
 						os.Exit(0)
@@ -108,7 +116,7 @@ func main() {
 					}
 					if GetConfig().ListenAddress != listenAddress {
 						h.Restarting = true
-						h.SListener.Stop <- true
+						h.Stop(1 * time.Second)
 					}
 					h.Reload()
 				case syscall.SIGUSR1:
@@ -116,75 +124,59 @@ func main() {
 					ReloadLogs()
 				case syscall.SIGUSR2:
 					log.Notice("SIGUSR2 Received: Seamless binary upgrade...")
-					err := Relaunch(h.SListener.Listener)
+					err := Relaunch(*h.Listener)
 					if err != nil {
 						log.Error("%s", err)
 					} else {
-						h.SListener.Stop <- true
+						m.Stop()
+						h.Stop(10 * time.Second)
 					}
 				}
 			}
 		}()
 
-		/* Start the background monitor */
-		m := NewMonitor(r, c)
-		if monitor {
-			go m.monitorLoop()
-		}
-
 		// Recover an existing listener (see process.go)
 		if l, ppid, err := Recover(); err == nil {
 			h.SetListener(l)
-			KillParent(ppid)
+			go func() {
+				time.Sleep(500 * time.Millisecond)
+				KillParent(ppid)
+			}()
 		}
 
 		/* Finally start the HTTP server */
 		var err error
 		for {
 			err = h.RunServer()
-			if h.SListener.Stopped && h.Restarting {
+			if h.Restarting {
 				h.Restarting = false
 				continue
+			}
+			// This check is ugly but there's still no way to detect this error by type
+			if err != nil && strings.Contains(err.Error(), "use of closed network connection") {
+				// This error is expected during a graceful shutdown
+				err = nil
 			}
 			break
 		}
 
-		/* Check why the Serve loop exited */
-		if h.SListener.Stopped {
-			alive := h.SListener.ConnCount.Get()
-			if alive > 0 {
-				log.Info("%d client(s) still connected…\n", alive)
-			}
+		log.Debug("Waiting for monitor termination")
+		m.Wait()
 
-			m.Terminate()
+		log.Debug("Terminating server")
+		h.Terminate()
 
-			/* Wait at most 5 seconds for the clients to disconnect */
-			for i := 0; i < 5; i++ {
-				/* Get the number of clients still connected */
-				alive = h.SListener.ConnCount.Get()
-				if alive == 0 {
-					break
-				}
-				time.Sleep(1 * time.Second)
-			}
+		removePidFile()
 
-			alive = h.SListener.ConnCount.Get()
-			h.Terminate()
-			if alive > 0 {
-				log.Warning("Server stopped after 5 seconds with %d client(s) still connected.", alive)
-			} else {
-				log.Notice("Server stopped gracefully.")
-			}
-			removePidFile()
-		} else if err != nil {
-			removePidFile()
-			m.Terminate()
-			h.Terminate()
+		if err != nil {
 			log.Fatal(err)
+		} else {
+			log.Notice("Server stopped gracefully.")
 		}
 	} else {
 		if err := ParseCommands(flag.Args()...); err != nil {
 			log.Fatal(err)
 		}
 	}
+	os.Exit(0)
 }

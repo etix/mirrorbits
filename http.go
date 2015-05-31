@@ -6,8 +6,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/etix/stoppableListener"
 	"github.com/garyburd/redigo/redis"
+	"gopkg.in/tylerb/graceful.v1"
 	"html/template"
 	"math/rand"
 	"net"
@@ -16,19 +16,24 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 // HTTP represents an instance of the HTTP webserver
 type HTTP struct {
-	geoip      *GeoIP
-	redis      *redisobj
-	templates  Templates
-	SListener  *stoppableListener.StoppableListener
-	stats      *Stats
-	cache      *Cache
-	engine     MirrorSelection
-	Restarting bool
+	geoip          *GeoIP
+	redis          *redisobj
+	templates      Templates
+	Listener       *net.Listener
+	server         *graceful.Server
+	serverStopChan <-chan struct{}
+	stats          *Stats
+	cache          *Cache
+	engine         MirrorSelection
+	Restarting     bool
+	stopped        bool
+	stoppedMutex   sync.Mutex
 }
 
 // Templates is a struct embedding instances of the precompiled templates
@@ -90,16 +95,32 @@ func HTTPServer(redis *redisobj, cache *Cache) *HTTP {
 // SetListener can be used to set a different listener that should be used by the
 // HTTP server. This is primarily used during seamless binary upgrade.
 func (h *HTTP) SetListener(l net.Listener) {
-	/* Make the listener stoppable to be able to shutdown the server gracefully */
-	h.SListener = stoppableListener.Handle(l)
+	h.Listener = &l
+}
+
+func (h *HTTP) Stop(timeout time.Duration) {
+	/* Close the server and process remaining connections */
+	h.stoppedMutex.Lock()
+	defer h.stoppedMutex.Unlock()
+	if h.stopped {
+		return
+	}
+	h.stopped = true
+	h.server.Stop(timeout)
 }
 
 // Terminate terminates the current HTTP server gracefully
 func (h *HTTP) Terminate() {
-	/* Close the listener, killing all active connections */
-	h.SListener.Close()
+	/* Wait for the server to stop */
+	select {
+	case <-h.serverStopChan:
+	}
 	/* Commit the latest recorded stats to the database */
 	h.stats.Terminate()
+}
+
+func (h *HTTP) StopChan() <-chan struct{} {
+	return h.serverStopChan
 }
 
 // Reload the configuration
@@ -119,9 +140,9 @@ func (h *HTTP) Reload() {
 
 // RunServer is the main function used to start the HTTP server
 func (h *HTTP) RunServer() (err error) {
-	// If SListener isn't nil that means that we're running a seamless
+	// If listener isn't nil that means that we're running a seamless
 	// binary upgrade and we have recovered an already running listener
-	if h.SListener == nil {
+	if h.Listener == nil {
 		proto := "tcp"
 		address := GetConfig().ListenAddress
 		if strings.HasPrefix(address, "unix:") {
@@ -135,17 +156,25 @@ func (h *HTTP) RunServer() (err error) {
 		h.SetListener(listener)
 	}
 
-	server := &http.Server{
-		Handler:        nil,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
+	h.server = &graceful.Server{
+		// http
+		Server: &http.Server{
+			Handler:        nil,
+			ReadTimeout:    10 * time.Second,
+			WriteTimeout:   10 * time.Second,
+			MaxHeaderBytes: 1 << 20,
+		},
+
+		// graceful
+		Timeout:          10 * time.Second,
+		NoSignalHandling: true,
 	}
+	h.serverStopChan = h.server.StopChan()
 
 	log.Info("Service listening on %s", GetConfig().ListenAddress)
 
 	/* Serve until we receive a SIGTERM */
-	return server.Serve(h.SListener)
+	return h.server.Serve(*h.Listener)
 }
 
 func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {

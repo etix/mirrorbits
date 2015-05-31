@@ -86,8 +86,16 @@ func NewMonitor(r *redisobj, c *Cache) *Monitor {
 	return monitor
 }
 
-func (m *Monitor) Terminate() {
-	close(m.stop)
+func (m *Monitor) Stop() {
+	select {
+	case _, _ = <-m.stop:
+		return
+	default:
+		close(m.stop)
+	}
+}
+
+func (m *Monitor) Wait() {
 	m.wg.Wait()
 }
 
