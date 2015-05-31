@@ -15,6 +15,10 @@ import (
 	"syscall"
 )
 
+var (
+	Invalidfd = errors.New("Invalid file descriptor")
+)
+
 // Launch {self} as a child process passing listener details
 // to provide a seamless binary upgrade.
 func Relaunch(l net.Listener) error {
@@ -31,6 +35,10 @@ func Relaunch(l net.Listener) error {
 	}
 	v := reflect.ValueOf(l).Elem().FieldByName("fd").Elem()
 	fd := uintptr(v.FieldByName("sysfd").Int())
+
+	if fd < uintptr(syscall.Stderr) {
+		return Invalidfd
+	}
 
 	if err := os.Setenv("OLD_FD", fmt.Sprint(fd)); err != nil {
 		return err
