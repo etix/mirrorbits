@@ -97,6 +97,16 @@ To run the cli:
 mirrorbits help
 ```
 
+Add a mirror:
+```
+mirrorbits add -ftp="ftp://ftp.mirrors.example/myproject/" -http="http://ftp.mirrors.example/myproject/" mirrors.example
+```
+
+Enable the mirror:
+```
+mirrorbits enable mirrors.example
+```
+
 ## Clustering / High availability
 
 **Note: Clustering support has been added recently and should be treated as experimental.**
