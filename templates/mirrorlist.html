@@ -38,7 +38,7 @@
 
 {{define "body"}}
 <div style="float: left;">
-    <h2>Client</h2>
+    <h3>Client</h3>
     <table>
         <tr>
             <td><b>IP:</b></td><td>{{.IP}}</td>
@@ -63,7 +63,7 @@
 </div>
 
 <div style="clear:both;">
-    <h2>Mirrors</h2>
+    <h3>Mirrors</h3>
 
     {{if .Fallback}}<p style="color:red">Warning: system is running in degraded mode.</p>{{end}}
 
@@ -85,7 +85,7 @@
     {{end}}
 
     {{if .ExcludedList}}
-    <h2>Excluded Mirrors</h2>
+    <h3>Excluded Mirrors</h3>
     <table border="0" cellpadding="10">
     {{end}}
     {{range $i, $v := .ExcludedList}}
