@@ -224,7 +224,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 
 	/* Handle errors */
 	fallback := false
-	if nerr, ok := err.(net.Error); ok || len(mirrors) == 0 {
+	if _, ok := err.(net.Error); ok || len(mirrors) == 0 {
 		/* Handle fallbacks */
 		fallbacks := GetConfig().Fallbacks
 		if len(fallbacks) > 0 {
@@ -240,7 +240,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 			sort.Sort(ByRank{mirrors, clientInfo})
 		} else {
 			// No fallback in stock, there's nothing else we can do
-			http.Error(w, nerr.Error(), http.StatusInternalServerError)
+			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 		}
 	} else if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
