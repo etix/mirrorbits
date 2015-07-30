@@ -16,6 +16,7 @@ const (
 	MIRRORLIST
 	FILESTATS
 	MIRRORSTATS
+	CHECKSUM
 )
 
 // Context represents the context of a request
@@ -28,6 +29,7 @@ type Context struct {
 	isMirrorList  bool
 	isMirrorStats bool
 	isFileStats   bool
+	isChecksum    bool
 	isPretty      bool
 }
 
@@ -44,6 +46,9 @@ func NewContext(w http.ResponseWriter, r *http.Request, t Templates) *Context {
 	} else if c.paramBool("mirrorstats") {
 		c.typ = MIRRORSTATS
 		c.isMirrorStats = true
+	} else if c.paramBool("md5") || c.paramBool("sha1") || c.paramBool("sha256") {
+		c.typ = CHECKSUM
+		c.isChecksum = true
 	} else {
 		c.typ = STANDARD
 	}
@@ -88,6 +93,11 @@ func (c *Context) IsFileStats() bool {
 // IsMirrorStats returns true if the mirror stats has been requested
 func (c *Context) IsMirrorStats() bool {
 	return c.isMirrorStats
+}
+
+// IsChecksum returns true if a checksum has been requested
+func (c *Context) IsChecksum() bool {
+	return c.isChecksum
 }
 
 // IsPretty returns true if the pretty json has been requested

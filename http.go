@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -190,6 +191,8 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 		h.mirrorStatsHandler(w, r, ctx)
 	case FILESTATS:
 		h.fileStatsHandler(w, r, ctx)
+	case CHECKSUM:
+		h.checksumHandler(w, r, ctx)
 	}
 }
 
@@ -387,6 +390,39 @@ func (h *HTTP) fileStatsHandler(w http.ResponseWriter, r *http.Request, ctx *Con
 	}
 
 	w.Write(output)
+}
+
+func (h *HTTP) checksumHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
+
+	fileInfo, err := h.cache.GetFileInfo(r.URL.Path)
+	if err == redis.ErrNil {
+		http.NotFound(w, r)
+		return
+	} else if err != nil {
+		log.Error("Error while fetching Fileinfo: %s", err.Error())
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		return
+	}
+
+	var hash string
+
+	if ctx.paramBool("md5") {
+		hash = fileInfo.Md5
+	} else if ctx.paramBool("sha1") {
+		hash = fileInfo.Sha1
+	} else if ctx.paramBool("sha256") {
+		hash = fileInfo.Sha256
+	}
+
+	if len(hash) == 0 {
+		http.Error(w, "Hash type not supported", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
+	w.Write([]byte(fmt.Sprintf("%s  %s", hash, filepath.Base(fileInfo.Path))))
+
+	return
 }
 
 type MirrorStats struct {
