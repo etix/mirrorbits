@@ -38,7 +38,7 @@
 
 {{define "body"}}
 <div style="float: left;">
-    <h2>Client</h2>
+    <h3>Client</h3>
     <table>
         <tr>
             <td><b>IP:</b></td><td>{{.IP}}</td>
@@ -63,19 +63,19 @@
 </div>
 
 <div style="clear:both;">
-    <h2>Mirrors</h2>
+    <h3>Mirrors</h3>
 
     {{if .Fallback}}<p style="color:red">Warning: system is running in degraded mode.</p>{{end}}
 
     {{if .MirrorList}}
-    <table border="0" cellpadding="10" style="width: 1024px; text-align:center;">
+    <table border="0" cellpadding="2" style="width: 1024px; text-align:center;">
     <tr>
         <th>Rank</th><th>URL</th><th>Country</th><th>Continent</th><th>Distance</th><th>Probabilistic weight</th><th>File size</th>
     </tr>
     {{end}}
     {{range $i, $v := .MirrorList}}
     <tr{{if not $v.Weight}} style="color: grey;"{{end}}>
-            <td style="font-size: 2em;">#{{add $i 1}}</td><td style="text-align:left">{{$v.HttpURL}}</td><td>{{$v.CountryCodes}}</td><td>{{$v.ContinentCode}}</td><td style="text-align: right">{{printf "%.2f" $v.Distance}}Km</td><td>{{if $v.Weight}}{{$v.Weight}}%{{else}}N/A{{end}}</td><td>{{if $v.FileInfo}}{{$v.FileInfo.Size}}{{end}}</td>
+            <td style="text-align:right">{{add $i 1}}.</td><td style="text-align:left;">{{$v.HttpURL}}</td><td>{{$v.CountryCodes}}</td><td>{{$v.ContinentCode}}</td><td style="text-align: right">{{printf "%.2f" $v.Distance}}Km</td><td>{{if $v.Weight}}{{$v.Weight}}%{{else}}N/A{{end}}</td><td>{{if $v.FileInfo}}{{$v.FileInfo.Size}}{{end}}</td>
         </tr>
     {{else}}
     <i>No mirrors for this file</i>
@@ -85,12 +85,12 @@
     {{end}}
 
     {{if .ExcludedList}}
-    <h2>Excluded Mirrors</h2>
-    <table border="0" cellpadding="10">
+    <h3>Excluded Mirrors</h3>
+    <table border="0" cellpadding="2">
     {{end}}
     {{range $i, $v := .ExcludedList}}
         <tr>
-            <td><a href="{{$v.HttpURL}}">{{$v.HttpURL}}</a></td><td>{{printf "%.2f" $v.Distance}}Km</td><td>{{$v.ExcludeReason}}</td>
+            <td><a href="{{$v.HttpURL}}">{{$v.HttpURL}}</a></td><td style="text-align:right;">{{printf "%.2f" $v.Distance}}Km</td><td>{{$v.ExcludeReason}}</td>
         </tr>
     {{end}}
     {{if .ExcludedList}}
