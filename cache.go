@@ -171,6 +171,10 @@ func (c *Cache) GetMirrors(path string, clientInfo GeoIPRec) (mirrors []Mirror, 
 		if fileInfo.Size >= 0 {
 			mirror.FileInfo = &fileInfo
 		}
+
+		// Add the path in the results so we can access it from the templates
+		mirror.FileInfo.Path = path
+
 		if clientInfo.GeoIPRecord != nil {
 			mirror.Distance = getDistanceKm(clientInfo.Latitude,
 				clientInfo.Longitude,
