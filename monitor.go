@@ -17,6 +17,10 @@ import (
 	"time"
 )
 
+const (
+	clusterAnnounce = "HELLO"
+)
+
 var (
 	healthCheckThreads = 10
 	userAgent          = "Mirrorbits/" + VERSION + " PING CHECK"
@@ -466,14 +470,14 @@ func (m *Monitor) clusterLoop() {
 			return
 		case <-announceTicker.C:
 			r := m.redis.pool.Get()
-			Publish(r, CLUSTER, fmt.Sprintf("HELLO %s", nodeID))
+			Publish(r, CLUSTER, fmt.Sprintf("%s %s", clusterAnnounce, nodeID))
 			r.Close()
 		case data := <-clusterChan:
-			if !strings.HasPrefix(data, "HELLO ") {
+			if !strings.HasPrefix(data, clusterAnnounce+" ") {
 				// Garbage
 				continue
 			}
-			m.refreshNodeList(data[6:], nodeID)
+			m.refreshNodeList(data[len(clusterAnnounce)+1:], nodeID)
 		}
 	}
 }
