@@ -310,7 +310,11 @@ func (h *HTTP) LoadTemplates(name string) (t *template.Template, err error) {
 		filepath.Clean(GetConfig().Templates+"/base.html"),
 		filepath.Clean(fmt.Sprintf("%s/%s.html", GetConfig().Templates, name)))
 	if err != nil {
-		panic(err)
+		if e, ok := err.(*os.PathError); ok {
+			log.Fatal(fmt.Sprintf("Cannot load template %s: %s", e.Path, e.Err.Error()))
+		} else {
+			log.Fatal(err.Error())
+		}
 	}
 	return t, err
 }
