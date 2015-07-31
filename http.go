@@ -307,8 +307,8 @@ func (h *HTTP) LoadTemplates(name string) (t *template.Template, err error) {
 		"version": version,
 	})
 	t, err = t.ParseFiles(
-		fmt.Sprintf("%s/base.html", GetConfig().Templates),
-		fmt.Sprintf("%s/%s.html", GetConfig().Templates, name))
+		filepath.Clean(GetConfig().Templates+"/base.html"),
+		filepath.Clean(fmt.Sprintf("%s/%s.html", GetConfig().Templates, name)))
 	if err != nil {
 		panic(err)
 	}
