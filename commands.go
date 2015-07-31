@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	commentSeparator = "##### Comments goes below this line #####"
+	commentSeparator = "##### Comments go below this line #####"
 )
 
 var (

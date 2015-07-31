@@ -470,7 +470,7 @@ func (m *Monitor) clusterLoop() {
 			r.Close()
 		case data := <-clusterChan:
 			if !strings.HasPrefix(data, "HELLO ") {
-				// Garbarge
+				// Garbage
 				continue
 			}
 			m.refreshNodeList(data[6:], nodeID)
