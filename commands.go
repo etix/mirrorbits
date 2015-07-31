@@ -150,7 +150,7 @@ func (c *cli) CmdList(args ...string) error {
 		fmt.Fprint(w, "\tFTP")
 	}
 	if *state == true {
-		fmt.Fprint(w, "\tSTATE")
+		fmt.Fprint(w, "\tSTATE\tSINCE")
 	}
 	fmt.Fprint(w, "\n")
 
@@ -191,12 +191,13 @@ func (c *cli) CmdList(args ...string) error {
 			}
 			if *state == true {
 				if mirror.Enabled == false {
-					fmt.Fprintf(w, "\tdisabled (%s)", time.Unix(mirror.StateSince, 0).Format(time.RFC1123))
+					fmt.Fprintf(w, "\tdisabled")
 				} else if mirror.Up == true {
-					fmt.Fprintf(w, "\tup       (%s)", time.Unix(mirror.StateSince, 0).Format(time.RFC1123))
+					fmt.Fprintf(w, "\tup")
 				} else {
-					fmt.Fprintf(w, "\tdown     (%s)", time.Unix(mirror.StateSince, 0).Format(time.RFC1123))
+					fmt.Fprintf(w, "\tdown")
 				}
+				fmt.Fprintf(w, " \t(%s)", time.Unix(mirror.StateSince, 0).Format(time.RFC1123))
 			}
 			fmt.Fprint(w, "\n")
 		}
