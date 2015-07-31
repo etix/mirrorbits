@@ -14,18 +14,19 @@ import (
 
 var (
 	defaultConfig = configuration{
-		Repository:        "",
-		Templates:         "",
-		OutputMode:        "auto",
-		ListenAddress:     ":8080",
-		Gzip:              false,
-		RedisAddress:      "127.0.0.1:6379",
-		RedisPassword:     "",
-		LogDir:            "",
-		GeoipDatabasePath: "/usr/share/GeoIP/",
-		ConcurrentSync:    2,
-		ScanInterval:      30,
-		CheckInterval:     1,
+		Repository:             "",
+		Templates:              "",
+		OutputMode:             "auto",
+		ListenAddress:          ":8080",
+		Gzip:                   false,
+		RedisAddress:           "127.0.0.1:6379",
+		RedisPassword:          "",
+		LogDir:                 "",
+		GeoipDatabasePath:      "/usr/share/GeoIP/",
+		ConcurrentSync:         2,
+		ScanInterval:           30,
+		CheckInterval:          1,
+		RepositoryScanInterval: 5,
 		Hashes: hashing{
 			SHA1:   true,
 			SHA256: false,
@@ -52,6 +53,7 @@ type configuration struct {
 	ConcurrentSync          int        `yaml:"ConcurrentSync"`
 	ScanInterval            int        `yaml:"ScanInterval"`
 	CheckInterval           int        `yaml:"CheckInterval"`
+	RepositoryScanInterval  int        `yaml:"RepositoryScanInterval"`
 	Hashes                  hashing    `yaml:"Hashes"`
 	DisallowRedirects       bool       `yaml:"DisallowRedirects"`
 	WeightDistributionRange float32    `yaml:"WeightDistributionRange"`
@@ -125,6 +127,9 @@ func ReloadConfig() error {
 		return fmt.Errorf("Config: outputMode can only be set to 'auto', 'json' or 'redirect'")
 	}
 	c.Repository = strings.TrimRight(c.Repository, "/")
+	if c.RepositoryScanInterval < 0 {
+		c.RepositoryScanInterval = 0
+	}
 
 	if config != nil &&
 		(c.RedisAddress != config.RedisAddress ||

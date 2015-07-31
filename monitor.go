@@ -114,7 +114,7 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 // Main monitor loop
 func (m *Monitor) monitorLoop() {
 	m.wg.Add(1)
-	m.syncSource()
+	m.scanRepository()
 
 	mirrorUpdateEvent := make(chan string, 10)
 	m.redis.pubsub.SubscribeEvent(MIRROR_UPDATE, mirrorUpdateEvent)
@@ -144,8 +144,10 @@ func (m *Monitor) monitorLoop() {
 	}
 
 	// Setup recurrent tasks
-	sourceSyncTicker := time.NewTicker(5 * time.Minute)
+	repositoryScanInterval := -1
+	repositoryScanTicker := time.NewTicker(1 * time.Minute)
 	mirrorCheckTicker := time.NewTicker(1 * time.Second)
+	configUpdateTicker := time.NewTicker(1 * time.Second)
 
 	for {
 		select {
@@ -154,8 +156,18 @@ func (m *Monitor) monitorLoop() {
 			return
 		case id := <-mirrorUpdateEvent:
 			m.syncMirrorList(id)
-		case <-sourceSyncTicker.C:
-			m.syncSource()
+		case <-configUpdateTicker.C:
+			if repositoryScanInterval != GetConfig().RepositoryScanInterval {
+				repositoryScanInterval = GetConfig().RepositoryScanInterval
+
+				if repositoryScanInterval == 0 {
+					repositoryScanTicker.Stop()
+				} else {
+					repositoryScanTicker = time.NewTicker(time.Duration(repositoryScanInterval) * time.Minute)
+				}
+			}
+		case <-repositoryScanTicker.C:
+			m.scanRepository()
 		case <-mirrorCheckTicker.C:
 			m.mapLock.Lock()
 			for k, v := range m.mirrors {
@@ -434,7 +446,7 @@ func (m *Monitor) getRandomFile(identifier string) (file string, size int64, err
 }
 
 // Trigger a sync of the local repository
-func (m *Monitor) syncSource() {
+func (m *Monitor) scanRepository() {
 	err := ScanSource(m.redis, m.stop)
 	if err != nil {
 		log.Error("Scanning source failed: %s", err.Error())

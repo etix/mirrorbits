@@ -76,6 +76,7 @@ GeoipDatabasePath | Path to the geoip databases
 ConcurrentSync | Maximum number of server sync (rsync/ftp) do to simultaneously
 ScanInterval | Interval between rsync/ftp synchronizations (in minutes)
 CheckInterval | Interval between mirrors health's checks (in minutes)
+RepositoryScanInterval | Interval between scans of the local repository (in minutes, 0 to disable)
 Hashes | List of file hashes to computes (SHA1, SHA256, MD5)
 DisallowRedirects | Disable any mirror trying to do an HTTP redirect
 WeightDistributionRange | Multiplier of the distance to the first mirror to find other possible mirrors in order to distribute the load

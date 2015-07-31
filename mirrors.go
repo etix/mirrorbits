@@ -35,6 +35,7 @@ type Mirror struct {
 	StateSince         int64    `redis:"stateSince" json:",omitempty" yaml:"-"`
 	Distance           float32  `redis:"-" yaml:"-"`
 	CountryFields      []string `redis:"-" json:"-" yaml:"-"`
+	Filepath           string   `redis:"-" json:"-" yaml:"-"`
 	Weight             int      `redis:"-" json:"-" yaml:"-"`
 	ComputedScore      int      `redis:"-" yaml:"-"`
 	LastSync           int64    `redis:"lastSync" yaml:"-"`
