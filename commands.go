@@ -9,8 +9,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/garyburd/redigo/redis"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
-	"launchpad.net/goyaml"
 	"net/url"
 	"os"
 	"os/exec"
@@ -638,7 +638,7 @@ func (c *cli) CmdEdit(args ...string) error {
 	}
 
 	// Generate a yaml configuration string from the struct
-	out, err := goyaml.Marshal(mirror)
+	out, err := yaml.Marshal(mirror)
 
 	// Open a temporary file
 	f, err := ioutil.TempFile(os.TempDir(), "edit")
@@ -681,18 +681,18 @@ reopen:
 	}
 
 	var (
-		yaml    string = string(out)
+		yamlstr string = string(out)
 		comment string
 	)
 
-	commentIndex := strings.Index(yaml, commentSeparator)
+	commentIndex := strings.Index(yamlstr, commentSeparator)
 	if commentIndex > 0 {
-		comment = strings.TrimSpace(yaml[commentIndex+len(commentSeparator):])
-		yaml = yaml[:commentIndex]
+		comment = strings.TrimSpace(yamlstr[commentIndex+len(commentSeparator):])
+		yamlstr = yamlstr[:commentIndex]
 	}
 
 	// Fill the struct from the yaml
-	err = goyaml.Unmarshal([]byte(yaml), &mirror)
+	err = yaml.Unmarshal([]byte(yamlstr), &mirror)
 	if err != nil {
 	eagain:
 		fmt.Printf("%s\nRetry? [Y/n]", err.Error())
@@ -822,7 +822,7 @@ func (c *cli) CmdShow(args ...string) error {
 	}
 
 	// Generate a yaml configuration string from the struct
-	out, err := goyaml.Marshal(mirror)
+	out, err := yaml.Marshal(mirror)
 
 	fmt.Printf("Mirror: %s\n%s\nComment:\n%s\n", id, out, mirror.Comment)
 	return nil

@@ -5,8 +5,8 @@ package main
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
-	"launchpad.net/goyaml"
 	"os"
 	"strings"
 	"sync"
@@ -112,7 +112,7 @@ func ReloadConfig() error {
 	c := defaultConfig
 
 	// Overload the default configuration with the user's one
-	err = goyaml.Unmarshal(content, &c)
+	err = yaml.Unmarshal(content, &c)
 	if err != nil {
 		return fmt.Errorf("%s in %s", err, configFile)
 	}
