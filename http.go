@@ -54,9 +54,9 @@ type FileInfo struct {
 	Md5     string    `redis:"md5" json:",omitempty"`
 }
 
-// MirrorlistPage is the resulting struct of a request and is
+// Results is the resulting struct of a request and is
 // used by the renderers to generate the final page.
-type MirrorlistPage struct {
+type Results struct {
 	FileInfo     FileInfo
 	MapURL       string `json:"-"`
 	IP           string
@@ -250,7 +250,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		return
 	}
 
-	page := &MirrorlistPage{
+	results := &Results{
 		FileInfo:     fileInfo,
 		MirrorList:   mirrors,
 		ExcludedList: excluded,
@@ -259,22 +259,22 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		Fallback:     fallback,
 	}
 
-	var pageRenderer PageRenderer
+	var resultRenderer ResultsRenderer
 
 	if ctx.IsMirrorlist() {
-		pageRenderer = &MirrorListRenderer{}
+		resultRenderer = &MirrorListRenderer{}
 	} else {
 		switch GetConfig().OutputMode {
 		case "json":
-			pageRenderer = &JsonRenderer{}
+			resultRenderer = &JsonRenderer{}
 		case "redirect":
-			pageRenderer = &RedirectRenderer{}
+			resultRenderer = &RedirectRenderer{}
 		case "auto":
 			accept := r.Header.Get("Accept")
 			if strings.Index(accept, "application/json") >= 0 {
-				pageRenderer = &JsonRenderer{}
+				resultRenderer = &JsonRenderer{}
 			} else {
-				pageRenderer = &RedirectRenderer{}
+				resultRenderer = &RedirectRenderer{}
 			}
 		default:
 			http.Error(w, "No page renderer", http.StatusInternalServerError)
@@ -282,14 +282,13 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		}
 	}
 
-	status, err := pageRenderer.Write(ctx, page)
-
+	status, err := resultRenderer.Write(ctx, results)
 	if err != nil {
 		http.Error(w, err.Error(), status)
 	}
 
 	if !ctx.IsMirrorlist() {
-		logDownload(pageRenderer.Type(), status, page, err)
+		logDownload(resultRenderer.Type(), status, results, err)
 		if len(mirrors) > 0 {
 			h.stats.CountDownload(mirrors[0], fileInfo)
 		}

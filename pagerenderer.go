@@ -18,8 +18,8 @@ var (
 	TemplatesNotFound = errors.New("Please set a valid path to the templates directory.")
 )
 
-type PageRenderer interface {
-	Write(ctx *Context, page *MirrorlistPage) (int, error)
+type ResultsRenderer interface {
+	Write(ctx *Context, results *Results) (int, error)
 	Type() string
 }
 
@@ -30,13 +30,13 @@ func (w *JsonRenderer) Type() string {
 	return "JSON"
 }
 
-func (w *JsonRenderer) Write(ctx *Context, page *MirrorlistPage) (statusCode int, err error) {
+func (w *JsonRenderer) Write(ctx *Context, results *Results) (statusCode int, err error) {
 	var output []byte
 
 	if ctx.IsPretty() {
-		output, err = json.MarshalIndent(page, "", "    ")
+		output, err = json.MarshalIndent(results, "", "    ")
 	} else {
-		output, err = json.Marshal(page)
+		output, err = json.Marshal(results)
 	}
 
 	if err != nil {
@@ -56,14 +56,14 @@ func (w *RedirectRenderer) Type() string {
 	return "REDIRECT"
 }
 
-func (w *RedirectRenderer) Write(ctx *Context, page *MirrorlistPage) (statusCode int, err error) {
-	if len(page.MirrorList) > 0 {
+func (w *RedirectRenderer) Write(ctx *Context, results *Results) (statusCode int, err error) {
+	if len(results.MirrorList) > 0 {
 		ctx.ResponseWriter().Header().Set("Content-Type", "text/html; charset=utf-8")
 
-		path := strings.TrimPrefix(page.FileInfo.Path, "/")
+		path := strings.TrimPrefix(results.FileInfo.Path, "/")
 
 		// Generate the header alternative links
-		for i, m := range page.MirrorList[1:] {
+		for i, m := range results.MirrorList[1:] {
 			var countryCode string
 			if len(m.CountryFields) > 0 {
 				countryCode = strings.ToLower(m.CountryFields[0])
@@ -72,7 +72,7 @@ func (w *RedirectRenderer) Write(ctx *Context, page *MirrorlistPage) (statusCode
 		}
 
 		// Finally issue the redirect
-		http.Redirect(ctx.ResponseWriter(), ctx.Request(), page.MirrorList[0].HttpURL+path, http.StatusFound)
+		http.Redirect(ctx.ResponseWriter(), ctx.Request(), results.MirrorList[0].HttpURL+path, http.StatusFound)
 		return http.StatusFound, nil
 	}
 	// No mirror returned for this request
@@ -87,23 +87,23 @@ func (w *MirrorListRenderer) Type() string {
 	return "MIRRORLIST"
 }
 
-func (w *MirrorListRenderer) Write(ctx *Context, page *MirrorlistPage) (statusCode int, err error) {
+func (w *MirrorListRenderer) Write(ctx *Context, results *Results) (statusCode int, err error) {
 	if ctx.Templates().mirrorlist == nil {
 		// No templates found for the mirrorlist
 		return http.StatusInternalServerError, TemplatesNotFound
 	}
 	// Sort the exclude reasons by message so they appear grouped
-	sort.Sort(ByExcludeReason{page.ExcludedList})
+	sort.Sort(ByExcludeReason{results.ExcludedList})
 
 	// Create a temporary output buffer to render the page
 	var buf bytes.Buffer
 
 	// Generate the URL to the map
-	page.MapURL = getMirrorMapUrl(page.MirrorList, page.ClientInfo)
+	results.MapURL = getMirrorMapUrl(results.MirrorList, results.ClientInfo)
 	ctx.ResponseWriter().Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// Render the page into the buffer
-	err = ctx.Templates().mirrorlist.ExecuteTemplate(&buf, "base", page)
+	err = ctx.Templates().mirrorlist.ExecuteTemplate(&buf, "base", results)
 	if err != nil {
 		// Something went wrong, discard the buffer
 		return http.StatusInternalServerError, err

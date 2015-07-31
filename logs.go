@@ -129,7 +129,7 @@ func ReloadDownloadLogs() {
 }
 
 // This function will write a download result in the logs.
-func logDownload(typ string, statuscode int, p *MirrorlistPage, err error) {
+func logDownload(typ string, statuscode int, p *Results, err error) {
 	dlogger.RLock()
 	defer dlogger.RUnlock()
 
