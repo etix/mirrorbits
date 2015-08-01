@@ -234,12 +234,12 @@ func (c *cli) CmdAdd(args ...string) error {
 	}
 
 	if strings.Contains(cmd.Arg(0), " ") {
-		fmt.Fprintf(os.Stderr, "The identifier cannot contain a space")
+		fmt.Fprintf(os.Stderr, "The identifier cannot contain a space\n")
 		os.Exit(-1)
 	}
 
 	if *http == "" {
-		fmt.Fprintf(os.Stderr, "You *must* pass at least an HTTP URL")
+		fmt.Fprintf(os.Stderr, "You *must* pass at least an HTTP URL\n")
 		os.Exit(-1)
 	}
 
