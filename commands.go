@@ -573,6 +573,9 @@ func (c *cli) matchMirror(text string) (list []string, err error) {
 	}
 
 	for _, e := range mirrorsIDs {
+		if text == e {
+			return []string{e}, nil
+		}
 		if strings.Contains(e, text) {
 			list = append(list, e)
 		}
