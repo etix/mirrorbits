@@ -146,7 +146,7 @@ single:
 		return nil, errUnreachable
 	}
 
-	if r.getFailureState() == false {
+	if len(sentinels) > 0 && r.getFailureState() == false {
 		log.Warning("No redis master available, trying using the configured RedisAddress as fallback")
 	}
 
