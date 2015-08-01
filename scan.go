@@ -242,7 +242,7 @@ func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 			(GetConfig().Hashes.SHA256 && len(sha256) == 0) ||
 			(GetConfig().Hashes.MD5 && len(md5) == 0)
 
-		if rehash || size != d.size || modTime != d.modTime {
+		if rehash || size != d.size || !modTime.Equal(d.modTime) {
 			h, err := hashFile(GetConfig().Repository + d.path)
 			if err != nil {
 				log.Warning("%s: hashing failed: %s", d.path, err.Error())
