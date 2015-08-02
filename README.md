@@ -19,6 +19,8 @@ Mirrorbits is a geographical download redirector written in [Go](www.golang.org)
 * Smart load-balancing over multiple mirrors in the same area to avoid hotspots
 * Ability to adjust the weight of each mirror
 * Limit access to a country, region or ASN for any mirror
+* Clustering (multiple mirrorbits instances)
+* High-availability using redis-sentinel
 * Realtime statistics per file / mirror / date
 * Realtime reconfiguration
 * Seamless binary upgrade (aka zero downtime upgrade)
@@ -28,7 +30,13 @@ Mirrorbits is a geographical download redirector written in [Go](www.golang.org)
 
 ## Is it production ready?
 
-**Almost!** Mirrorbits is already running in production at [VideoLAN](http://www.videolan.org) to distribute [VLC media player](http://www.videolan.org/vlc/) since April 2014. Yet some things might change before the 1.0 release, notably the response of a JSON request and few configuration items. If you intend to deploy Mirrorbits in a production system it is strongly advised to contact the author first!
+**Almost!** Mirrorbits is already running in production at
+ * [VideoLAN](http://www.videolan.org) to distribute [VLC media player](http://www.videolan.org/vlc/) since April 2014
+ * [Popcorn Time](https://popcorntime.io)
+ * [SuperRepo](https://superrepo.org)
+ * [Kodi](http://kodi.tv) (aka XBMC)
+
+Yet some things might change before the 1.0 release. If you intend to deploy Mirrorbits in a production system it is advised to notify the author first so we can help you to make any transition as seamless as possible!
 
 # Quick start
 
