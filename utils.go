@@ -159,7 +159,7 @@ func getMirrorMapUrl(mirrors Mirrors, clientInfo GeoIPRec) string {
 				mirror.Latitude, mirror.Longitude))
 		}
 		color := "blue"
-		if mirror.Weight > 0 {
+		if len(mirror.Weight) > 0 {
 			color = "green"
 		}
 		buffer.WriteString(fmt.Sprintf("&markers=color:%s|label:%d|%f,%f", color, count, mirror.Latitude, mirror.Longitude))
