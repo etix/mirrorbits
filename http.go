@@ -209,8 +209,8 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		Path: r.URL.Path,
 	}
 
-	remoteIP := r.Header.Get("X-Forwarded-For")
-	if remoteIP == "" {
+	remoteIP := extractRemoteIP(r.Header.Get("X-Forwarded-For"))
+	if len(remoteIP) == 0 {
 		remoteIP = remoteIpFromAddr(r.RemoteAddr)
 	}
 

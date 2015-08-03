@@ -140,3 +140,16 @@ func lookupMirrorIP(host string) (string, error) {
 func remoteIpFromAddr(remoteAddr string) string {
 	return remoteAddr[:strings.LastIndex(remoteAddr, ":")]
 }
+
+// Extract the remote IP from an X-Forwarded-For header
+func extractRemoteIP(XForwardedFor string) string {
+	addresses := strings.Split(XForwardedFor, ", ")
+	if len(addresses) > 0 {
+		// The left-most address is supposed to be the original client address.
+		// Each successive are added by proxies. In most cases we should probably
+		// take the last address but in case of optimization services this will
+		// probably not work. For now we'll always take the original one.
+		return addresses[0]
+	}
+	return ""
+}
