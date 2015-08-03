@@ -75,7 +75,7 @@
     {{end}}
     {{range $i, $v := .MirrorList}}
     <tr{{if not $v.Weight}} style="color: grey;"{{end}}>
-            <td style="text-align:right">{{add $i 1}}.</td><td style="text-align:left;"><a href="{{$v.HttpURL}}{{$.FileInfo.Path}}">{{$v.HttpURL}}</a></td><td>{{$v.CountryCodes}}</td><td>{{$v.ContinentCode}}</td><td style="text-align: right">{{printf "%.2f" $v.Distance}}Km</td><td>{{if $v.Weight}}{{$v.Weight}}%{{else}}N/A{{end}}</td><td>{{if $v.FileInfo}}{{$v.FileInfo.Size}}{{end}}</td>
+            <td style="text-align:right">{{add $i 1}}.</td><td style="text-align:left;"><a href="{{$v.HttpURL}}{{$.FileInfo.Path}}">{{$v.HttpURL}}</a></td><td>{{$v.CountryCodes}}</td><td>{{$v.ContinentCode}}</td><td style="text-align: right">{{printf "%.2f" $v.Distance}}Km</td><td>{{if $v.Weight}}{{if ge $v.Weight 1.0}}{{printf "%.0f" $v.Weight}}{{else}}<1{{end}}%{{else}}N/A{{end}}</td><td>{{if $v.FileInfo}}{{$v.FileInfo.Size}}{{end}}</td>
         </tr>
     {{else}}
     <i>No mirrors for this file</i>

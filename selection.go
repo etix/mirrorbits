@@ -7,7 +7,6 @@ import (
 	"math"
 	"math/rand"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -190,10 +189,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 			}
 			for _, m := range mirrors {
 				if m.ID == id {
-					m.Weight = strconv.FormatFloat(float64(weights[id])*100/float64(totalScore), 'f', 0, 32)
-					if m.Weight == "0" {
-						m.Weight = "<1"
-					}
+					m.Weight = float32(float64(weights[id]) * 100 / float64(totalScore))
 					weightedMirrors[i] = m
 					break
 				}
@@ -205,7 +201,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *Cache, fileInfo *FileInfo,
 		// Replace the head of the list by its reordered counterpart
 		mirrors = append(weightedMirrors, mirrors[selected:]...)
 	} else if selected == 1 && len(mirrors) > 0 {
-		mirrors[0].Weight = "100"
+		mirrors[0].Weight = 100
 	}
 	return
 }
