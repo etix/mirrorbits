@@ -58,7 +58,8 @@ You can either get a [prebuilt version](https://github.com/etix/mirrorbits/relea
 
 ```
 $ go get github.com/etix/mirrorbits
-$ go install -v github.com/etix/mirrorbits
+$ cd $GOPATH/src/github.com/etix/mirrorbits
+$ make install
 ```
 The resulting executable should now be in your *$GOPATH/bin* directory.
 

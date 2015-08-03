@@ -9,11 +9,14 @@ import (
 )
 
 var (
-	VERSION = "0.3-dev"
+	VERSION = ""
+	BUILD   = ""
+	DEV     = ""
 )
 
 func printVersion() {
 	fmt.Println("Version:", VERSION)
+	fmt.Println("Build:", BUILD+DEV)
 	fmt.Println("GoVersion:", runtime.Version())
 	fmt.Println("Operating System:", runtime.GOOS)
 	fmt.Println("Architecture:", runtime.GOARCH)
