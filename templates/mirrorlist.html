@@ -2,31 +2,22 @@
 {{define "headline"}}{{.FileInfo.Path}}{{end}}
 
 {{define "head"}}
-    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
     <script type="text/javascript">
-
-        // Load the Visualization API and the piechart package.
-        google.load('visualization', '1.0', {'packages':['corechart']});
-
-        // Set a callback to run when the Google Visualization API is loaded.
         google.setOnLoadCallback(drawChart);
-
         function drawChart() {
-            // Create the data table.
-            var data = new google.visualization.DataTable();
-            data.addColumn('string', 'mirror');
-            data.addColumn('number', 'probability');
-            data.addRows([
-{{range $i, $v := .MirrorList}}
-{{if $v.Weight}}['{{$v.ID}}', {{$v.Weight}}],{{end}}
-{{end}}
+            var data = new google.visualization.arrayToDataTable([
+                ['mirror','probability'],
+                {{range $i, $v := .MirrorList}}{{if $v.Weight}}['{{$v.ID}}', {{$v.Weight}}],{{end}}{{end}}
             ]);
 
             // Set chart options
-            var options = {'title':'Load distribution',
-                            'width':600,
-                            'height':300,
-                            'chartArea': {'width': '90%', 'height': '65%'},
+            var options = {
+                title:                          'Load distribution',
+                width:                          600,
+                height:                         320,
+                chartArea:                      {'width': '90%', 'height': '90%'},
+                sliceVisibilityThreshold:       .01
             };
 
             // Instantiate and draw our chart, passing in some options.
@@ -37,31 +28,19 @@
 {{end}}
 
 {{define "body"}}
-<div style="float: left;">
-    <h3>Client</h3>
-    <table>
-        <tr>
-            <td><b>IP:</b></td><td>{{.IP}}</td>
-        </tr>
-        <tr>
-            <td><b>Country:</b></td><td>{{if .ClientInfo.GeoIPRecord}}{{.ClientInfo.CountryName}}{{else}}Unknown{{end}}</td>
-        </tr>
-        <tr>
-            <td><b>City:</b></td><td>{{if .ClientInfo.GeoIPRecord}}{{.ClientInfo.City}}{{else}}Unknown{{end}}</td>
-        </tr>
-        <tr>
-            <td><b>ASN:</b></td><td>{{if .ClientInfo.GeoIPRecord}}{{.ClientInfo.ASNum}} / {{.ClientInfo.ASName}}{{else}}Unknown{{end}}</td>
-        </tr>
-    </table>
-</div>
-
-<div style="float: left;">
-    <div id="chart_div" style="width:600; height:300;"></div>
+<h3>Client</h3>
+<div>You are connecting with IP address <i>{{.IP}}</i>, which belongs to autonomous system <i>{{.ClientInfo.ASName}} (ASN{{.ClientInfo.ASNum}})</i>.<br />
+{{if .ClientInfo.GeoIPRecord}}We believe you are {{if .ClientInfo.City}}near <i>{{.ClientInfo.City}}</i> in {{else}}somewhere in {{end}}<i>{{.ClientInfo.CountryName}}</i> and have selected mirrors based on this.{{else}}We were not able to use your IP to approximate your location, so have chosen the mirrors at random.{{end}}
+<div>
+<h3>Graphs</h3>
+<div style="width: 100%; overflow: hidden;">
+<div style="float: left; margin-right: 50px;">
+    <img style="border: 1px grey;"  width="500" height="320" src="{{.MapURL}}"/>
 </div>
 <div style="float: left;">
-    <img width="520" height="320" src="{{.MapURL}}"/>
+    <div id="chart_div" style="width:600; height:320;"></div>
 </div>
-
+</div>
 <div style="clear:both;">
     <h3>Mirrors</h3>
 
