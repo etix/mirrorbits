@@ -34,6 +34,6 @@ $(PACKAGE): build
 	@cp -r templates tmp/mirrorbits/
 	@cp mirrorbits.conf tmp/mirrorbits/
 	@mkdir -p dist/
-	tar -cf $@ -C tmp mirrorbits;
+	@tar -czf $@ -C tmp mirrorbits && echo release tarball has been created: $@
 	@rm -rf tmp
 
