@@ -302,7 +302,7 @@ func ScanSource(r *redisobj, stop chan bool) (err error) {
 		return scanAborted
 	}
 	if err != nil {
-		return fmt.Errorf("[source] Error during walking: %s", err.Error())
+		return err
 	}
 	log.Info("[source] Indexing the files...")
 
