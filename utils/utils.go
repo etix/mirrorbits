@@ -26,11 +26,6 @@ const (
 	RadToDeg = 57.295779513082320876798154814105170332405472466564   // N[180/Pi, 50]
 )
 
-var Welcome = ` _______ __                        __     __ __
-|   |   |__|.----.----.-----.----.|  |--.|__|  |_.-----.
-|       |  ||   _|   _|  _  |   _||  _  ||  |   _|__ --|
-|__|_|__|__||__| |__| |_____|__|  |_____||__|____|_____|  %s`
-
 // Add a trailing slash to the URL
 func NormalizeURL(url string) string {
 	if url != "" && !strings.HasSuffix(url, "/") {

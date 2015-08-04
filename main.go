@@ -14,7 +14,6 @@ import (
 	"github.com/etix/mirrorbits/logs"
 	"github.com/etix/mirrorbits/mirrors"
 	"github.com/etix/mirrorbits/process"
-	"github.com/etix/mirrorbits/utils"
 	"github.com/op/go-logging"
 	"os"
 	"os/signal"
@@ -71,7 +70,7 @@ func main() {
 		process.WritePidFile()
 
 		// Show our nice welcome logo
-		fmt.Printf(utils.Welcome+"\n\n", core.VERSION)
+		fmt.Printf(core.Banner+"\n\n", core.VERSION)
 
 		/* Connect to the database */
 		r := database.NewRedis(core.Daemon)
