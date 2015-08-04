@@ -1,13 +1,14 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package http
 
 import (
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/etix/mirrorbits/mirrors"
 	"net/http"
 	"sort"
 	"strconv"
@@ -19,7 +20,7 @@ var (
 )
 
 type ResultsRenderer interface {
-	Write(ctx *Context, results *Results) (int, error)
+	Write(ctx *Context, results *mirrors.Results) (int, error)
 	Type() string
 }
 
@@ -30,7 +31,7 @@ func (w *JsonRenderer) Type() string {
 	return "JSON"
 }
 
-func (w *JsonRenderer) Write(ctx *Context, results *Results) (statusCode int, err error) {
+func (w *JsonRenderer) Write(ctx *Context, results *mirrors.Results) (statusCode int, err error) {
 	var output []byte
 
 	if ctx.IsPretty() {
@@ -56,7 +57,7 @@ func (w *RedirectRenderer) Type() string {
 	return "REDIRECT"
 }
 
-func (w *RedirectRenderer) Write(ctx *Context, results *Results) (statusCode int, err error) {
+func (w *RedirectRenderer) Write(ctx *Context, results *mirrors.Results) (statusCode int, err error) {
 	if len(results.MirrorList) > 0 {
 		ctx.ResponseWriter().Header().Set("Content-Type", "text/html; charset=utf-8")
 
@@ -87,19 +88,19 @@ func (w *MirrorListRenderer) Type() string {
 	return "MIRRORLIST"
 }
 
-func (w *MirrorListRenderer) Write(ctx *Context, results *Results) (statusCode int, err error) {
+func (w *MirrorListRenderer) Write(ctx *Context, results *mirrors.Results) (statusCode int, err error) {
 	if ctx.Templates().mirrorlist == nil {
 		// No templates found for the mirrorlist
 		return http.StatusInternalServerError, TemplatesNotFound
 	}
 	// Sort the exclude reasons by message so they appear grouped
-	sort.Sort(ByExcludeReason{results.ExcludedList})
+	sort.Sort(mirrors.ByExcludeReason{results.ExcludedList})
 
 	// Create a temporary output buffer to render the page
 	var buf bytes.Buffer
 
 	// Generate the URL to the map
-	results.MapURL = getMirrorMapUrl(results.MirrorList, results.ClientInfo)
+	results.MapURL = mirrors.GetMirrorMapUrl(results.MirrorList, results.ClientInfo)
 	ctx.ResponseWriter().Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// Render the page into the buffer

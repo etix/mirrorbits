@@ -1,14 +1,22 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package cli
 
 import (
 	"bufio"
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/etix/mirrorbits/core"
+	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/mirrors"
+	"github.com/etix/mirrorbits/network"
+	"github.com/etix/mirrorbits/process"
+	"github.com/etix/mirrorbits/scan"
+	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
+	"github.com/op/go-logging"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"net/url"
@@ -29,6 +37,8 @@ const (
 )
 
 var (
+	log = logging.MustGetLogger("main")
+
 	// NoSyncMethod is returned when no sync protocol is available
 	NoSyncMethod = errors.New("no suitable URL for the scan")
 )
@@ -114,8 +124,8 @@ func (c *cli) CmdList(args ...string) error {
 		return nil
 	}
 
-	r := NewRedis()
-	conn, err := r.connect()
+	r := database.NewRedis(false)
+	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
 	}
@@ -155,7 +165,7 @@ func (c *cli) CmdList(args ...string) error {
 	fmt.Fprint(w, "\n")
 
 	for _, e := range res {
-		var mirror Mirror
+		var mirror mirrors.Mirror
 		res, ok := e.([]interface{})
 		if !ok {
 			log.Fatal("Typecast failed")
@@ -253,20 +263,20 @@ func (c *cli) CmdAdd(args ...string) error {
 		*http = "http://" + *http
 	}
 
-	ip, err := lookupMirrorIP(u.Host)
-	if err == errMultipleAddresses {
+	ip, err := network.LookupMirrorIP(u.Host)
+	if err == network.ErrMultipleAddresses {
 		fmt.Fprintf(os.Stderr, "Warning: the hostname returned more than one address! This is highly unreliable.\n")
 	}
 
-	geo := NewGeoIP()
+	geo := network.NewGeoIP()
 	if err := geo.LoadGeoIP(); err != nil {
 		log.Fatalf("Can't load GeoIP: %s", err)
 	}
 
 	geoRec := geo.GetInfos(ip)
 
-	r := NewRedis()
-	conn, err := r.connect()
+	r := database.NewRedis(false)
+	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
 	}
@@ -284,13 +294,13 @@ func (c *cli) CmdAdd(args ...string) error {
 
 	// Normalize the URLs
 	if http != nil {
-		*http = normalizeURL(*http)
+		*http = utils.NormalizeURL(*http)
 	}
 	if rsync != nil {
-		*rsync = normalizeURL(*rsync)
+		*rsync = utils.NormalizeURL(*rsync)
 	}
 	if ftp != nil {
-		*ftp = normalizeURL(*ftp)
+		*ftp = utils.NormalizeURL(*ftp)
 	}
 
 	var latitude, longitude float32
@@ -338,7 +348,7 @@ func (c *cli) CmdAdd(args ...string) error {
 	}
 
 	// Publish update
-	Publish(conn, MIRROR_UPDATE, cmd.Arg(0))
+	database.Publish(conn, database.MIRROR_UPDATE, cmd.Arg(0))
 
 	fmt.Println("Mirror added successfully")
 	return nil
@@ -376,15 +386,15 @@ func (c *cli) CmdRemove(args ...string) error {
 
 	identifier := list[0]
 
-	r := NewRedis()
-	conn, err := r.connect()
+	r := database.NewRedis(false)
+	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
 	}
 	defer conn.Close()
 
 	// First disable the mirror
-	disableMirror(r, identifier)
+	mirrors.DisableMirror(r, identifier)
 
 	// Get all files supported by the given mirror
 	files, err := redis.Strings(conn.Do("SMEMBERS", fmt.Sprintf("MIRROR_%s_FILES", identifier)))
@@ -398,7 +408,7 @@ func (c *cli) CmdRemove(args ...string) error {
 	for _, file := range files {
 		conn.Send("DEL", fmt.Sprintf("FILEINFO_%s_%s", identifier, file))
 		conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", file), identifier)
-		conn.Send("PUBLISH", MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, file))
+		conn.Send("PUBLISH", database.MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, file))
 	}
 
 	_, err = conn.Do("EXEC")
@@ -426,7 +436,7 @@ func (c *cli) CmdRemove(args ...string) error {
 	}
 
 	// Publish update
-	Publish(conn, MIRROR_UPDATE, identifier)
+	database.Publish(conn, database.MIRROR_UPDATE, identifier)
 
 	fmt.Println("Mirror removed successfully")
 	return nil
@@ -447,8 +457,8 @@ func (c *cli) CmdScan(args ...string) error {
 		return nil
 	}
 
-	r := NewRedis()
-	conn, err := r.connect()
+	r := database.NewRedis(false)
+	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
 	}
@@ -496,7 +506,7 @@ func (c *cli) CmdScan(args ...string) error {
 			return err
 		}
 
-		var mirror Mirror
+		var mirror mirrors.Mirror
 		err = redis.ScanStruct(m, &mirror)
 		if err != nil {
 			return err
@@ -509,17 +519,17 @@ func (c *cli) CmdScan(args ...string) error {
 		if *rsync == true || *ftp == true {
 			// Use the requested protocol
 			if *rsync == true && mirror.RsyncURL != "" {
-				err = Scan(RSYNC, r, mirror.RsyncURL, id, nil)
+				err = scan.Scan(scan.RSYNC, r, mirror.RsyncURL, id, nil)
 			} else if *ftp == true && mirror.FtpURL != "" {
-				err = Scan(FTP, r, mirror.FtpURL, id, nil)
+				err = scan.Scan(scan.FTP, r, mirror.FtpURL, id, nil)
 			}
 		} else {
 			// Use rsync (if applicable) and fallback to FTP
 			if mirror.RsyncURL != "" {
-				err = Scan(RSYNC, r, mirror.RsyncURL, id, nil)
+				err = scan.Scan(scan.RSYNC, r, mirror.RsyncURL, id, nil)
 			}
 			if err != nil && mirror.FtpURL != "" {
-				err = Scan(FTP, r, mirror.FtpURL, id, nil)
+				err = scan.Scan(scan.FTP, r, mirror.FtpURL, id, nil)
 			}
 		}
 
@@ -529,7 +539,7 @@ func (c *cli) CmdScan(args ...string) error {
 
 		// Finally enable the mirror if requested
 		if err == nil && *enable == true {
-			if err := enableMirror(r, id); err != nil {
+			if err := mirrors.EnableMirror(r, id); err != nil {
 				log.Fatal("Couldn't enable the mirror: ", err)
 			}
 			fmt.Println("Mirror enabled successfully")
@@ -549,7 +559,7 @@ func (c *cli) CmdRefresh(args ...string) error {
 		return nil
 	}
 
-	err := ScanSource(NewRedis(), nil)
+	err := scan.ScanSource(database.NewRedis(false), nil)
 	return err
 }
 
@@ -558,8 +568,8 @@ func (c *cli) matchMirror(text string) (list []string, err error) {
 		return nil, errors.New("Nothing to match")
 	}
 
-	r := NewRedis()
-	conn, err := r.connect()
+	r := database.NewRedis(false)
+	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
 	}
@@ -619,8 +629,8 @@ func (c *cli) CmdEdit(args ...string) error {
 	id := list[0]
 
 	// Connect to the database
-	r := NewRedis()
-	conn, err := r.connect()
+	r := database.NewRedis(false)
+	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
 	}
@@ -634,7 +644,7 @@ func (c *cli) CmdEdit(args ...string) error {
 		return err
 	}
 
-	var mirror Mirror
+	var mirror mirrors.Mirror
 	err = redis.ScanStruct(m, &mirror)
 	if err != nil {
 		return err
@@ -656,7 +666,7 @@ func (c *cli) CmdEdit(args ...string) error {
 	f.Close()
 
 	// Checksum the original file
-	chk, _ := hashFile(f.Name())
+	chk, _ := utils.HashFile(f.Name())
 
 reopen:
 	// Launch the editor with the filename as first parameter
@@ -677,7 +687,7 @@ reopen:
 	}
 
 	// Checksum the file back and compare
-	chk2, _ := hashFile(f.Name())
+	chk2, _ := utils.HashFile(f.Name())
 	if chk == chk2 {
 		fmt.Println("Aborted")
 		return nil
@@ -727,13 +737,13 @@ reopen:
 
 	// Normalize URLs
 	if mirror.HttpURL != "" {
-		mirror.HttpURL = normalizeURL(mirror.HttpURL)
+		mirror.HttpURL = utils.NormalizeURL(mirror.HttpURL)
 	}
 	if mirror.RsyncURL != "" {
-		mirror.RsyncURL = normalizeURL(mirror.RsyncURL)
+		mirror.RsyncURL = utils.NormalizeURL(mirror.RsyncURL)
 	}
 	if mirror.FtpURL != "" {
-		mirror.FtpURL = normalizeURL(mirror.FtpURL)
+		mirror.FtpURL = utils.NormalizeURL(mirror.FtpURL)
 	}
 
 	mirror.Comment = comment
@@ -767,7 +777,7 @@ reopen:
 	}
 
 	// Publish update
-	Publish(conn, MIRROR_UPDATE, id)
+	database.Publish(conn, database.MIRROR_UPDATE, id)
 
 	fmt.Println("Mirror edited successfully")
 
@@ -803,8 +813,8 @@ func (c *cli) CmdShow(args ...string) error {
 	id := list[0]
 
 	// Connect to the database
-	r := NewRedis()
-	conn, err := r.connect()
+	r := database.NewRedis(false)
+	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
 	}
@@ -818,7 +828,7 @@ func (c *cli) CmdShow(args ...string) error {
 		return err
 	}
 
-	var mirror Mirror
+	var mirror mirrors.Mirror
 	err = redis.ScanStruct(m, &mirror)
 	if err != nil {
 		return err
@@ -852,8 +862,8 @@ func (c *cli) CmdExport(args ...string) error {
 		return nil
 	}
 
-	r := NewRedis()
-	conn, err := r.connect()
+	r := database.NewRedis(false)
+	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
 	}
@@ -879,7 +889,7 @@ func (c *cli) CmdExport(args ...string) error {
 	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
 
 	for _, e := range res {
-		var mirror Mirror
+		var mirror mirrors.Mirror
 		res, ok := e.([]interface{})
 		if !ok {
 			log.Fatal("Typecast failed")
@@ -944,7 +954,7 @@ func (c *cli) CmdEnable(args ...string) error {
 		return nil
 	}
 
-	err = enableMirror(NewRedis(), list[0])
+	err = mirrors.EnableMirror(database.NewRedis(false), list[0])
 	if err != nil {
 		log.Fatal("Couldn't enable the mirror:", err)
 	}
@@ -981,7 +991,7 @@ func (c *cli) CmdDisable(args ...string) error {
 		return nil
 	}
 
-	err = disableMirror(NewRedis(), list[0])
+	err = mirrors.DisableMirror(database.NewRedis(false), list[0])
 	if err != nil {
 		log.Fatal("Couldn't disable the mirror:", err)
 	}
@@ -1005,8 +1015,8 @@ func (c *cli) CmdStats(args ...string) error {
 		return nil
 	}
 
-	r := NewRedis()
-	conn, err := r.connect()
+	r := database.NewRedis(false)
+	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
 	}
@@ -1022,7 +1032,7 @@ func (c *cli) CmdStats(args ...string) error {
 		end = time.Now()
 	}
 
-	tkcoverage := timeKeyCoverage(start, end)
+	tkcoverage := utils.TimeKeyCoverage(start, end)
 	for _, b := range tkcoverage {
 		log.Debug("Requesting %s", b)
 	}
@@ -1142,7 +1152,7 @@ func (c *cli) CmdStats(args ...string) error {
 		fmt.Fprintf(w, "Download requests:\t%d\n", requests)
 		fmt.Fprint(w, "Bytes transfered:\t")
 		if *human {
-			fmt.Fprintln(w, readableSize(bytes))
+			fmt.Fprintln(w, utils.ReadableSize(bytes))
 		} else {
 			fmt.Fprintln(w, bytes)
 		}
@@ -1153,7 +1163,7 @@ func (c *cli) CmdStats(args ...string) error {
 }
 
 func (c *cli) CmdReload(args ...string) error {
-	pid := getRemoteProcPid()
+	pid := process.GetRemoteProcPid()
 	if pid > 0 {
 		err := syscall.Kill(pid, syscall.SIGHUP)
 		if err != nil {
@@ -1166,7 +1176,7 @@ func (c *cli) CmdReload(args ...string) error {
 }
 
 func (c *cli) CmdUpgrade(args ...string) error {
-	pid := getRemoteProcPid()
+	pid := process.GetRemoteProcPid()
 	if pid > 0 {
 		err := syscall.Kill(pid, syscall.SIGUSR2)
 		if err != nil {
@@ -1179,6 +1189,6 @@ func (c *cli) CmdUpgrade(args ...string) error {
 }
 
 func (c *cli) CmdVersion(args ...string) error {
-	printVersion()
+	core.PrintVersion()
 	return nil
 }

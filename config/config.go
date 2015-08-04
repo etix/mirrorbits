@@ -1,10 +1,12 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package config
 
 import (
 	"fmt"
+	"github.com/etix/mirrorbits/core"
+	"github.com/op/go-logging"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
@@ -13,6 +15,8 @@ import (
 )
 
 var (
+	log = logging.MustGetLogger("main")
+
 	defaultConfig = configuration{
 		Repository:             "",
 		Templates:              "",
@@ -93,22 +97,22 @@ func LoadConfig() {
 
 // ReloadConfig reloads the configuration file and update it globally
 func ReloadConfig() error {
-	if configFile == "" {
+	if core.ConfigFile == "" {
 		if fileExists("./mirrorbits.conf") {
-			configFile = "./mirrorbits.conf"
+			core.ConfigFile = "./mirrorbits.conf"
 		} else if fileExists("/etc/mirrorbits.conf") {
-			configFile = "/etc/mirrorbits.conf"
+			core.ConfigFile = "/etc/mirrorbits.conf"
 		}
 	}
 
-	content, err := ioutil.ReadFile(configFile)
+	content, err := ioutil.ReadFile(core.ConfigFile)
 	if err != nil {
 		fmt.Println("Configuration could not be found.\n\tUse -config <path>")
 		os.Exit(-1)
 	}
 
 	if os.Getenv("DEBUG") != "" {
-		fmt.Println("Reading configuration from", configFile)
+		fmt.Println("Reading configuration from", core.ConfigFile)
 	}
 
 	c := defaultConfig
@@ -116,7 +120,7 @@ func ReloadConfig() error {
 	// Overload the default configuration with the user's one
 	err = yaml.Unmarshal(content, &c)
 	if err != nil {
-		return fmt.Errorf("%s in %s", err, configFile)
+		return fmt.Errorf("%s in %s", err, core.ConfigFile)
 	}
 
 	// Sanitize
@@ -175,4 +179,14 @@ func testSentinelsEq(a, b []sentinels) bool {
 	}
 
 	return true
+}
+
+//DUPLICATE
+func isInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }

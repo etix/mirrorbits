@@ -1,11 +1,14 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package logs
 
 import (
 	"bytes"
 	"fmt"
+	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/core"
+	"github.com/etix/mirrorbits/mirrors"
 	"github.com/op/go-logging"
 	stdlog "log"
 	"os"
@@ -35,13 +38,13 @@ type DownloadsLogger struct {
 // ReloadLogs will reopen the logs to allow rotations
 func ReloadLogs() {
 	ReloadRuntimeLogs()
-	if daemon {
+	if core.Daemon {
 		ReloadDownloadLogs()
 	}
 }
 
 func ReloadRuntimeLogs() {
-	if rlogger.f == os.Stderr && runLog == "" {
+	if rlogger.f == os.Stderr && core.RunLog == "" {
 		// Logger already set up and connected to the console.
 		// Don't reload to avoid breaking journald.
 		return
@@ -60,9 +63,9 @@ func ReloadRuntimeLogs() {
 		rlogger.f = os.Stderr
 	}
 
-	if runLog != "" {
+	if core.RunLog != "" {
 		var err error
-		rlogger.f, err = os.OpenFile(runLog, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		rlogger.f, err = os.OpenFile(core.RunLog, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Cannot open log file for writing")
 			rlogger.f = os.Stderr
@@ -76,7 +79,7 @@ func ReloadRuntimeLogs() {
 
 	logging.SetBackend(logBackend)
 
-	if debug {
+	if core.Debug {
 		logging.SetFormatter(logging.MustStringFormatter("%{shortfile:-20s}%{time:2006/01/02 15:04:05.000 MST} %{message}"))
 		logging.SetLevel(logging.DEBUG, "main")
 	} else {
@@ -129,7 +132,7 @@ func ReloadDownloadLogs() {
 }
 
 // This function will write a download result in the logs.
-func logDownload(typ string, statuscode int, p *Results, err error) {
+func LogDownload(typ string, statuscode int, p *mirrors.Results, err error) {
 	dlogger.RLock()
 	defer dlogger.RUnlock()
 

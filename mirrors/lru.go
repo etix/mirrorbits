@@ -29,7 +29,7 @@
 	OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package main
+package mirrors
 
 // Implementation of an LRU cache in golang
 

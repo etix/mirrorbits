@@ -6,8 +6,8 @@ BRANCH := $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
 BUILD := $(SHA)-$(BRANCH)
 PACKAGE := dist/mirrorbits-$(VERSION).tar.gz
 
-GOFLAGS := -ldflags "-X main.VERSION $(VERSION) -X main.BUILD $(BUILD)"
-GOFLAGSDEV := -race -ldflags "-X main.VERSION $(VERSION) -X main.BUILD $(BUILD) -X main.DEV -dev"
+GOFLAGS := -ldflags "-X core.VERSION $(VERSION) -X core.BUILD $(BUILD)"
+GOFLAGSDEV := -race -ldflags "-X core.VERSION $(VERSION) -X core.BUILD $(BUILD) -X core.DEV -dev"
 
 all: build
 

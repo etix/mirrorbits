@@ -1,12 +1,20 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package daemon
 
 import (
 	"errors"
 	"fmt"
+	"github.com/etix/mirrorbits/cli"
+	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/core"
+	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/mirrors"
+	"github.com/etix/mirrorbits/scan"
+	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
+	"github.com/op/go-logging"
 	"math/rand"
 	"net"
 	"net/http"
@@ -23,16 +31,18 @@ const (
 
 var (
 	healthCheckThreads = 10
-	userAgent          = "Mirrorbits/" + VERSION + " PING CHECK"
+	userAgent          = "Mirrorbits/" + core.VERSION + " PING CHECK"
 	clientTimeout      = time.Duration(20 * time.Second)
 	clientDeadline     = time.Duration(40 * time.Second)
 	redirectError      = errors.New("Redirect not allowed")
 	mirrorNotScanned   = errors.New("Mirror has not yet been scanned")
+
+	log = logging.MustGetLogger("main")
 )
 
 type Monitor struct {
-	redis           *redisobj
-	cache           *Cache
+	redis           *database.Redisobj
+	cache           *mirrors.Cache
 	mirrors         map[string]*MMirror
 	mapLock         sync.Mutex
 	httpClient      http.Client
@@ -50,13 +60,13 @@ type Monitor struct {
 }
 
 type MMirror struct {
-	Mirror
+	mirrors.Mirror
 	checking  bool
 	scanning  bool
 	lastCheck int64
 }
 
-func NewMonitor(r *redisobj, c *Cache) *Monitor {
+func NewMonitor(r *database.Redisobj, c *mirrors.Cache) *Monitor {
 	monitor := new(Monitor)
 	monitor.redis = r
 	monitor.cache = c
@@ -112,7 +122,7 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 }
 
 // Main monitor loop
-func (m *Monitor) monitorLoop() {
+func (m *Monitor) MonitorLoop() {
 	m.wg.Add(1)
 
 	for {
@@ -124,7 +134,7 @@ func (m *Monitor) monitorLoop() {
 	}
 
 	mirrorUpdateEvent := make(chan string, 10)
-	m.redis.pubsub.SubscribeEvent(MIRROR_UPDATE, mirrorUpdateEvent)
+	m.redis.Pubsub.SubscribeEvent(database.MIRROR_UPDATE, mirrorUpdateEvent)
 
 	for {
 		ids, err := m.mirrorsID()
@@ -182,14 +192,14 @@ func (m *Monitor) monitorLoop() {
 					// Ignore disabled mirrors
 					continue
 				}
-				if elapsedSec(v.lastCheck, int64(60*GetConfig().CheckInterval)) && m.mirrors[k].checking == false && m.isHandled(k) {
+				if utils.ElapsedSec(v.lastCheck, int64(60*GetConfig().CheckInterval)) && m.mirrors[k].checking == false && m.isHandled(k) {
 					select {
 					case m.healthCheckChan <- k:
 						m.mirrors[k].checking = true
 					default:
 					}
 				}
-				if elapsedSec(v.LastSync, int64(60*GetConfig().ScanInterval)) && m.mirrors[k].scanning == false && m.isHandled(k) {
+				if utils.ElapsedSec(v.LastSync, int64(60*GetConfig().ScanInterval)) && m.mirrors[k].scanning == false && m.isHandled(k) {
 					select {
 					case m.syncChan <- k:
 						m.mirrors[k].scanning = true
@@ -204,7 +214,7 @@ func (m *Monitor) monitorLoop() {
 
 // Returns a list of all mirrors ID
 func (m *Monitor) mirrorsID() ([]string, error) {
-	rconn := m.redis.pool.Get()
+	rconn := m.redis.Pool.Get()
 	defer rconn.Close()
 
 	return redis.Strings(rconn.Do("LRANGE", "MIRRORS", "0", "-1"))
@@ -230,9 +240,9 @@ func addMirrorIDToSlice(slice []string, mirrorID string) []string {
 
 // Sync the remote mirror struct with the local dataset
 // TODO needs improvements
-func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
+func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]mirrors.Mirror, error) {
 
-	mirrors := make([]Mirror, 0, len(mirrorsIDs))
+	mlist := make([]mirrors.Mirror, 0, len(mirrorsIDs))
 
 	for _, id := range mirrorsIDs {
 		if len(id) > m.formatLongestID {
@@ -252,7 +262,7 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
 			m.mapLock.Unlock()
 			continue
 		}
-		mirrors = append(mirrors, mirror)
+		mlist = append(mlist, mirror)
 
 		m.mapLock.Lock()
 		m.nodesLock.Lock()
@@ -264,7 +274,7 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
 	m.mapLock.Lock()
 
 	// Prepare the list of mirrors
-	for _, e := range mirrors {
+	for _, e := range mlist {
 		var isChecking bool = false
 		var isScanning bool = false
 		var lastCheck int64 = 0
@@ -282,8 +292,8 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
 	}
 	m.mapLock.Unlock()
 
-	log.Debug("%d mirror%s updated", len(mirrorsIDs), plural(len(mirrorsIDs)))
-	return mirrors, nil
+	log.Debug("%d mirror%s updated", len(mirrorsIDs), utils.Plural(len(mirrorsIDs)))
+	return mlist, nil
 }
 
 // Main health check loop
@@ -330,8 +340,8 @@ func (m *Monitor) syncLoop() {
 			mirror := m.mirrors[k]
 			m.mapLock.Unlock()
 
-			conn := m.redis.pool.Get()
-			scanning, err := IsScanning(conn, k)
+			conn := m.redis.Pool.Get()
+			scanning, err := scan.IsScanning(conn, k)
 			if err != nil {
 				log.Error("syncloop: ", err.Error())
 				conn.Close()
@@ -345,19 +355,19 @@ func (m *Monitor) syncLoop() {
 
 			log.Debug("Scanning %s", k)
 
-			err = NoSyncMethod
+			err = cli.NoSyncMethod
 
 			// First try to scan with rsync
 			if mirror.RsyncURL != "" {
-				err = Scan(RSYNC, m.redis, mirror.RsyncURL, k, m.stop)
+				err = scan.Scan(scan.RSYNC, m.redis, mirror.RsyncURL, k, m.stop)
 			}
 			// If it failed or rsync wasn't supported
 			// fallback to FTP
 			if err != nil && mirror.FtpURL != "" {
-				err = Scan(FTP, m.redis, mirror.FtpURL, k, m.stop)
+				err = scan.Scan(scan.FTP, m.redis, mirror.FtpURL, k, m.stop)
 			}
 
-			if err == scanInProgress {
+			if err == scan.ScanInProgress {
 				log.Warning("%-30.30s Scan already in progress", k)
 				goto unlock
 			}
@@ -380,7 +390,7 @@ func (m *Monitor) syncLoop() {
 }
 
 // Do an actual health check against a given mirror
-func (m *Monitor) healthCheck(mirror Mirror) error {
+func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 	format := "%-" + fmt.Sprintf("%d.%ds", m.formatLongestID+4, m.formatLongestID+4)
 
 	file, size, err := m.getRandomFile(mirror.ID)
@@ -405,7 +415,7 @@ func (m *Monitor) healthCheck(mirror Mirror) error {
 		if opErr, ok := err.(*net.OpError); ok {
 			log.Debug("Op: %s | Net: %s | Addr: %s | Err: %s | Temporary: %t", opErr.Op, opErr.Net, opErr.Addr, opErr.Error(), opErr.Temporary())
 		}
-		markMirrorDown(m.redis, mirror.ID, "Unreachable")
+		mirrors.MarkMirrorDown(m.redis, mirror.ID, "Unreachable")
 		log.Error(format+"Error: %s (%dms)", mirror.ID, err.Error(), elapsed/time.Millisecond)
 		return err
 	}
@@ -414,16 +424,16 @@ func (m *Monitor) healthCheck(mirror Mirror) error {
 	contentLength := resp.Header.Get("Content-Length")
 
 	if resp.StatusCode == 404 {
-		markMirrorDown(m.redis, mirror.ID, fmt.Sprintf("File not found %s (error 404)", file))
+		mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("File not found %s (error 404)", file))
 		if GetConfig().DisableOnMissingFile {
-			disableMirror(m.redis, mirror.ID)
+			mirrors.DisableMirror(m.redis, mirror.ID)
 		}
 		log.Error(format+"Error: File %s not found (error 404)", mirror.ID, file)
 	} else if resp.StatusCode != 200 {
-		markMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", resp.StatusCode))
+		mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", resp.StatusCode))
 		log.Warning(format+"Down! Status: %d", mirror.ID, resp.StatusCode)
 	} else {
-		markMirrorUp(m.redis, mirror.ID)
+		mirrors.MarkMirrorUp(m.redis, mirror.ID)
 		rsize, err := strconv.ParseInt(contentLength, 10, 64)
 		if err == nil && rsize != size {
 			log.Warning(format+"File size mismatch! [%s] (%dms)", mirror.ID, file, elapsed/time.Millisecond)
@@ -438,7 +448,7 @@ func (m *Monitor) healthCheck(mirror Mirror) error {
 func (m *Monitor) getRandomFile(identifier string) (file string, size int64, err error) {
 	sinterKey := fmt.Sprintf("HANDLEDFILES_%s", identifier)
 
-	rconn := m.redis.pool.Get()
+	rconn := m.redis.Pool.Get()
 	defer rconn.Close()
 
 	file, err = redis.String(rconn.Do("SRANDMEMBER", sinterKey))
@@ -456,7 +466,7 @@ func (m *Monitor) getRandomFile(identifier string) (file string, size int64, err
 
 // Trigger a sync of the local repository
 func (m *Monitor) scanRepository() error {
-	err := ScanSource(m.redis, m.stop)
+	err := scan.ScanSource(m.redis, m.stop)
 	if err != nil {
 		log.Error("Scanning source failed: %s", err.Error())
 	}
@@ -478,11 +488,11 @@ func (m *Monitor) clusterLoop() {
 	clusterChan := make(chan string, 10)
 	announceTicker := time.NewTicker(1 * time.Second)
 
-	hostname := getHostname()
+	hostname := utils.GetHostname()
 	nodeID := fmt.Sprintf("%s-%05d", hostname, rand.Intn(32000))
 
 	m.refreshNodeList(nodeID, nodeID)
-	m.redis.pubsub.SubscribeEvent(CLUSTER, clusterChan)
+	m.redis.Pubsub.SubscribeEvent(database.CLUSTER, clusterChan)
 
 	m.wg.Add(1)
 	for {
@@ -491,8 +501,8 @@ func (m *Monitor) clusterLoop() {
 			m.wg.Done()
 			return
 		case <-announceTicker.C:
-			r := m.redis.pool.Get()
-			Publish(r, CLUSTER, fmt.Sprintf("%s %s", clusterAnnounce, nodeID))
+			r := m.redis.Pool.Get()
+			database.Publish(r, database.CLUSTER, fmt.Sprintf("%s %s", clusterAnnounce, nodeID))
 			r.Close()
 		case data := <-clusterChan:
 			if !strings.HasPrefix(data, clusterAnnounce+" ") {
@@ -511,7 +521,7 @@ func (m *Monitor) refreshNodeList(nodeID, self string) {
 
 	// Expire unreachable nodes
 	for i := 0; i < len(m.nodes); i++ {
-		if elapsedSec(m.nodes[i].LastAnnounce, 5) && m.nodes[i].ID != nodeID && m.nodes[i].ID != self {
+		if utils.ElapsedSec(m.nodes[i].LastAnnounce, 5) && m.nodes[i].ID != nodeID && m.nodes[i].ID != self {
 			log.Notice("<- Node %s left the cluster", m.nodes[i].ID)
 			m.nodes = append(m.nodes[:i], m.nodes[i+1:]...)
 			i--

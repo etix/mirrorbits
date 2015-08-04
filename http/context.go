@@ -1,7 +1,7 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package http
 
 import (
 	"net/http"

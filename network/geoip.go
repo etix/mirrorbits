@@ -1,11 +1,13 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package network
 
 import (
 	"errors"
 	"github.com/etix/geoip"
+	. "github.com/etix/mirrorbits/config"
+	"github.com/op/go-logging"
 	"net"
 	"os"
 	"strconv"
@@ -13,7 +15,8 @@ import (
 )
 
 var (
-	errMultipleAddresses = errors.New("The mirror has more than one IP address")
+	ErrMultipleAddresses = errors.New("The mirror has more than one IP address")
+	log                  = logging.MustGetLogger("main")
 )
 
 const (
@@ -115,13 +118,13 @@ func (g *GeoIP) IsIPv6(ip string) bool {
 }
 
 // Return true if the given address is valid
-func (g *GeoIPRec) isValid() bool {
+func (g *GeoIPRec) IsValid() bool {
 	return g.GeoIPRecord != nil
 }
 
 // Return the IP address of a mirror and return an error
 // if the DNS returns more than one address
-func lookupMirrorIP(host string) (string, error) {
+func LookupMirrorIP(host string) (string, error) {
 	addrs, err := net.LookupIP(host)
 	if err != nil {
 		return "", err
@@ -130,19 +133,19 @@ func lookupMirrorIP(host string) (string, error) {
 	// since we can't determine the exact position of
 	// the server.
 	if len(addrs) > 1 {
-		err = errMultipleAddresses
+		err = ErrMultipleAddresses
 	}
 
 	return addrs[0].String(), err
 }
 
 // Remove the port from a remote address (x.x.x.x:yyyy)
-func remoteIpFromAddr(remoteAddr string) string {
+func RemoteIpFromAddr(remoteAddr string) string {
 	return remoteAddr[:strings.LastIndex(remoteAddr, ":")]
 }
 
 // Extract the remote IP from an X-Forwarded-For header
-func extractRemoteIP(XForwardedFor string) string {
+func ExtractRemoteIP(XForwardedFor string) string {
 	addresses := strings.Split(XForwardedFor, ", ")
 	if len(addresses) > 0 {
 		// The left-most address is supposed to be the original client address.

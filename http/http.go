@@ -1,12 +1,21 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package http
 
 import (
 	"encoding/json"
 	"fmt"
+	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/core"
+	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/filesystem"
+	"github.com/etix/mirrorbits/logs"
+	"github.com/etix/mirrorbits/mirrors"
+	"github.com/etix/mirrorbits/network"
+	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
+	"github.com/op/go-logging"
 	"gopkg.in/tylerb/graceful.v1"
 	"html/template"
 	"math/rand"
@@ -21,16 +30,20 @@ import (
 	"time"
 )
 
+var (
+	log = logging.MustGetLogger("main")
+)
+
 // HTTP represents an instance of the HTTP webserver
 type HTTP struct {
-	geoip          *GeoIP
-	redis          *redisobj
+	geoip          *network.GeoIP
+	redis          *database.Redisobj
 	templates      Templates
 	Listener       *net.Listener
 	server         *graceful.Server
 	serverStopChan <-chan struct{}
 	stats          *Stats
-	cache          *Cache
+	cache          *mirrors.Cache
 	engine         MirrorSelection
 	Restarting     bool
 	stopped        bool
@@ -43,34 +56,11 @@ type Templates struct {
 	mirrorstats *template.Template
 }
 
-// FileInfo is a struct embedding details about a file served by
-// the redirector.
-type FileInfo struct {
-	Path    string    `redis:"-"`
-	Size    int64     `redis:"size" json:",omitempty"`
-	ModTime time.Time `redis:"modTime" json:",omitempty"`
-	Sha1    string    `redis:"sha1" json:",omitempty"`
-	Sha256  string    `redis:"sha256" json:",omitempty"`
-	Md5     string    `redis:"md5" json:",omitempty"`
-}
-
-// Results is the resulting struct of a request and is
-// used by the renderers to generate the final page.
-type Results struct {
-	FileInfo     FileInfo
-	MapURL       string `json:"-"`
-	IP           string
-	ClientInfo   GeoIPRec
-	MirrorList   Mirrors
-	ExcludedList Mirrors `json:",omitempty"`
-	Fallback     bool    `json:",omitempty"`
-}
-
 // HTTPServer is the constructor of the HTTP server
-func HTTPServer(redis *redisobj, cache *Cache) *HTTP {
+func HTTPServer(redis *database.Redisobj, cache *mirrors.Cache) *HTTP {
 	h := new(HTTP)
 	h.redis = redis
-	h.geoip = NewGeoIP()
+	h.geoip = network.NewGeoIP()
 	h.templates.mirrorlist = template.Must(h.LoadTemplates("mirrorlist"))
 	h.templates.mirrorstats = template.Must(h.LoadTemplates("mirrorstats"))
 	h.cache = cache
@@ -180,7 +170,7 @@ func (h *HTTP) RunServer() (err error) {
 
 func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 	ctx := NewContext(w, r, h.templates)
-	w.Header().Set("Server", "Mirrorbits/"+VERSION)
+	w.Header().Set("Server", "Mirrorbits/"+core.VERSION)
 
 	switch ctx.Type() {
 	case MIRRORLIST:
@@ -205,13 +195,13 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		return
 	}
 
-	fileInfo := FileInfo{
+	fileInfo := filesystem.FileInfo{
 		Path: r.URL.Path,
 	}
 
-	remoteIP := extractRemoteIP(r.Header.Get("X-Forwarded-For"))
+	remoteIP := network.ExtractRemoteIP(r.Header.Get("X-Forwarded-For"))
 	if len(remoteIP) == 0 {
-		remoteIP = remoteIpFromAddr(r.RemoteAddr)
+		remoteIP = network.RemoteIpFromAddr(r.RemoteAddr)
 	}
 
 	if ctx.IsMirrorlist() {
@@ -223,24 +213,24 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 
 	clientInfo := h.geoip.GetInfos(remoteIP) //TODO return a pointer?
 
-	mirrors, excluded, err := h.engine.Selection(ctx, h.cache, &fileInfo, clientInfo)
+	mlist, excluded, err := h.engine.Selection(ctx, h.cache, &fileInfo, clientInfo)
 
 	/* Handle errors */
 	fallback := false
-	if _, ok := err.(net.Error); ok || len(mirrors) == 0 {
+	if _, ok := err.(net.Error); ok || len(mlist) == 0 {
 		/* Handle fallbacks */
 		fallbacks := GetConfig().Fallbacks
 		if len(fallbacks) > 0 {
 			fallback = true
 			for i, f := range fallbacks {
-				mirrors = append(mirrors, Mirror{
+				mlist = append(mlist, mirrors.Mirror{
 					ID:            fmt.Sprintf("fallback%d", i),
 					HttpURL:       f.Url,
 					CountryCodes:  strings.ToUpper(f.CountryCode),
 					CountryFields: []string{strings.ToUpper(f.CountryCode)},
 					ContinentCode: strings.ToUpper(f.ContinentCode)})
 			}
-			sort.Sort(ByRank{mirrors, clientInfo})
+			sort.Sort(mirrors.ByRank{mlist, clientInfo})
 		} else {
 			// No fallback in stock, there's nothing else we can do
 			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
@@ -250,9 +240,9 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		return
 	}
 
-	results := &Results{
+	results := &mirrors.Results{
 		FileInfo:     fileInfo,
-		MirrorList:   mirrors,
+		MirrorList:   mlist,
 		ExcludedList: excluded,
 		ClientInfo:   clientInfo,
 		IP:           remoteIP,
@@ -288,9 +278,9 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	}
 
 	if !ctx.IsMirrorlist() {
-		logDownload(resultRenderer.Type(), status, results, err)
-		if len(mirrors) > 0 {
-			h.stats.CountDownload(mirrors[0], fileInfo)
+		logs.LogDownload(resultRenderer.Type(), status, results, err)
+		if len(mlist) > 0 {
+			h.stats.CountDownload(mlist[0], fileInfo)
 		}
 	}
 
@@ -301,9 +291,9 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 func (h *HTTP) LoadTemplates(name string) (t *template.Template, err error) {
 	t = template.New("t")
 	t.Funcs(template.FuncMap{
-		"add":     add,
-		"sizeof":  readableSize,
-		"version": version,
+		"add":     utils.Add,
+		"sizeof":  utils.ReadableSize,
+		"version": utils.Version,
 	})
 	t, err = t.ParseFiles(
 		filepath.Clean(GetConfig().Templates+"/base.html"),
@@ -334,7 +324,7 @@ type StatsFilePeriod struct {
 func (h *HTTP) fileStatsHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 	var output []byte
 
-	rconn := h.redis.pool.Get()
+	rconn := h.redis.Pool.Get()
 	defer rconn.Close()
 
 	req := strings.SplitN(ctx.QueryParam("stats"), "-", 3)
@@ -436,7 +426,7 @@ type MirrorStats struct {
 
 type MirrorStatsPage struct {
 	List       []MirrorStats
-	MirrorList []Mirror
+	MirrorList []mirrors.Mirror
 }
 
 type ByDownloadNumbers struct {
@@ -457,7 +447,7 @@ func (s MirrorStatsSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 
-	rconn := h.redis.pool.Get()
+	rconn := h.redis.Pool.Get()
 	defer rconn.Close()
 
 	// Get all mirrors ID
@@ -508,10 +498,10 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	// </dlstats>
 	// <map>
 
-	var mirrors []Mirror
-	mirrors = make([]Mirror, 0, len(mirrorsIDs))
+	var mlist []mirrors.Mirror
+	mlist = make([]mirrors.Mirror, 0, len(mirrorsIDs))
 	for _, mirrorID := range mirrorsIDs {
-		var mirror Mirror
+		var mirror mirrors.Mirror
 		reply, err := redis.Values(rconn.Do("HGETALL", fmt.Sprintf("MIRROR_%s", mirrorID)))
 		if err != nil {
 			continue
@@ -525,13 +515,13 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 			continue
 		}
 		mirror.CountryFields = strings.Fields(mirror.CountryCodes)
-		mirrors = append(mirrors, mirror)
+		mlist = append(mlist, mirror)
 	}
 
 	// </map>
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err = ctx.Templates().mirrorstats.ExecuteTemplate(ctx.ResponseWriter(), "base", MirrorStatsPage{results, mirrors})
+	err = ctx.Templates().mirrorstats.ExecuteTemplate(ctx.ResponseWriter(), "base", MirrorStatsPage{results, mlist})
 	if err != nil {
 		log.Error("HTTP error: %s", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
