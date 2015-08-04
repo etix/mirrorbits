@@ -22,7 +22,7 @@ var (
 )
 
 type Redisobj struct {
-	Pool         *redis.Pool
+	pool         *redis.Pool
 	Pubsub       *Pubsub
 	failure      bool
 	failureState sync.RWMutex
@@ -33,7 +33,7 @@ type Redisobj struct {
 func NewRedis(daemon bool) *Redisobj {
 	r := &Redisobj{}
 	r.daemon = daemon
-	r.Pool = &redis.Pool{
+	r.pool = &redis.Pool{
 		MaxIdle:     10,
 		IdleTimeout: 240 * time.Second,
 		Dial: func() (redis.Conn, error) {
@@ -48,8 +48,12 @@ func NewRedis(daemon bool) *Redisobj {
 	return r
 }
 
+func (r *Redisobj) Get() redis.Conn {
+	return r.pool.Get()
+}
+
 func (r *Redisobj) Close() {
-	r.Pool.Close()
+	r.pool.Close()
 	//TODO close pubsub
 }
 

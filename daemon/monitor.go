@@ -214,7 +214,7 @@ func (m *Monitor) MonitorLoop() {
 
 // Returns a list of all mirrors ID
 func (m *Monitor) mirrorsID() ([]string, error) {
-	rconn := m.redis.Pool.Get()
+	rconn := m.redis.Get()
 	defer rconn.Close()
 
 	return redis.Strings(rconn.Do("LRANGE", "MIRRORS", "0", "-1"))
@@ -340,7 +340,7 @@ func (m *Monitor) syncLoop() {
 			mirror := m.mirrors[k]
 			m.mapLock.Unlock()
 
-			conn := m.redis.Pool.Get()
+			conn := m.redis.Get()
 			scanning, err := scan.IsScanning(conn, k)
 			if err != nil {
 				log.Error("syncloop: ", err.Error())
@@ -448,7 +448,7 @@ func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 func (m *Monitor) getRandomFile(identifier string) (file string, size int64, err error) {
 	sinterKey := fmt.Sprintf("HANDLEDFILES_%s", identifier)
 
-	rconn := m.redis.Pool.Get()
+	rconn := m.redis.Get()
 	defer rconn.Close()
 
 	file, err = redis.String(rconn.Do("SRANDMEMBER", sinterKey))
@@ -501,7 +501,7 @@ func (m *Monitor) clusterLoop() {
 			m.wg.Done()
 			return
 		case <-announceTicker.C:
-			r := m.redis.Pool.Get()
+			r := m.redis.Get()
 			database.Publish(r, database.CLUSTER, fmt.Sprintf("%s %s", clusterAnnounce, nodeID))
 			r.Close()
 		case data := <-clusterChan:

@@ -81,7 +81,7 @@ func Scan(typ ScannerType, r *database.Redisobj, url, identifier string, stop ch
 	}
 
 	// Connect to the database
-	conn := s.redis.Pool.Get()
+	conn := s.redis.Get()
 	defer conn.Close()
 
 	s.conn = conn
@@ -283,7 +283,7 @@ func ScanSource(r *database.Redisobj, stop chan bool) (err error) {
 		redis: r,
 	}
 
-	s.walkRedisConn = s.redis.Pool.Get()
+	s.walkRedisConn = s.redis.Get()
 	defer s.walkRedisConn.Close()
 	if err != nil {
 		return fmt.Errorf("redis %s", err.Error())

@@ -324,7 +324,7 @@ type StatsFilePeriod struct {
 func (h *HTTP) fileStatsHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 	var output []byte
 
-	rconn := h.redis.Pool.Get()
+	rconn := h.redis.Get()
 	defer rconn.Close()
 
 	req := strings.SplitN(ctx.QueryParam("stats"), "-", 3)
@@ -447,7 +447,7 @@ func (s MirrorStatsSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 
-	rconn := h.redis.Pool.Get()
+	rconn := h.redis.Get()
 	defer rconn.Close()
 
 	// Get all mirrors ID

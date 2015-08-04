@@ -109,7 +109,7 @@ func (s *Stats) pushStats() {
 		return
 	}
 
-	rconn := s.r.Pool.Get()
+	rconn := s.r.Get()
 	defer rconn.Close()
 	rconn.Send("MULTI")
 

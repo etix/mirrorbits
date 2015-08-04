@@ -118,7 +118,7 @@ func (c *Cache) GetFileInfo(path string) (f filesystem.FileInfo, err error) {
 }
 
 func (c *Cache) fetchFileInfo(path string) (f filesystem.FileInfo, err error) {
-	rconn := c.r.Pool.Get()
+	rconn := c.r.Get()
 	defer rconn.Close()
 	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILE_%s", path), "size", "modTime", "sha1", "sha256", "md5"))
 	if err != nil {
@@ -193,7 +193,7 @@ func (c *Cache) GetMirrors(path string, clientInfo network.GeoIPRec) (mirrors []
 }
 
 func (c *Cache) fetchFileMirrors(path string) (ids []string, err error) {
-	rconn := c.r.Pool.Get()
+	rconn := c.r.Get()
 	defer rconn.Close()
 	ids, err = redis.Strings(rconn.Do("SMEMBERS", fmt.Sprintf("FILEMIRRORS_%s", path)))
 	if err != nil {
@@ -204,7 +204,7 @@ func (c *Cache) fetchFileMirrors(path string) (ids []string, err error) {
 }
 
 func (c *Cache) fetchMirror(mirrorID string) (mirror Mirror, err error) {
-	rconn := c.r.Pool.Get()
+	rconn := c.r.Get()
 	defer rconn.Close()
 	reply, err := redis.Values(rconn.Do("HGETALL", fmt.Sprintf("MIRROR_%s", mirrorID)))
 	if err != nil {
@@ -224,7 +224,7 @@ func (c *Cache) fetchMirror(mirrorID string) (mirror Mirror, err error) {
 }
 
 func (c *Cache) fetchFileInfoMirror(id, path string) (fileInfo filesystem.FileInfo, err error) {
-	rconn := c.r.Pool.Get()
+	rconn := c.r.Get()
 	defer rconn.Close()
 	fileInfo.Size = -1
 	reply, err := redis.Values(rconn.Do("HGETALL", fmt.Sprintf("FILEINFO_%s_%s", id, path)))

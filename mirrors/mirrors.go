@@ -130,7 +130,7 @@ func DisableMirror(r *database.Redisobj, id string) error {
 }
 
 func SetMirrorEnabled(r *database.Redisobj, id string, state bool) error {
-	conn := r.Pool.Get()
+	conn := r.Get()
 	defer conn.Close()
 
 	key := fmt.Sprintf("MIRROR_%s", id)
@@ -151,7 +151,7 @@ func MarkMirrorDown(r *database.Redisobj, id string, reason string) error {
 }
 
 func SetMirrorState(r *database.Redisobj, id string, state bool, reason string) error {
-	conn := r.Pool.Get()
+	conn := r.Get()
 	defer conn.Close()
 
 	key := fmt.Sprintf("MIRROR_%s", id)
