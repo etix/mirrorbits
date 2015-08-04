@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/mirrors"
 	"github.com/etix/mirrorbits/network"
 	"github.com/etix/mirrorbits/process"
@@ -666,7 +667,7 @@ func (c *cli) CmdEdit(args ...string) error {
 	f.Close()
 
 	// Checksum the original file
-	chk, _ := utils.HashFile(f.Name())
+	chk, _ := filesystem.HashFile(f.Name())
 
 reopen:
 	// Launch the editor with the filename as first parameter
@@ -687,7 +688,7 @@ reopen:
 	}
 
 	// Checksum the file back and compare
-	chk2, _ := utils.HashFile(f.Name())
+	chk2, _ := filesystem.HashFile(f.Name())
 	if chk == chk2 {
 		fmt.Println("Aborted")
 		return nil

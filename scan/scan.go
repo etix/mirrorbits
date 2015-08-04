@@ -8,6 +8,7 @@ import (
 	"fmt"
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
 	"github.com/op/go-logging"
@@ -251,7 +252,7 @@ func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 		(GetConfig().Hashes.MD5 && len(md5) == 0)
 
 	if rehash || size != d.size || !modTime.Equal(d.modTime) {
-		h, err := utils.HashFile(GetConfig().Repository + d.path)
+		h, err := filesystem.HashFile(GetConfig().Repository + d.path)
 		if err != nil {
 			log.Warning("%s: hashing failed: %s", d.path, err.Error())
 		} else {
