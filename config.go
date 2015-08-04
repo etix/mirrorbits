@@ -27,6 +27,7 @@ var (
 		ScanInterval:           30,
 		CheckInterval:          1,
 		RepositoryScanInterval: 5,
+		EventBufferSize:        10000,
 		Hashes: hashing{
 			SHA1:   true,
 			SHA256: false,
@@ -54,6 +55,7 @@ type configuration struct {
 	ScanInterval            int        `yaml:"ScanInterval"`
 	CheckInterval           int        `yaml:"CheckInterval"`
 	RepositoryScanInterval  int        `yaml:"RepositoryScanInterval"`
+	EventBufferSize         int        `yaml:"EventBufferSize"`
 	Hashes                  hashing    `yaml:"Hashes"`
 	DisallowRedirects       bool       `yaml:"DisallowRedirects"`
 	WeightDistributionRange float32    `yaml:"WeightDistributionRange"`

@@ -363,3 +363,78 @@ func ScanSource(r *redisobj, stop chan bool) (err error) {
 
 	return nil
 }
+
+func ScanFile(r *redisobj, path string, event string) (err error) {
+	s := &scan{
+		redis: r,
+	}
+
+	s.walkRedisConn = s.redis.pool.Get()
+	defer s.walkRedisConn.Close()
+
+	switch event {
+	case "notify.Create":
+		log.Debug("[event] Created %s", path)
+
+	case "notify.Remove":
+		log.Debug("[event] Deleted %s", path)
+		// delete file from DB
+		err := s.walkRedisConn.Send("DEL", fmt.Sprintf("FILE_%s", path[len(GetConfig().Repository):]))
+		if err != nil {
+			log.Error("[event] Error during delete: ", err)
+			return err
+		}
+		// Publish update
+		SendPublish(s.walkRedisConn, FILE_UPDATE, path[len(GetConfig().Repository):])
+		return nil
+
+	case "notify.Rename":
+		log.Debug("[event] Renamed %s", path)
+		// delete file from DB, then rescan it later
+		err := s.walkRedisConn.Send("DEL", fmt.Sprintf("FILE_%s", path[len(GetConfig().Repository):]))
+		if err != nil {
+			log.Error("[event] Error: ", err)
+			return err
+		}
+		// Publish update
+		SendPublish(s.walkRedisConn, FILE_UPDATE, path[len(GetConfig().Repository):])
+
+	case "notify.Write":
+		log.Debug("[event] Written %s", path)
+	}
+
+	// Add new/changed file
+	s.walkSourceFiles = make([]*filedata, 0, 10)
+	defer func() {
+		// Reset the slice so it can be garbage collected
+		s.walkSourceFiles = nil
+	}()
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return fmt.Errorf("%s: No such file or directory", path)
+	}
+
+	log.Info("[event]  Indexing file %s", path)
+	fi, err := os.Lstat(path)
+	err = s.walkSource(path, fi, err)
+	if err != nil {
+		return err
+	}
+
+	// add file to redis
+	for _, e := range s.walkSourceFiles {
+		s.walkRedisConn.Send("HMSET", fmt.Sprintf("FILE_%s", e.path),
+			"size", e.size,
+			"modTime", e.modTime,
+			"sha1", e.sha1,
+			"sha256", e.sha256,
+			"md5", e.md5)
+		if err != nil {
+			log.Debug("[event] Error adding file to redis: ", err)
+			return err
+		}
+		// Publish update
+		SendPublish(s.walkRedisConn, FILE_UPDATE, e.path)
+	}
+	return nil
+}
