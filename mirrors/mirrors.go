@@ -121,15 +121,15 @@ func (b ByExcludeReason) Less(i, j int) bool {
 	return false
 }
 
-func EnableMirror(r *database.Redisobj, id string) error {
+func EnableMirror(r *database.Redis, id string) error {
 	return SetMirrorEnabled(r, id, true)
 }
 
-func DisableMirror(r *database.Redisobj, id string) error {
+func DisableMirror(r *database.Redis, id string) error {
 	return SetMirrorEnabled(r, id, false)
 }
 
-func SetMirrorEnabled(r *database.Redisobj, id string, state bool) error {
+func SetMirrorEnabled(r *database.Redis, id string, state bool) error {
 	conn := r.Get()
 	defer conn.Close()
 
@@ -142,15 +142,15 @@ func SetMirrorEnabled(r *database.Redisobj, id string, state bool) error {
 	return err
 }
 
-func MarkMirrorUp(r *database.Redisobj, id string) error {
+func MarkMirrorUp(r *database.Redis, id string) error {
 	return SetMirrorState(r, id, true, "")
 }
 
-func MarkMirrorDown(r *database.Redisobj, id string, reason string) error {
+func MarkMirrorDown(r *database.Redis, id string, reason string) error {
 	return SetMirrorState(r, id, false, reason)
 }
 
-func SetMirrorState(r *database.Redisobj, id string, state bool, reason string) error {
+func SetMirrorState(r *database.Redis, id string, state bool, reason string) error {
 	conn := r.Get()
 	defer conn.Close()
 

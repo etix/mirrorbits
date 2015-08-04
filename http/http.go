@@ -37,7 +37,7 @@ var (
 // HTTP represents an instance of the HTTP webserver
 type HTTP struct {
 	geoip          *network.GeoIP
-	redis          *database.Redisobj
+	redis          *database.Redis
 	templates      Templates
 	Listener       *net.Listener
 	server         *graceful.Server
@@ -57,7 +57,7 @@ type Templates struct {
 }
 
 // HTTPServer is the constructor of the HTTP server
-func HTTPServer(redis *database.Redisobj, cache *mirrors.Cache) *HTTP {
+func HTTPServer(redis *database.Redis, cache *mirrors.Cache) *HTTP {
 	h := new(HTTP)
 	h.redis = redis
 	h.geoip = network.NewGeoIP()

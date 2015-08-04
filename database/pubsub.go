@@ -26,12 +26,12 @@ const (
 )
 
 type Pubsub struct {
-	r                  *Redisobj
+	r                  *Redis
 	extSubscribers     map[string][]chan string
 	extSubscribersLock sync.RWMutex
 }
 
-func NewPubsub(r *Redisobj) *Pubsub {
+func NewPubsub(r *Redis) *Pubsub {
 	pubsub := new(Pubsub)
 	pubsub.r = r
 	pubsub.extSubscribers = make(map[string][]chan string)

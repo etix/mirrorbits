@@ -19,7 +19,7 @@ import (
 // Cache implements a local caching mechanism of type LRU for content available in the
 // redis database that is automatically invalidated if the object is updated in Redis.
 type Cache struct {
-	r        *database.Redisobj
+	r        *database.Redis
 	fiCache  *LRUCache
 	fmCache  *LRUCache
 	mCache   *LRUCache
@@ -56,7 +56,7 @@ func (f *mirrorValue) Size() int {
 }
 
 // NewCache constructs a new instance of Cache
-func NewCache(r *database.Redisobj) *Cache {
+func NewCache(r *database.Redis) *Cache {
 	c := new(Cache)
 	c.r = r
 	c.fiCache = NewLRUCache(1024000)

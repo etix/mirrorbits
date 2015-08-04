@@ -45,7 +45,7 @@ type filedata struct {
 }
 
 type scan struct {
-	redis           *database.Redisobj
+	redis           *database.Redis
 	walkSourceFiles []*filedata
 	walkRedisConn   redis.Conn
 
@@ -60,7 +60,7 @@ func IsScanning(conn redis.Conn, identifier string) (bool, error) {
 	return redis.Bool(conn.Do("EXISTS", fmt.Sprintf("SCANNING_%s", identifier)))
 }
 
-func Scan(typ ScannerType, r *database.Redisobj, url, identifier string, stop chan bool) error {
+func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan bool) error {
 	s := &scan{
 		redis:      r,
 		identifier: identifier,
@@ -278,7 +278,7 @@ func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 	return nil
 }
 
-func ScanSource(r *database.Redisobj, stop chan bool) (err error) {
+func ScanSource(r *database.Redis, stop chan bool) (err error) {
 	s := &scan{
 		redis: r,
 	}

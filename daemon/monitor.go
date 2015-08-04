@@ -41,7 +41,7 @@ var (
 )
 
 type Monitor struct {
-	redis           *database.Redisobj
+	redis           *database.Redis
 	cache           *mirrors.Cache
 	mirrors         map[string]*MMirror
 	mapLock         sync.Mutex
@@ -66,7 +66,7 @@ type MMirror struct {
 	lastCheck int64
 }
 
-func NewMonitor(r *database.Redisobj, c *mirrors.Cache) *Monitor {
+func NewMonitor(r *database.Redis, c *mirrors.Cache) *Monitor {
 	monitor := new(Monitor)
 	monitor.redis = r
 	monitor.cache = c

@@ -21,7 +21,7 @@ var (
 	errUnreachable = errors.New("endpoint unreachable")
 )
 
-type Redisobj struct {
+type Redis struct {
 	pool         *redis.Pool
 	Pubsub       *Pubsub
 	failure      bool
@@ -30,8 +30,8 @@ type Redisobj struct {
 	daemon       bool
 }
 
-func NewRedis(daemon bool) *Redisobj {
-	r := &Redisobj{}
+func NewRedis(daemon bool) *Redis {
+	r := &Redis{}
 	r.daemon = daemon
 	r.pool = &redis.Pool{
 		MaxIdle:     10,
@@ -48,22 +48,22 @@ func NewRedis(daemon bool) *Redisobj {
 	return r
 }
 
-func (r *Redisobj) Get() redis.Conn {
+func (r *Redis) Get() redis.Conn {
 	return r.pool.Get()
 }
 
-func (r *Redisobj) Close() {
+func (r *Redis) Close() {
 	r.pool.Close()
 	//TODO close pubsub
 }
 
-func (r *Redisobj) ConnectPubsub() {
+func (r *Redis) ConnectPubsub() {
 	if r.Pubsub == nil {
 		r.Pubsub = NewPubsub(r)
 	}
 }
 
-func (r *Redisobj) Connect() (redis.Conn, error) {
+func (r *Redis) Connect() (redis.Conn, error) {
 	sentinels := GetConfig().RedisSentinels
 
 	if len(sentinels) > 0 {
@@ -181,24 +181,24 @@ single:
 
 }
 
-func (r *Redisobj) connectTo(address string) (redis.Conn, error) {
+func (r *Redis) connectTo(address string) (redis.Conn, error) {
 	return redis.DialTimeout("tcp", address, redisConnectionTimeout, redisReadWriteTimeout, redisReadWriteTimeout)
 }
 
-func (r *Redisobj) askRole(c redis.Conn) (string, error) {
+func (r *Redis) askRole(c redis.Conn) (string, error) {
 	roleReply, err := redis.Values(c.Do("ROLE"))
 	role, err := redis.String(roleReply[0], err)
 	return role, err
 }
 
-func (r *Redisobj) auth(c redis.Conn) (err error) {
+func (r *Redis) auth(c redis.Conn) (err error) {
 	if GetConfig().RedisPassword != "" {
 		_, err = c.Do("AUTH", GetConfig().RedisPassword)
 	}
 	return
 }
 
-func (r *Redisobj) logError(format string, args ...interface{}) {
+func (r *Redis) logError(format string, args ...interface{}) {
 	if r.getFailureState() == true {
 		log.Debug(format, args...)
 	} else {
@@ -206,7 +206,7 @@ func (r *Redisobj) logError(format string, args ...interface{}) {
 	}
 }
 
-func (r *Redisobj) printConnectedMaster(address string) {
+func (r *Redis) printConnectedMaster(address string) {
 	if address != r.knownMaster && r.daemon {
 		r.knownMaster = address
 		log.Info("Connected to redis master %s", address)
@@ -215,13 +215,13 @@ func (r *Redisobj) printConnectedMaster(address string) {
 	}
 }
 
-func (r *Redisobj) setFailureState(failure bool) {
+func (r *Redis) setFailureState(failure bool) {
 	r.failureState.Lock()
 	r.failure = failure
 	r.failureState.Unlock()
 }
 
-func (r *Redisobj) getFailureState() bool {
+func (r *Redis) getFailureState() bool {
 	r.failureState.RLock()
 	defer r.failureState.RUnlock()
 	return r.failure

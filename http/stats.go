@@ -37,7 +37,7 @@ var (
 )
 
 type Stats struct {
-	r         *database.Redisobj
+	r         *database.Redis
 	countChan chan CountItem
 	mapStats  map[string]int64
 	stop      chan bool
@@ -51,7 +51,7 @@ type CountItem struct {
 	time     time.Time
 }
 
-func NewStats(redis *database.Redisobj) *Stats {
+func NewStats(redis *database.Redis) *Stats {
 	s := &Stats{
 		r:         redis,
 		countChan: make(chan CountItem, 1000),
