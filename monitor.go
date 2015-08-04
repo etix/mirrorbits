@@ -114,7 +114,14 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 // Main monitor loop
 func (m *Monitor) monitorLoop() {
 	m.wg.Add(1)
-	m.scanRepository()
+
+	for {
+		err := m.scanRepository()
+		if err == nil {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
 
 	mirrorUpdateEvent := make(chan string, 10)
 	m.redis.pubsub.SubscribeEvent(MIRROR_UPDATE, mirrorUpdateEvent)
