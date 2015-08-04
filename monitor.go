@@ -362,9 +362,11 @@ func (m *Monitor) syncLoop() {
 				goto unlock
 			}
 
-			select {
-			case m.healthCheckChan <- k:
-			default:
+			if mirror.Up == false {
+				select {
+				case m.healthCheckChan <- k:
+				default:
+				}
 			}
 
 		unlock:
