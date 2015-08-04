@@ -24,15 +24,6 @@ import (
 	"time"
 )
 
-//var (
-//	daemon     bool
-//	debug      bool
-//	monitor    bool
-//	cpuProfile string
-//	pidFile    string
-//	runLog     string
-//)
-
 var (
 	log = logging.MustGetLogger("main")
 )
@@ -40,15 +31,6 @@ var (
 func init() {
 	// Improves perf in 1.1.2 linux/amd64
 	runtime.GOMAXPROCS(runtime.NumCPU())
-
-	//flag.BoolVar(&daemon, "D", false, "Daemon mode")
-	//flag.BoolVar(&debug, "debug", false, "Debug mode")
-	//flag.BoolVar(&monitor, "monitor", true, "Enable the background mirrors monitor")
-	//flag.StringVar(&cpuProfile, "cpuprofile", "", "write cpu profile to file")
-	//flag.StringVar(&configFile, "config", "", "Path to the config file")
-	//flag.StringVar(&pidFile, "p", "", "Path to pid file")
-	//flag.StringVar(&runLog, "log", "", "File to output logs (default: stderr)")
-	//flag.Parse()
 
 	LoadConfig()
 	logs.ReloadLogs()
