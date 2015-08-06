@@ -32,7 +32,7 @@ type GeoIP struct {
 }
 
 // GeoIPRec defines a GeoIP record for a given IP address
-type GeoIPRec struct {
+type GeoIPRecord struct {
 	*geoip.GeoIPRecord
 	ASName    string
 	ASNum     int
@@ -85,7 +85,7 @@ func (g *GeoIP) LoadGeoIP() (err error) {
 }
 
 // Get details about a given ip address (might be v4 or v6)
-func (g *GeoIP) GetInfos(ip string) (ret GeoIPRec) {
+func (g *GeoIP) GetRecord(ip string) (ret GeoIPRecord) {
 	if g.IsIPv6(ip) {
 		if g.geo6 != nil {
 			ret.GeoIPRecord = g.geo6.GetRecord(ip)
@@ -118,7 +118,7 @@ func (g *GeoIP) IsIPv6(ip string) bool {
 }
 
 // Return true if the given address is valid
-func (g *GeoIPRec) IsValid() bool {
+func (g *GeoIPRecord) IsValid() bool {
 	return g.GeoIPRecord != nil
 }
 

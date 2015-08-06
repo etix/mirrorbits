@@ -211,7 +211,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		}
 	}
 
-	clientInfo := h.geoip.GetInfos(remoteIP) //TODO return a pointer?
+	clientInfo := h.geoip.GetRecord(remoteIP) //TODO return a pointer?
 
 	mlist, excluded, err := h.engine.Selection(ctx, h.cache, &fileInfo, clientInfo)
 

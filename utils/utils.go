@@ -70,7 +70,7 @@ func IsInSlice(a string, list []string) bool {
 	return false
 }
 
-func IsAdditionalCountry(clientInfo network.GeoIPRec, list []string) bool {
+func IsAdditionalCountry(clientInfo network.GeoIPRecord, list []string) bool {
 	if clientInfo.GeoIPRecord == nil {
 		return false
 	}
@@ -82,7 +82,7 @@ func IsAdditionalCountry(clientInfo network.GeoIPRec, list []string) bool {
 	return false
 }
 
-func IsPrimaryCountry(clientInfo network.GeoIPRec, list []string) bool {
+func IsPrimaryCountry(clientInfo network.GeoIPRecord, list []string) bool {
 	if clientInfo.GeoIPRecord == nil {
 		return false
 	}

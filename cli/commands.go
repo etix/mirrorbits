@@ -274,7 +274,7 @@ func (c *cli) CmdAdd(args ...string) error {
 		log.Fatalf("Can't load GeoIP: %s", err)
 	}
 
-	geoRec := geo.GetInfos(ip)
+	geoRec := geo.GetRecord(ip)
 
 	r := database.NewRedis(false)
 	conn, err := r.Connect()

@@ -138,7 +138,7 @@ func (c *Cache) fetchFileInfo(path string) (f filesystem.FileInfo, err error) {
 
 // GetMirrors returns all the mirrors serving a given file either from the cache
 // or directly from the database if the object is not yet stored in the cache.
-func (c *Cache) GetMirrors(path string, clientInfo network.GeoIPRec) (mirrors []Mirror, err error) {
+func (c *Cache) GetMirrors(path string, clientInfo network.GeoIPRecord) (mirrors []Mirror, err error) {
 	var mirrorsIDs []string
 	v, ok := c.fmCache.Get(path)
 	if ok {

@@ -61,7 +61,7 @@ func (s Mirrors) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 // ByRank is used to sort a slice of Mirror by their rank
 type ByRank struct {
 	Mirrors
-	ClientInfo network.GeoIPRec
+	ClientInfo network.GeoIPRecord
 }
 
 func (m ByRank) Less(i, j int) bool {
@@ -178,7 +178,7 @@ func SetMirrorState(r *database.Redis, id string, state bool, reason string) err
 	return err
 }
 
-func GetMirrorMapUrl(mirrors Mirrors, clientInfo network.GeoIPRec) string {
+func GetMirrorMapUrl(mirrors Mirrors, clientInfo network.GeoIPRecord) string {
 	var buffer bytes.Buffer
 	buffer.WriteString("//maps.googleapis.com/maps/api/staticmap?size=520x320&sensor=false&visual_refresh=true")
 
@@ -213,7 +213,7 @@ type Results struct {
 	FileInfo     filesystem.FileInfo
 	MapURL       string `json:"-"`
 	IP           string
-	ClientInfo   network.GeoIPRec
+	ClientInfo   network.GeoIPRecord
 	MirrorList   Mirrors
 	ExcludedList Mirrors `json:",omitempty"`
 	Fallback     bool    `json:",omitempty"`

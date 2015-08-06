@@ -18,13 +18,13 @@ import (
 type MirrorSelection interface {
 	// Selection must return an ordered list of selected mirror,
 	// a list of rejected mirrors and and an error code.
-	Selection(*Context, *mirrors.Cache, *filesystem.FileInfo, network.GeoIPRec) (mirrors.Mirrors, mirrors.Mirrors, error)
+	Selection(*Context, *mirrors.Cache, *filesystem.FileInfo, network.GeoIPRecord) (mirrors.Mirrors, mirrors.Mirrors, error)
 }
 
 // DefaultEngine is the default algorithm used for mirror selection
 type DefaultEngine struct{}
 
-func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRec) (mlist mirrors.Mirrors, excluded mirrors.Mirrors, err error) {
+func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (mlist mirrors.Mirrors, excluded mirrors.Mirrors, err error) {
 	// Get details about the requested file
 	*fileInfo, err = cache.GetFileInfo(fileInfo.Path)
 	if err != nil {
