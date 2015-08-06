@@ -43,7 +43,7 @@ var (
 type Monitor struct {
 	redis           *database.Redis
 	cache           *mirrors.Cache
-	mirrors         map[string]*MMirror
+	mirrors         map[string]*Mirror
 	mapLock         sync.Mutex
 	httpClient      http.Client
 	healthCheckChan chan string
@@ -59,18 +59,34 @@ type Monitor struct {
 	mirrorsIndex []string
 }
 
-type MMirror struct {
+type Mirror struct {
 	mirrors.Mirror
 	checking  bool
 	scanning  bool
 	lastCheck int64
 }
 
+func (m *Mirror) NeedHealthCheck() bool {
+	return utils.ElapsedSec(m.lastCheck, int64(60*GetConfig().CheckInterval))
+}
+
+func (m *Mirror) NeedSync() bool {
+	return utils.ElapsedSec(m.LastSync, int64(60*GetConfig().ScanInterval))
+}
+
+func (m *Mirror) IsScanning() bool {
+	return m.scanning
+}
+
+func (m *Mirror) IsChecking() bool {
+	return m.checking
+}
+
 func NewMonitor(r *database.Redis, c *mirrors.Cache) *Monitor {
 	monitor := new(Monitor)
 	monitor.redis = r
 	monitor.cache = c
-	monitor.mirrors = make(map[string]*MMirror)
+	monitor.mirrors = make(map[string]*Mirror)
 	monitor.healthCheckChan = make(chan string, healthCheckThreads*5)
 	monitor.syncChan = make(chan string)
 	monitor.stop = make(chan bool)
@@ -197,14 +213,14 @@ func (m *Monitor) MonitorLoop() {
 					// Ignore disabled mirrors
 					continue
 				}
-				if utils.ElapsedSec(v.lastCheck, int64(60*GetConfig().CheckInterval)) && m.mirrors[k].checking == false && m.isHandled(k) {
+				if v.NeedHealthCheck() && !v.IsChecking() && m.isHandled(k) {
 					select {
 					case m.healthCheckChan <- k:
 						m.mirrors[k].checking = true
 					default:
 					}
 				}
-				if utils.ElapsedSec(v.LastSync, int64(60*GetConfig().ScanInterval)) && m.mirrors[k].scanning == false && m.isHandled(k) {
+				if v.NeedSync() && !v.IsScanning() && m.isHandled(k) {
 					select {
 					case m.syncChan <- k:
 						m.mirrors[k].scanning = true
@@ -288,7 +304,7 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]mirrors.Mirror, error)
 			isScanning = m.mirrors[e.ID].scanning
 			lastCheck = m.mirrors[e.ID].lastCheck
 		}
-		m.mirrors[e.ID] = &MMirror{
+		m.mirrors[e.ID] = &Mirror{
 			Mirror:    e,
 			checking:  isChecking,
 			scanning:  isScanning,
