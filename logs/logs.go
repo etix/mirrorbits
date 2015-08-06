@@ -21,15 +21,15 @@ import (
 
 var (
 	log     = logging.MustGetLogger("main")
-	rlogger RuntimeLogger
-	dlogger DownloadsLogger
+	rlogger runtimeLogger
+	dlogger downloadsLogger
 )
 
-type RuntimeLogger struct {
+type runtimeLogger struct {
 	f *os.File
 }
 
-type DownloadsLogger struct {
+type downloadsLogger struct {
 	sync.RWMutex
 	l *stdlog.Logger
 	f *os.File
