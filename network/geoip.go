@@ -88,10 +88,10 @@ func (g *GeoIP) LoadGeoIP() (err error) {
 func (g *GeoIP) GetInfos(ip string) (ret GeoIPRec) {
 	if g.IsIPv6(ip) {
 		if g.geo6 != nil {
-			ret.GeoIPRecord = g.geo6.GetRecordV6(ip)
+			ret.GeoIPRecord = g.geo6.GetRecord(ip)
 		}
 		if g.asn6 != nil {
-			ret.ASName, ret.ASNetmask = g.asn6.GetNameV6(ip)
+			ret.ASName, ret.ASNetmask = g.asn6.GetName(ip)
 		}
 	} else {
 		if g.geo != nil {
