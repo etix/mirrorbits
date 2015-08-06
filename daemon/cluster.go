@@ -6,6 +6,7 @@ package daemon
 import (
 	"fmt"
 	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/mirrors"
 	"github.com/etix/mirrorbits/utils"
 	"math/rand"
 	"sort"
@@ -149,15 +150,15 @@ func (c *cluster) refreshNodeList(nodeID, self string) {
 	c.nodesLock.Unlock()
 }
 
-func (c *cluster) AddMirror(mirrorID string) {
+func (c *cluster) AddMirror(mirror *mirrors.Mirror) {
 	c.nodesLock.Lock()
-	c.mirrorsIndex = addMirrorIDToSlice(c.mirrorsIndex, mirrorID)
+	c.mirrorsIndex = addMirrorIDToSlice(c.mirrorsIndex, mirror.ID)
 	c.nodesLock.Unlock()
 }
 
-func (c *cluster) RemoveMirror(mirrorID string) {
+func (c *cluster) RemoveMirror(mirror *mirrors.Mirror) {
 	c.nodesLock.Lock()
-	c.mirrorsIndex = removeMirrorIDFromSlice(c.mirrorsIndex, mirrorID)
+	c.mirrorsIndex = removeMirrorIDFromSlice(c.mirrorsIndex, mirror.ID)
 	c.nodesLock.Unlock()
 }
 

@@ -250,14 +250,14 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]mirrors.Mirror, error)
 			// Mirror has been deleted
 			m.mapLock.Lock()
 			delete(m.mirrors, id)
-			m.cluster.RemoveMirror(mirror.ID)
+			m.cluster.RemoveMirror(&mirror)
 			m.mapLock.Unlock()
 			continue
 		}
 		mlist = append(mlist, mirror)
 
 		m.mapLock.Lock()
-		m.cluster.AddMirror(mirror.ID)
+		m.cluster.AddMirror(&mirror)
 		m.mapLock.Unlock()
 	}
 
