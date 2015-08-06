@@ -18,15 +18,10 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-)
-
-const (
-	clusterAnnounce = "HELLO"
 )
 
 var (
@@ -52,11 +47,7 @@ type Monitor struct {
 	wg              sync.WaitGroup
 	formatLongestID int
 
-	nodes        []Node
-	nodeIndex    int
-	nodeTotal    int
-	nodesLock    sync.RWMutex
-	mirrorsIndex []string
+	cluster *cluster
 }
 
 type Mirror struct {
@@ -86,12 +77,11 @@ func NewMonitor(r *database.Redis, c *mirrors.Cache) *Monitor {
 	monitor := new(Monitor)
 	monitor.redis = r
 	monitor.cache = c
+	monitor.cluster = NewCluster(r)
 	monitor.mirrors = make(map[string]*Mirror)
 	monitor.healthCheckChan = make(chan string, healthCheckThreads*5)
 	monitor.syncChan = make(chan string)
 	monitor.stop = make(chan bool)
-	monitor.nodes = make([]Node, 0)
-	monitor.mirrorsIndex = make([]string, 0)
 
 	rand.Seed(time.Now().UnixNano())
 
@@ -121,6 +111,7 @@ func (m *Monitor) Stop() {
 	case _, _ = <-m.stop:
 		return
 	default:
+		m.cluster.Stop()
 		close(m.stop)
 	}
 }
@@ -171,7 +162,7 @@ func (m *Monitor) MonitorLoop() {
 		}
 	}
 
-	go m.clusterLoop()
+	m.cluster.Start()
 
 	for i := 0; i < healthCheckThreads; i++ {
 		go m.healthCheckLoop()
@@ -213,14 +204,14 @@ func (m *Monitor) MonitorLoop() {
 					// Ignore disabled mirrors
 					continue
 				}
-				if v.NeedHealthCheck() && !v.IsChecking() && m.isHandled(k) {
+				if v.NeedHealthCheck() && !v.IsChecking() && m.cluster.IsHandled(k) {
 					select {
 					case m.healthCheckChan <- k:
 						m.mirrors[k].checking = true
 					default:
 					}
 				}
-				if v.NeedSync() && !v.IsScanning() && m.isHandled(k) {
+				if v.NeedSync() && !v.IsScanning() && m.cluster.IsHandled(k) {
 					select {
 					case m.syncChan <- k:
 						m.mirrors[k].scanning = true
@@ -241,24 +232,6 @@ func (m *Monitor) mirrorsID() ([]string, error) {
 	return redis.Strings(rconn.Do("LRANGE", "MIRRORS", "0", "-1"))
 }
 
-func removeMirrorIDFromSlice(slice []string, mirrorID string) []string {
-	// See https://golang.org/pkg/sort/#SearchStrings
-	idx := sort.SearchStrings(slice, mirrorID)
-	if idx < len(slice) && slice[idx] == mirrorID {
-		slice = append(slice[:idx], slice[idx+1:]...)
-	}
-	return slice
-}
-
-func addMirrorIDToSlice(slice []string, mirrorID string) []string {
-	// See https://golang.org/pkg/sort/#SearchStrings
-	idx := sort.SearchStrings(slice, mirrorID)
-	if idx >= len(slice) || slice[idx] != mirrorID {
-		slice = append(slice[:idx], append([]string{mirrorID}, slice[idx:]...)...)
-	}
-	return slice
-}
-
 // Sync the remote mirror struct with the local dataset
 // TODO needs improvements
 func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]mirrors.Mirror, error) {
@@ -277,18 +250,14 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]mirrors.Mirror, error)
 			// Mirror has been deleted
 			m.mapLock.Lock()
 			delete(m.mirrors, id)
-			m.nodesLock.Lock()
-			m.mirrorsIndex = removeMirrorIDFromSlice(m.mirrorsIndex, mirror.ID)
-			m.nodesLock.Unlock()
+			m.cluster.RemoveMirror(mirror.ID)
 			m.mapLock.Unlock()
 			continue
 		}
 		mlist = append(mlist, mirror)
 
 		m.mapLock.Lock()
-		m.nodesLock.Lock()
-		m.mirrorsIndex = addMirrorIDToSlice(m.mirrorsIndex, mirror.ID)
-		m.nodesLock.Unlock()
+		m.cluster.AddMirror(mirror.ID)
 		m.mapLock.Unlock()
 	}
 
@@ -492,108 +461,4 @@ func (m *Monitor) scanRepository() error {
 		log.Error("Scanning source failed: %s", err.Error())
 	}
 	return err
-}
-
-type Node struct {
-	ID           string
-	LastAnnounce int64
-}
-
-type ByNodeID []Node
-
-func (n ByNodeID) Len() int           { return len(n) }
-func (n ByNodeID) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
-func (n ByNodeID) Less(i, j int) bool { return n[i].ID < n[j].ID }
-
-func (m *Monitor) clusterLoop() {
-	clusterChan := make(chan string, 10)
-	announceTicker := time.NewTicker(1 * time.Second)
-
-	hostname := utils.GetHostname()
-	nodeID := fmt.Sprintf("%s-%05d", hostname, rand.Intn(32000))
-
-	m.refreshNodeList(nodeID, nodeID)
-	m.redis.Pubsub.SubscribeEvent(database.CLUSTER, clusterChan)
-
-	m.wg.Add(1)
-	for {
-		select {
-		case <-m.stop:
-			m.wg.Done()
-			return
-		case <-announceTicker.C:
-			r := m.redis.Get()
-			database.Publish(r, database.CLUSTER, fmt.Sprintf("%s %s", clusterAnnounce, nodeID))
-			r.Close()
-		case data := <-clusterChan:
-			if !strings.HasPrefix(data, clusterAnnounce+" ") {
-				// Garbage
-				continue
-			}
-			m.refreshNodeList(data[len(clusterAnnounce)+1:], nodeID)
-		}
-	}
-}
-
-func (m *Monitor) refreshNodeList(nodeID, self string) {
-	found := false
-
-	m.nodesLock.Lock()
-
-	// Expire unreachable nodes
-	for i := 0; i < len(m.nodes); i++ {
-		if utils.ElapsedSec(m.nodes[i].LastAnnounce, 5) && m.nodes[i].ID != nodeID && m.nodes[i].ID != self {
-			log.Notice("<- Node %s left the cluster", m.nodes[i].ID)
-			m.nodes = append(m.nodes[:i], m.nodes[i+1:]...)
-			i--
-		} else if m.nodes[i].ID == nodeID {
-			found = true
-			m.nodes[i].LastAnnounce = time.Now().UTC().Unix()
-		}
-	}
-
-	// Join new node
-	if !found {
-		if nodeID != self {
-			log.Notice("-> Node %s joined the cluster", nodeID)
-		}
-		n := Node{
-			ID:           nodeID,
-			LastAnnounce: time.Now().UTC().Unix(),
-		}
-		// TODO use binary search here
-		// See https://golang.org/pkg/sort/#Search
-		m.nodes = append(m.nodes, n)
-		sort.Sort(ByNodeID(m.nodes))
-	}
-
-	m.nodeTotal = len(m.nodes)
-
-	// TODO use binary search here
-	// See https://golang.org/pkg/sort/#Search
-	for i, n := range m.nodes {
-		if n.ID == self {
-			m.nodeIndex = i
-			break
-		}
-	}
-
-	m.nodesLock.Unlock()
-}
-
-func (m *Monitor) isHandled(mirrorID string) bool {
-	m.nodesLock.RLock()
-	index := sort.SearchStrings(m.mirrorsIndex, mirrorID)
-
-	mRange := int(float32(len(m.mirrorsIndex))/float32(m.nodeTotal) + 0.5)
-	start := mRange * m.nodeIndex
-	m.nodesLock.RUnlock()
-
-	// Check bounding to see if this mirror must be handled by this node.
-	// The distribution of the nodes should be balanced except for the last node
-	// that could contain one more node.
-	if index >= start && (index < start+mRange || m.nodeIndex == m.nodeTotal-1) {
-		return true
-	}
-	return false
 }
