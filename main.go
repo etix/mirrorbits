@@ -115,7 +115,7 @@ func main() {
 					log.Notice("SIGUSR2 Received: Seamless binary upgrade...")
 					err := process.Relaunch(*h.Listener)
 					if err != nil {
-						log.Error("%s", err)
+						log.Error("Relaunch failed: %s\n", err)
 					} else {
 						m.Stop()
 						h.Stop(10 * time.Second)
