@@ -130,7 +130,12 @@ func (m *Monitor) MonitorLoop() {
 		if err == nil {
 			break
 		}
-		time.Sleep(2 * time.Second)
+		select {
+		case <-m.stop:
+			m.wg.Done()
+			return
+		case <-time.After(2 * time.Second):
+		}
 	}
 
 	mirrorUpdateEvent := make(chan string, 10)
