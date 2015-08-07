@@ -132,42 +132,33 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 func (m *Monitor) MonitorLoop() {
 	m.wg.Add(1)
 
-	for {
-		err := m.scanRepository()
-		if err == nil {
-			break
-		}
-		select {
-		case <-m.stop:
-			m.wg.Done()
-			return
-		case <-time.After(2 * time.Second):
-		}
-	}
-
 	mirrorUpdateEvent := make(chan string, 10)
 	m.redis.Pubsub.SubscribeEvent(database.MIRROR_UPDATE, mirrorUpdateEvent)
 
-	for {
-		ids, err := m.mirrorsID()
-		if err == nil {
-			m.syncMirrorList(ids...)
-			break
-		}
-		select {
-		case <-m.stop:
-			m.wg.Done()
-			return
-		case <-time.After(500 * time.Millisecond):
-		}
-	}
+	// Scan the local repository
+	m.retry(func() error {
+		return m.scanRepository()
+	}, 1*time.Second)
 
+	// Synchronize the list of all known mirrors
+	m.retry(func() error {
+		ids, err := m.mirrorsID()
+		if err != nil {
+			return err
+		}
+		m.syncMirrorList(ids...)
+		return nil
+	}, 500*time.Millisecond)
+
+	// Start the cluster manager
 	m.cluster.Start()
 
+	// Start the health check routines
 	for i := 0; i < healthCheckThreads; i++ {
 		go m.healthCheckLoop()
 	}
 
+	// Start the mirror sync routines
 	for i := 0; i < GetConfig().ConcurrentSync; i++ {
 		go m.syncLoop()
 	}
@@ -461,4 +452,21 @@ func (m *Monitor) scanRepository() error {
 		log.Error("Scanning source failed: %s", err.Error())
 	}
 	return err
+}
+
+// Retry a function until no errors is returned while still allowing
+// the process to be stopped.
+func (m *Monitor) retry(fn func() error, delay time.Duration) {
+	for {
+		err := fn()
+		if err == nil {
+			break
+		}
+		select {
+		case <-m.stop:
+			m.wg.Done()
+			return
+		case <-time.After(delay):
+		}
+	}
 }
