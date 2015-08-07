@@ -44,6 +44,7 @@ type Monitor struct {
 	healthCheckChan chan string
 	syncChan        chan string
 	stop            chan bool
+	configNotifier  chan bool
 	wg              sync.WaitGroup
 	formatLongestID int
 
@@ -82,6 +83,9 @@ func NewMonitor(r *database.Redis, c *mirrors.Cache) *Monitor {
 	monitor.healthCheckChan = make(chan string, healthCheckThreads*5)
 	monitor.syncChan = make(chan string)
 	monitor.stop = make(chan bool)
+	monitor.configNotifier = make(chan bool, 1)
+
+	SubscribeConfig(monitor.configNotifier)
 
 	rand.Seed(time.Now().UnixNano())
 
@@ -164,10 +168,14 @@ func (m *Monitor) MonitorLoop() {
 	}
 
 	// Setup recurrent tasks
+	var repositoryScanTicker <-chan time.Time
 	repositoryScanInterval := -1
-	repositoryScanTicker := time.NewTicker(1 * time.Minute)
 	mirrorCheckTicker := time.NewTicker(1 * time.Second)
-	configUpdateTicker := time.NewTicker(1 * time.Second)
+
+	select {
+	case m.configNotifier <- true:
+	default:
+	}
 
 	for {
 		select {
@@ -176,17 +184,17 @@ func (m *Monitor) MonitorLoop() {
 			return
 		case id := <-mirrorUpdateEvent:
 			m.syncMirrorList(id)
-		case <-configUpdateTicker.C:
+		case <-m.configNotifier:
 			if repositoryScanInterval != GetConfig().RepositoryScanInterval {
 				repositoryScanInterval = GetConfig().RepositoryScanInterval
 
 				if repositoryScanInterval == 0 {
-					repositoryScanTicker.Stop()
+					repositoryScanTicker = nil
 				} else {
-					repositoryScanTicker = time.NewTicker(time.Duration(repositoryScanInterval) * time.Minute)
+					repositoryScanTicker = time.Tick(time.Duration(repositoryScanInterval) * time.Minute)
 				}
 			}
-		case <-repositoryScanTicker.C:
+		case <-repositoryScanTicker:
 			m.scanRepository()
 		case <-mirrorCheckTicker.C:
 			m.mapLock.Lock()
