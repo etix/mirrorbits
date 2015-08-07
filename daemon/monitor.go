@@ -232,10 +232,9 @@ func (m *Monitor) mirrorsID() ([]string, error) {
 }
 
 // Sync the remote mirror struct with the local dataset
-// TODO needs improvements
-func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]mirrors.Mirror, error) {
+func (m *Monitor) syncMirrorList(mirrorsIDs ...string) error {
 
-	mlist := make([]mirrors.Mirror, 0, len(mirrorsIDs))
+	m.mapLock.Lock()
 
 	for _, id := range mirrorsIDs {
 		if len(id) > m.formatLongestID {
@@ -247,42 +246,29 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]mirrors.Mirror, error)
 			continue
 		} else if err == redis.ErrNil {
 			// Mirror has been deleted
-			m.mapLock.Lock()
 			delete(m.mirrors, id)
 			m.cluster.RemoveMirror(&mirror)
-			m.mapLock.Unlock()
 			continue
 		}
-		mlist = append(mlist, mirror)
 
-		m.mapLock.Lock()
 		m.cluster.AddMirror(&mirror)
-		m.mapLock.Unlock()
-	}
 
-	m.mapLock.Lock()
-
-	// Prepare the list of mirrors
-	for _, e := range mlist {
-		var isChecking bool = false
-		var isScanning bool = false
-		var lastCheck int64 = 0
-		if _, ok := m.mirrors[e.ID]; ok {
-			isChecking = m.mirrors[e.ID].checking
-			isScanning = m.mirrors[e.ID].scanning
-			lastCheck = m.mirrors[e.ID].lastCheck
-		}
-		m.mirrors[e.ID] = &Mirror{
-			Mirror:    e,
-			checking:  isChecking,
-			scanning:  isScanning,
-			lastCheck: lastCheck,
+		if _, ok := m.mirrors[mirror.ID]; ok {
+			// Update existing mirror
+			tmp := m.mirrors[mirror.ID]
+			tmp.Mirror = mirror
+			m.mirrors[mirror.ID] = tmp
+		} else {
+			// Add new mirror
+			m.mirrors[mirror.ID] = &Mirror{
+				Mirror: mirror,
+			}
 		}
 	}
+
 	m.mapLock.Unlock()
-
 	log.Debug("%d mirror%s updated", len(mirrorsIDs), utils.Plural(len(mirrorsIDs)))
-	return mlist, nil
+	return nil
 }
 
 // Main health check loop
