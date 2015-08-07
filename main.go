@@ -24,6 +24,7 @@ var (
 	daemon     bool
 	debug      bool
 	monitor    bool
+	eventmon   bool
 	cpuProfile string
 	configFile string
 	pidFile    string
@@ -37,6 +38,7 @@ func init() {
 	flag.BoolVar(&daemon, "D", false, "Daemon mode")
 	flag.BoolVar(&debug, "debug", false, "Debug mode")
 	flag.BoolVar(&monitor, "monitor", true, "Enable the background mirrors monitor")
+	flag.BoolVar(&eventmon, "eventmonitor", false, "Enable the event based local repository monitor")
 	flag.StringVar(&cpuProfile, "cpuprofile", "", "write cpu profile to file")
 	flag.StringVar(&configFile, "config", "", "Path to the config file")
 	flag.StringVar(&pidFile, "p", "", "Path to pid file")
@@ -79,6 +81,12 @@ func main() {
 			go m.monitorLoop()
 		}
 
+		/* Start notify event listener */
+		e := NewEventMonitor(r, c)
+		if eventmon {
+			go e.MonitorRepository()
+		}
+
 		/* Handle SIGNALS */
 		k := make(chan os.Signal, 1)
 		signal.Notify(k,
@@ -100,6 +108,7 @@ func main() {
 					os.Exit(0)
 				case syscall.SIGQUIT:
 					m.Stop()
+					e.Stop()
 					if h.Listener != nil {
 						log.Notice("Waiting for running tasks to finish...")
 						h.Stop(5 * time.Second)
@@ -129,6 +138,7 @@ func main() {
 						log.Error("%s", err)
 					} else {
 						m.Stop()
+						e.Stop()
 						h.Stop(10 * time.Second)
 					}
 				}
@@ -162,6 +172,8 @@ func main() {
 
 		log.Debug("Waiting for monitor termination")
 		m.Wait()
+		log.Debug("Waiting for eventmonitor termination")
+		e.Wait()
 
 		log.Debug("Terminating server")
 		h.Terminate()
