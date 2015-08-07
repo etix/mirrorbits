@@ -234,8 +234,6 @@ func (m *Monitor) mirrorsID() ([]string, error) {
 // Sync the remote mirror struct with the local dataset
 func (m *Monitor) syncMirrorList(mirrorsIDs ...string) error {
 
-	m.mapLock.Lock()
-
 	for _, id := range mirrorsIDs {
 		if len(id) > m.formatLongestID {
 			m.formatLongestID = len(id)
@@ -246,13 +244,16 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) error {
 			continue
 		} else if err == redis.ErrNil {
 			// Mirror has been deleted
+			m.mapLock.Lock()
 			delete(m.mirrors, id)
+			m.mapLock.Unlock()
 			m.cluster.RemoveMirror(&mirror)
 			continue
 		}
 
 		m.cluster.AddMirror(&mirror)
 
+		m.mapLock.Lock()
 		if _, ok := m.mirrors[mirror.ID]; ok {
 			// Update existing mirror
 			tmp := m.mirrors[mirror.ID]
@@ -264,9 +265,9 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) error {
 				Mirror: mirror,
 			}
 		}
+		m.mapLock.Unlock()
 	}
 
-	m.mapLock.Unlock()
 	log.Debug("%d mirror%s updated", len(mirrorsIDs), utils.Plural(len(mirrorsIDs)))
 	return nil
 }
