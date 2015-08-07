@@ -42,6 +42,9 @@ var (
 	}
 	config      *configuration
 	configMutex sync.RWMutex
+
+	subscribers     []chan bool
+	subscribersLock sync.RWMutex
 )
 
 type configuration struct {
@@ -143,9 +146,14 @@ func ReloadConfig() error {
 		// Currently established connections will be updated only in case of disconnection
 	}
 
+	// Lock the pointer during the swap
 	configMutex.Lock()
 	config = &c
 	configMutex.Unlock()
+
+	// Notify all subscribers that the configuration has been reloaded
+	notifySubscribers()
+
 	return nil
 }
 
@@ -160,6 +168,27 @@ func GetConfig() *configuration {
 	}
 
 	return config
+}
+
+func SubscribeConfig(subscriber chan bool) {
+	subscribersLock.Lock()
+	defer subscribersLock.Unlock()
+
+	subscribers = append(subscribers, subscriber)
+}
+
+func notifySubscribers() {
+	subscribersLock.RLock()
+	defer subscribersLock.RUnlock()
+
+	for _, subscriber := range subscribers {
+		select {
+		case subscriber <- true:
+		default:
+			// Don't block if the subscriber is unavailable
+			// and discard the message.
+		}
+	}
 }
 
 func fileExists(filename string) bool {
