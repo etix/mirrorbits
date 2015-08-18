@@ -344,9 +344,12 @@ func (h *HTTP) fileStatsHandler(w http.ResponseWriter, r *http.Request, ctx *Con
 		if e == "" {
 			continue
 		}
-		if _, err := strconv.ParseInt(e, 10, 0); err != nil {
-			http.Error(w, "Invalid period", http.StatusBadRequest)
-			return
+		z := strings.SplitN(e, "_", 3)
+		for _, sub := range z {
+			if _, err := strconv.ParseInt(sub, 10, 0); err != nil || len(sub) > 4 {
+				http.Error(w, "Invalid period", http.StatusBadRequest)
+				return
+			}
 		}
 	}
 
