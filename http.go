@@ -39,8 +39,9 @@ type HTTP struct {
 
 // Templates is a struct embedding instances of the precompiled templates
 type Templates struct {
-	mirrorlist  *template.Template
-	mirrorstats *template.Template
+	mirrorlist    *template.Template
+	mirrorstats   *template.Template
+	downloadstats *template.Template
 }
 
 // FileInfo is a struct embedding details about a file served by
@@ -73,6 +74,7 @@ func HTTPServer(redis *redisobj, cache *Cache) *HTTP {
 	h.geoip = NewGeoIP()
 	h.templates.mirrorlist = template.Must(h.LoadTemplates("mirrorlist"))
 	h.templates.mirrorstats = template.Must(h.LoadTemplates("mirrorstats"))
+	h.templates.downloadstats = template.Must(h.LoadTemplates("downloadstats"))
 	h.cache = cache
 	h.stats = NewStats(redis)
 	h.engine = DefaultEngine{}
@@ -137,6 +139,11 @@ func (h *HTTP) Reload() {
 	} else {
 		log.Error("could not reload templates 'mirrorstats': %s", err.Error())
 	}
+	if t, err := h.LoadTemplates("downloadstats"); err == nil {
+		h.templates.downloadstats = t //XXX lock needed?
+	} else {
+		log.Error("could not reload templates 'downloadstats': %s", err.Error())
+	}
 }
 
 // RunServer is the main function used to start the HTTP server
@@ -191,6 +198,8 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 		h.mirrorStatsHandler(w, r, ctx)
 	case FILESTATS:
 		h.fileStatsHandler(w, r, ctx)
+	case DOWNLOADSTATS:
+		h.downloadStatsHandler(w, r, ctx)
 	case CHECKSUM:
 		h.checksumHandler(w, r, ctx)
 	}
@@ -393,6 +402,150 @@ func (h *HTTP) fileStatsHandler(w http.ResponseWriter, r *http.Request, ctx *Con
 	}
 
 	w.Write(output)
+}
+
+type DownloadStats struct {
+	Filename  string
+	Downloads int64
+}
+
+type DownloadStatsPage struct {
+	List   []*DownloadStats
+	Period string
+	Limit  int
+	Month  string
+	Today  string
+	Path   string
+}
+
+func (h *HTTP) downloadStatsHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
+	var results []*DownloadStats
+	var output  []byte
+	var filter  string
+	var period  string
+	var index   int64
+
+	// parse query params
+	req := strings.SplitN(ctx.QueryParam("downloadstats"), "-", 3)
+	if req[0] != "" {
+		for _, e := range req {
+			if _, err := strconv.ParseInt(e, 10, 0); err != nil {
+				http.Error(w, "Invalid period", http.StatusBadRequest)
+				return
+			}
+		}
+		period = strings.Replace(ctx.QueryParam("downloadstats"), "-", "_", 3)
+	}
+
+	format := "text"
+	if ctx.QueryParam("format") == "json" {
+		format = "json"
+	}
+
+	haveFilter := false
+	if len(ctx.QueryParam("filter")) >= 1 {
+		haveFilter = true
+		filter = strings.Trim(ctx.QueryParam("filter"), " !#&%$*+'")
+	}
+
+	limit := 100
+	haveLimit := true
+	if ctx.QueryParam("limit") != "" {
+		l, err := strconv.ParseInt(ctx.QueryParam("limit"), 0, 0)
+		if err != nil || l < 0 {
+			http.Error(w, "Invalid limit", http.StatusBadRequest)
+			return
+		}
+		limit = int(l)
+		if limit == 0 {
+			haveLimit = false
+		}
+	}
+
+	t0 := time.Now()
+	rconn := h.redis.pool.Get()
+	defer rconn.Close()
+
+	// get stats array from redis
+	var dkey string
+	if len(period) >= 4 {
+		dkey = fmt.Sprintf("STATS_FILE_%s", period)
+	} else {
+		dkey = "STATS_FILE"
+	}
+	v, err := redis.Strings(rconn.Do("HGETALL", dkey))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// generatate a map of our results, with download count as index
+	var m = make(map[int64]string)
+	for i := 0; i < len(v); i = i + 2 {
+		index, _ = strconv.ParseInt(v[i+1], 10, 64)
+		if haveFilter {
+			if strings.Contains(v[i], filter) {
+				m[index] = v[i]
+			}
+		} else {
+			m[index] = v[i]
+		}
+	}
+	v = nil
+
+	// generate a sortable int64 array of our map indices
+	dls := make([]int64, len(m))
+	var i int64 = 0
+	for k := range m {
+		dls[i] = k
+		i++
+	}
+
+	// sort the array in reverse order
+	Int64Slice.Reverse(dls)
+	log.Debug("Stats generation took %v", time.Now().Sub(t0))
+
+	// construct final results
+	t4 := time.Now()
+	stop := 0
+	for _, k := range dls {
+		s := &DownloadStats{Downloads: k, Filename: m[k]}
+		results = append(results, s)
+
+		if haveLimit {
+			stop++
+			if stop >= limit {
+				break
+			}
+		}
+	}
+
+	// output
+	if format == "text" {
+		if len(period) < 4 {
+			period = "All time"
+		}
+		today := time.Now().Format("2006-01-02")
+		month := time.Now().Format("2006-01")
+
+		err = ctx.Templates().downloadstats.ExecuteTemplate(ctx.ResponseWriter(), "base",
+			DownloadStatsPage{results, period, limit, month, today, GetConfig().DownloadStatsPath})
+		if err != nil {
+			log.Error("Error rendering downloadstats: %s", err.Error())
+			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+			return
+		}
+	} else {
+		output, err = json.MarshalIndent(results, "", "    ")
+		if err != nil {
+			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+			return
+		}
+		ctx.ResponseWriter().Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Write(output)
+	}
+	log.Debug("downloadStatsHandler: output took %v", time.Now().Sub(t4))
+
 }
 
 func (h *HTTP) checksumHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {

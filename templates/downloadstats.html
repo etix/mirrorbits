@@ -1,0 +1,16 @@
+{{define "title"}}Downloadstats{{end}}
+{{define "headline"}}{{if .Limit}}Top {{.Limit}}{{end}} Downloads {{.Period}}{{end}}
+
+{{define "head"}}{{end}}
+
+{{define "body"}}
+<a href="{{.Path}}?downloadstats">All Time</a> <a href="{{.Path}}?downloadstats={{.Month}}">This Month</a> <a href="/stats?downloadstats={{.Today}}">Today</a>
+<table>
+<thead><tr><th>Filename</th><th>Downloads</th></tr></thead>
+<tbody>
+{{range $v := .List}}
+<tr><td>{{$v.Filename}}</td><td>{{$v.Downloads}}</td></tr>
+{{end}}
+</tbody>
+</table>
+{{end}}
