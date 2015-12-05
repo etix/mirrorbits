@@ -1,11 +1,13 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package process
 
 import (
 	"errors"
 	"fmt"
+	"github.com/etix/mirrorbits/core"
+	"github.com/op/go-logging"
 	"io/ioutil"
 	"net"
 	"os"
@@ -16,7 +18,14 @@ import (
 )
 
 var (
+	// Compile time variable
+	defaultPidFile string
+)
+
+var (
 	Invalidfd = errors.New("Invalid file descriptor")
+
+	log = logging.MustGetLogger("main")
 )
 
 // Launch {self} as a child process passing listener details
@@ -108,31 +117,31 @@ func KillParent(ppid int) error {
 
 // Get the proper location to store our pid file
 // and fallback to /var/run if none found
-func getPidLocation() string {
-	if pidFile == "" { // Runtime
+func GetPidLocation() string {
+	if core.PidFile == "" { // Runtime
 		if defaultPidFile == "" { // Compile time
 			return "/var/run/mirrorbits.pid" // Fallback
 		}
 		return defaultPidFile
 	}
-	return pidFile
+	return core.PidFile
 }
 
 // Write the current pid file
-func writePidFile() {
+func WritePidFile() {
 	pid := fmt.Sprintf("%d", os.Getpid())
-	if err := ioutil.WriteFile(getPidLocation(), []byte(pid), 0644); err != nil {
+	if err := ioutil.WriteFile(GetPidLocation(), []byte(pid), 0644); err != nil {
 		log.Error("Unable to write pid file: %v", err)
 	}
 }
 
 // Remove the current pid file
-func removePidFile() {
-	pidFile := getPidLocation()
+func RemovePidFile() {
+	pidFile := GetPidLocation()
 	if _, err := os.Stat(pidFile); !os.IsNotExist(err) {
 		// Ensures we don't remove our forked process pid file
 		// This can happen during seamless binary upgrade
-		if getRemoteProcPid() == os.Getpid() {
+		if GetRemoteProcPid() == os.Getpid() {
 			if err = os.Remove(pidFile); err != nil {
 				log.Error("Unable to remove pid file: %v", err)
 			}
@@ -141,8 +150,8 @@ func removePidFile() {
 }
 
 // Get the pid as it appears in the pid file (maybe not ours)
-func getRemoteProcPid() int {
-	b, err := ioutil.ReadFile(getPidLocation())
+func GetRemoteProcPid() int {
+	b, err := ioutil.ReadFile(GetPidLocation())
 	if err != nil {
 		return -1
 	}

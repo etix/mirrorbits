@@ -1,71 +1,91 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package daemon
 
 import (
 	"errors"
 	"fmt"
+	"github.com/etix/mirrorbits/cli"
+	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/core"
+	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/mirrors"
+	"github.com/etix/mirrorbits/scan"
+	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
+	"github.com/op/go-logging"
 	"math/rand"
 	"net"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
-const (
-	clusterAnnounce = "HELLO"
-)
-
 var (
 	healthCheckThreads = 10
-	userAgent          = "Mirrorbits/" + VERSION + " PING CHECK"
+	userAgent          = "Mirrorbits/" + core.VERSION + " PING CHECK"
 	clientTimeout      = time.Duration(20 * time.Second)
 	clientDeadline     = time.Duration(40 * time.Second)
 	redirectError      = errors.New("Redirect not allowed")
 	mirrorNotScanned   = errors.New("Mirror has not yet been scanned")
+
+	log = logging.MustGetLogger("main")
 )
 
 type Monitor struct {
-	redis           *redisobj
-	cache           *Cache
-	mirrors         map[string]*MMirror
+	redis           *database.Redis
+	cache           *mirrors.Cache
+	mirrors         map[string]*Mirror
 	mapLock         sync.Mutex
 	httpClient      http.Client
 	healthCheckChan chan string
 	syncChan        chan string
 	stop            chan bool
+	configNotifier  chan bool
 	wg              sync.WaitGroup
 	formatLongestID int
 
-	nodes        []Node
-	nodeIndex    int
-	nodeTotal    int
-	nodesLock    sync.RWMutex
-	mirrorsIndex []string
+	cluster *cluster
 }
 
-type MMirror struct {
-	Mirror
+type Mirror struct {
+	mirrors.Mirror
 	checking  bool
 	scanning  bool
 	lastCheck int64
 }
 
-func NewMonitor(r *redisobj, c *Cache) *Monitor {
+func (m *Mirror) NeedHealthCheck() bool {
+	return utils.ElapsedSec(m.lastCheck, int64(60*GetConfig().CheckInterval))
+}
+
+func (m *Mirror) NeedSync() bool {
+	return utils.ElapsedSec(m.LastSync, int64(60*GetConfig().ScanInterval))
+}
+
+func (m *Mirror) IsScanning() bool {
+	return m.scanning
+}
+
+func (m *Mirror) IsChecking() bool {
+	return m.checking
+}
+
+func NewMonitor(r *database.Redis, c *mirrors.Cache) *Monitor {
 	monitor := new(Monitor)
 	monitor.redis = r
 	monitor.cache = c
-	monitor.mirrors = make(map[string]*MMirror)
+	monitor.cluster = NewCluster(r)
+	monitor.mirrors = make(map[string]*Mirror)
 	monitor.healthCheckChan = make(chan string, healthCheckThreads*5)
 	monitor.syncChan = make(chan string)
 	monitor.stop = make(chan bool)
-	monitor.nodes = make([]Node, 0)
-	monitor.mirrorsIndex = make([]string, 0)
+	monitor.configNotifier = make(chan bool, 1)
+
+	SubscribeConfig(monitor.configNotifier)
 
 	rand.Seed(time.Now().UnixNano())
 
@@ -95,6 +115,7 @@ func (m *Monitor) Stop() {
 	case _, _ = <-m.stop:
 		return
 	default:
+		m.cluster.Stop()
 		close(m.stop)
 	}
 }
@@ -112,49 +133,49 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 }
 
 // Main monitor loop
-func (m *Monitor) monitorLoop() {
+func (m *Monitor) MonitorLoop() {
 	m.wg.Add(1)
 
-	for {
-		err := m.scanRepository()
-		if err == nil {
-			break
-		}
-		time.Sleep(2 * time.Second)
-	}
-
 	mirrorUpdateEvent := make(chan string, 10)
-	m.redis.pubsub.SubscribeEvent(MIRROR_UPDATE, mirrorUpdateEvent)
+	m.redis.Pubsub.SubscribeEvent(database.MIRROR_UPDATE, mirrorUpdateEvent)
 
-	for {
+	// Scan the local repository
+	m.retry(func() error {
+		return m.scanRepository()
+	}, 1*time.Second)
+
+	// Synchronize the list of all known mirrors
+	m.retry(func() error {
 		ids, err := m.mirrorsID()
-		if err == nil {
-			m.syncMirrorList(ids...)
-			break
+		if err != nil {
+			return err
 		}
-		select {
-		case <-m.stop:
-			m.wg.Done()
-			return
-		case <-time.After(500 * time.Millisecond):
-		}
-	}
+		m.syncMirrorList(ids...)
+		return nil
+	}, 500*time.Millisecond)
 
-	go m.clusterLoop()
+	// Start the cluster manager
+	m.cluster.Start()
 
+	// Start the health check routines
 	for i := 0; i < healthCheckThreads; i++ {
 		go m.healthCheckLoop()
 	}
 
+	// Start the mirror sync routines
 	for i := 0; i < GetConfig().ConcurrentSync; i++ {
 		go m.syncLoop()
 	}
 
 	// Setup recurrent tasks
+	var repositoryScanTicker <-chan time.Time
 	repositoryScanInterval := -1
-	repositoryScanTicker := time.NewTicker(1 * time.Minute)
 	mirrorCheckTicker := time.NewTicker(1 * time.Second)
-	configUpdateTicker := time.NewTicker(1 * time.Second)
+
+	select {
+	case m.configNotifier <- true:
+	default:
+	}
 
 	for {
 		select {
@@ -163,17 +184,17 @@ func (m *Monitor) monitorLoop() {
 			return
 		case id := <-mirrorUpdateEvent:
 			m.syncMirrorList(id)
-		case <-configUpdateTicker.C:
+		case <-m.configNotifier:
 			if repositoryScanInterval != GetConfig().RepositoryScanInterval {
 				repositoryScanInterval = GetConfig().RepositoryScanInterval
 
 				if repositoryScanInterval == 0 {
-					repositoryScanTicker.Stop()
+					repositoryScanTicker = nil
 				} else {
-					repositoryScanTicker = time.NewTicker(time.Duration(repositoryScanInterval) * time.Minute)
+					repositoryScanTicker = time.Tick(time.Duration(repositoryScanInterval) * time.Minute)
 				}
 			}
-		case <-repositoryScanTicker.C:
+		case <-repositoryScanTicker:
 			m.scanRepository()
 		case <-mirrorCheckTicker.C:
 			m.mapLock.Lock()
@@ -182,14 +203,14 @@ func (m *Monitor) monitorLoop() {
 					// Ignore disabled mirrors
 					continue
 				}
-				if elapsedSec(v.lastCheck, int64(60*GetConfig().CheckInterval)) && m.mirrors[k].checking == false && m.isHandled(k) {
+				if v.NeedHealthCheck() && !v.IsChecking() && m.cluster.IsHandled(k) {
 					select {
 					case m.healthCheckChan <- k:
 						m.mirrors[k].checking = true
 					default:
 					}
 				}
-				if elapsedSec(v.LastSync, int64(60*GetConfig().ScanInterval)) && m.mirrors[k].scanning == false && m.isHandled(k) {
+				if v.NeedSync() && !v.IsScanning() && m.cluster.IsHandled(k) {
 					select {
 					case m.syncChan <- k:
 						m.mirrors[k].scanning = true
@@ -204,35 +225,14 @@ func (m *Monitor) monitorLoop() {
 
 // Returns a list of all mirrors ID
 func (m *Monitor) mirrorsID() ([]string, error) {
-	rconn := m.redis.pool.Get()
+	rconn := m.redis.Get()
 	defer rconn.Close()
 
 	return redis.Strings(rconn.Do("LRANGE", "MIRRORS", "0", "-1"))
 }
 
-func removeMirrorIDFromSlice(slice []string, mirrorID string) []string {
-	// See https://golang.org/pkg/sort/#SearchStrings
-	idx := sort.SearchStrings(slice, mirrorID)
-	if idx < len(slice) && slice[idx] == mirrorID {
-		slice = append(slice[:idx], slice[idx+1:]...)
-	}
-	return slice
-}
-
-func addMirrorIDToSlice(slice []string, mirrorID string) []string {
-	// See https://golang.org/pkg/sort/#SearchStrings
-	idx := sort.SearchStrings(slice, mirrorID)
-	if idx >= len(slice) || slice[idx] != mirrorID {
-		slice = append(slice[:idx], append([]string{mirrorID}, slice[idx:]...)...)
-	}
-	return slice
-}
-
 // Sync the remote mirror struct with the local dataset
-// TODO needs improvements
-func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
-
-	mirrors := make([]Mirror, 0, len(mirrorsIDs))
+func (m *Monitor) syncMirrorList(mirrorsIDs ...string) error {
 
 	for _, id := range mirrorsIDs {
 		if len(id) > m.formatLongestID {
@@ -246,44 +246,30 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) ([]Mirror, error) {
 			// Mirror has been deleted
 			m.mapLock.Lock()
 			delete(m.mirrors, id)
-			m.nodesLock.Lock()
-			m.mirrorsIndex = removeMirrorIDFromSlice(m.mirrorsIndex, mirror.ID)
-			m.nodesLock.Unlock()
 			m.mapLock.Unlock()
+			m.cluster.RemoveMirror(&mirror)
 			continue
 		}
-		mirrors = append(mirrors, mirror)
+
+		m.cluster.AddMirror(&mirror)
 
 		m.mapLock.Lock()
-		m.nodesLock.Lock()
-		m.mirrorsIndex = addMirrorIDToSlice(m.mirrorsIndex, mirror.ID)
-		m.nodesLock.Unlock()
+		if _, ok := m.mirrors[mirror.ID]; ok {
+			// Update existing mirror
+			tmp := m.mirrors[mirror.ID]
+			tmp.Mirror = mirror
+			m.mirrors[mirror.ID] = tmp
+		} else {
+			// Add new mirror
+			m.mirrors[mirror.ID] = &Mirror{
+				Mirror: mirror,
+			}
+		}
 		m.mapLock.Unlock()
 	}
 
-	m.mapLock.Lock()
-
-	// Prepare the list of mirrors
-	for _, e := range mirrors {
-		var isChecking bool = false
-		var isScanning bool = false
-		var lastCheck int64 = 0
-		if _, ok := m.mirrors[e.ID]; ok {
-			isChecking = m.mirrors[e.ID].checking
-			isScanning = m.mirrors[e.ID].scanning
-			lastCheck = m.mirrors[e.ID].lastCheck
-		}
-		m.mirrors[e.ID] = &MMirror{
-			Mirror:    e,
-			checking:  isChecking,
-			scanning:  isScanning,
-			lastCheck: lastCheck,
-		}
-	}
-	m.mapLock.Unlock()
-
-	log.Debug("%d mirror%s updated", len(mirrorsIDs), plural(len(mirrorsIDs)))
-	return mirrors, nil
+	log.Debug("%d mirror%s updated", len(mirrorsIDs), utils.Plural(len(mirrorsIDs)))
+	return nil
 }
 
 // Main health check loop
@@ -330,8 +316,8 @@ func (m *Monitor) syncLoop() {
 			mirror := m.mirrors[k]
 			m.mapLock.Unlock()
 
-			conn := m.redis.pool.Get()
-			scanning, err := IsScanning(conn, k)
+			conn := m.redis.Get()
+			scanning, err := scan.IsScanning(conn, k)
 			if err != nil {
 				log.Error("syncloop: ", err.Error())
 				conn.Close()
@@ -345,19 +331,19 @@ func (m *Monitor) syncLoop() {
 
 			log.Debug("Scanning %s", k)
 
-			err = NoSyncMethod
+			err = cli.NoSyncMethod
 
 			// First try to scan with rsync
 			if mirror.RsyncURL != "" {
-				err = Scan(RSYNC, m.redis, mirror.RsyncURL, k, m.stop)
+				err = scan.Scan(scan.RSYNC, m.redis, mirror.RsyncURL, k, m.stop)
 			}
 			// If it failed or rsync wasn't supported
 			// fallback to FTP
 			if err != nil && mirror.FtpURL != "" {
-				err = Scan(FTP, m.redis, mirror.FtpURL, k, m.stop)
+				err = scan.Scan(scan.FTP, m.redis, mirror.FtpURL, k, m.stop)
 			}
 
-			if err == scanInProgress {
+			if err == scan.ScanInProgress {
 				log.Warning("%-30.30s Scan already in progress", k)
 				goto unlock
 			}
@@ -380,7 +366,7 @@ func (m *Monitor) syncLoop() {
 }
 
 // Do an actual health check against a given mirror
-func (m *Monitor) healthCheck(mirror Mirror) error {
+func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 	format := "%-" + fmt.Sprintf("%d.%ds", m.formatLongestID+4, m.formatLongestID+4)
 
 	file, size, err := m.getRandomFile(mirror.ID)
@@ -405,7 +391,7 @@ func (m *Monitor) healthCheck(mirror Mirror) error {
 		if opErr, ok := err.(*net.OpError); ok {
 			log.Debug("Op: %s | Net: %s | Addr: %s | Err: %s | Temporary: %t", opErr.Op, opErr.Net, opErr.Addr, opErr.Error(), opErr.Temporary())
 		}
-		markMirrorDown(m.redis, mirror.ID, "Unreachable")
+		mirrors.MarkMirrorDown(m.redis, mirror.ID, "Unreachable")
 		log.Error(format+"Error: %s (%dms)", mirror.ID, err.Error(), elapsed/time.Millisecond)
 		return err
 	}
@@ -414,16 +400,16 @@ func (m *Monitor) healthCheck(mirror Mirror) error {
 	contentLength := resp.Header.Get("Content-Length")
 
 	if resp.StatusCode == 404 {
-		markMirrorDown(m.redis, mirror.ID, fmt.Sprintf("File not found %s (error 404)", file))
+		mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("File not found %s (error 404)", file))
 		if GetConfig().DisableOnMissingFile {
-			disableMirror(m.redis, mirror.ID)
+			mirrors.DisableMirror(m.redis, mirror.ID)
 		}
 		log.Error(format+"Error: File %s not found (error 404)", mirror.ID, file)
 	} else if resp.StatusCode != 200 {
-		markMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", resp.StatusCode))
+		mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", resp.StatusCode))
 		log.Warning(format+"Down! Status: %d", mirror.ID, resp.StatusCode)
 	} else {
-		markMirrorUp(m.redis, mirror.ID)
+		mirrors.MarkMirrorUp(m.redis, mirror.ID)
 		rsize, err := strconv.ParseInt(contentLength, 10, 64)
 		if err == nil && rsize != size {
 			log.Warning(format+"File size mismatch! [%s] (%dms)", mirror.ID, file, elapsed/time.Millisecond)
@@ -438,7 +424,7 @@ func (m *Monitor) healthCheck(mirror Mirror) error {
 func (m *Monitor) getRandomFile(identifier string) (file string, size int64, err error) {
 	sinterKey := fmt.Sprintf("HANDLEDFILES_%s", identifier)
 
-	rconn := m.redis.pool.Get()
+	rconn := m.redis.Get()
 	defer rconn.Close()
 
 	file, err = redis.String(rconn.Do("SRANDMEMBER", sinterKey))
@@ -456,113 +442,26 @@ func (m *Monitor) getRandomFile(identifier string) (file string, size int64, err
 
 // Trigger a sync of the local repository
 func (m *Monitor) scanRepository() error {
-	err := ScanSource(m.redis, m.stop)
+	err := scan.ScanSource(m.redis, m.stop)
 	if err != nil {
 		log.Error("Scanning source failed: %s", err.Error())
 	}
 	return err
 }
 
-type Node struct {
-	ID           string
-	LastAnnounce int64
-}
-
-type ByNodeID []Node
-
-func (n ByNodeID) Len() int           { return len(n) }
-func (n ByNodeID) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
-func (n ByNodeID) Less(i, j int) bool { return n[i].ID < n[j].ID }
-
-func (m *Monitor) clusterLoop() {
-	clusterChan := make(chan string, 10)
-	announceTicker := time.NewTicker(1 * time.Second)
-
-	hostname := getHostname()
-	nodeID := fmt.Sprintf("%s-%05d", hostname, rand.Intn(32000))
-
-	m.refreshNodeList(nodeID, nodeID)
-	m.redis.pubsub.SubscribeEvent(CLUSTER, clusterChan)
-
-	m.wg.Add(1)
+// Retry a function until no errors is returned while still allowing
+// the process to be stopped.
+func (m *Monitor) retry(fn func() error, delay time.Duration) {
 	for {
+		err := fn()
+		if err == nil {
+			break
+		}
 		select {
 		case <-m.stop:
 			m.wg.Done()
 			return
-		case <-announceTicker.C:
-			r := m.redis.pool.Get()
-			Publish(r, CLUSTER, fmt.Sprintf("%s %s", clusterAnnounce, nodeID))
-			r.Close()
-		case data := <-clusterChan:
-			if !strings.HasPrefix(data, clusterAnnounce+" ") {
-				// Garbage
-				continue
-			}
-			m.refreshNodeList(data[len(clusterAnnounce)+1:], nodeID)
+		case <-time.After(delay):
 		}
 	}
-}
-
-func (m *Monitor) refreshNodeList(nodeID, self string) {
-	found := false
-
-	m.nodesLock.Lock()
-
-	// Expire unreachable nodes
-	for i := 0; i < len(m.nodes); i++ {
-		if elapsedSec(m.nodes[i].LastAnnounce, 5) && m.nodes[i].ID != nodeID && m.nodes[i].ID != self {
-			log.Notice("<- Node %s left the cluster", m.nodes[i].ID)
-			m.nodes = append(m.nodes[:i], m.nodes[i+1:]...)
-			i--
-		} else if m.nodes[i].ID == nodeID {
-			found = true
-			m.nodes[i].LastAnnounce = time.Now().UTC().Unix()
-		}
-	}
-
-	// Join new node
-	if !found {
-		if nodeID != self {
-			log.Notice("-> Node %s joined the cluster", nodeID)
-		}
-		n := Node{
-			ID:           nodeID,
-			LastAnnounce: time.Now().UTC().Unix(),
-		}
-		// TODO use binary search here
-		// See https://golang.org/pkg/sort/#Search
-		m.nodes = append(m.nodes, n)
-		sort.Sort(ByNodeID(m.nodes))
-	}
-
-	m.nodeTotal = len(m.nodes)
-
-	// TODO use binary search here
-	// See https://golang.org/pkg/sort/#Search
-	for i, n := range m.nodes {
-		if n.ID == self {
-			m.nodeIndex = i
-			break
-		}
-	}
-
-	m.nodesLock.Unlock()
-}
-
-func (m *Monitor) isHandled(mirrorID string) bool {
-	m.nodesLock.RLock()
-	index := sort.SearchStrings(m.mirrorsIndex, mirrorID)
-
-	mRange := int(float32(len(m.mirrorsIndex))/float32(m.nodeTotal) + 0.5)
-	start := mRange * m.nodeIndex
-	m.nodesLock.RUnlock()
-
-	// Check bounding to see if this mirror must be handled by this node.
-	// The distribution of the nodes should be balanced except for the last node
-	// that could contain one more node.
-	if index >= start && (index < start+mRange || m.nodeIndex == m.nodeTotal-1) {
-		return true
-	}
-	return false
 }

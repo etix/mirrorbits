@@ -1,12 +1,17 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package database
 
 import (
 	"github.com/garyburd/redigo/redis"
+	"github.com/op/go-logging"
 	"sync"
 	"time"
+)
+
+var (
+	log = logging.MustGetLogger("main")
 )
 
 type PubsubEvent string
@@ -21,12 +26,12 @@ const (
 )
 
 type Pubsub struct {
-	r                  *redisobj
+	r                  *Redis
 	extSubscribers     map[string][]chan string
 	extSubscribersLock sync.RWMutex
 }
 
-func NewPubsub(r *redisobj) *Pubsub {
+func NewPubsub(r *Redis) *Pubsub {
 	pubsub := new(Pubsub)
 	pubsub.r = r
 	pubsub.extSubscribers = make(map[string][]chan string)
@@ -49,7 +54,7 @@ func (p *Pubsub) updateEvents() {
 	var disconnected bool = false
 connect:
 	for {
-		rconn := p.r.pool.Get()
+		rconn := p.r.Get()
 		if _, err := rconn.Do("PING"); err != nil {
 			disconnected = true
 			rconn.Close()

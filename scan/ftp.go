@@ -1,10 +1,11 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package scan
 
 import (
 	"fmt"
+	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
 	"github.com/jlaffaye/ftp"
 	"net/url"
@@ -32,8 +33,8 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 		host += ":21"
 	}
 
-	if isStopped(stop) {
-		return scanAborted
+	if utils.IsStopped(stop) {
+		return ScanAborted
 	}
 
 	c, err := ftp.DialTimeout(host, 5*time.Second)
@@ -102,8 +103,8 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 
 // Walk inside an FTP repository
 func (f *FTPScanner) walkFtp(c *ftp.ServerConn, files []*filedata, path string, stop chan bool) ([]*filedata, error) {
-	if isStopped(stop) {
-		return nil, scanAborted
+	if utils.IsStopped(stop) {
+		return nil, ScanAborted
 	}
 
 	flist, err := c.List(path)

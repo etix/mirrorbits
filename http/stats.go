@@ -1,11 +1,14 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package http
 
 import (
 	"errors"
 	"fmt"
+	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/filesystem"
+	"github.com/etix/mirrorbits/mirrors"
 	"strings"
 	"sync"
 	"time"
@@ -34,7 +37,7 @@ var (
 )
 
 type Stats struct {
-	r         *redisobj
+	r         *database.Redis
 	countChan chan CountItem
 	mapStats  map[string]int64
 	stop      chan bool
@@ -48,7 +51,7 @@ type CountItem struct {
 	time     time.Time
 }
 
-func NewStats(redis *redisobj) *Stats {
+func NewStats(redis *database.Redis) *Stats {
 	s := &Stats{
 		r:         redis,
 		countChan: make(chan CountItem, 1000),
@@ -66,7 +69,7 @@ func (s *Stats) Terminate() {
 }
 
 // Lightweight method used to count a new download for a specific file and mirror
-func (s *Stats) CountDownload(m Mirror, fileinfo FileInfo) error {
+func (s *Stats) CountDownload(m mirrors.Mirror, fileinfo filesystem.FileInfo) error {
 	if m.ID == "" {
 		return unknownMirror
 	}
@@ -106,7 +109,7 @@ func (s *Stats) pushStats() {
 		return
 	}
 
-	rconn := s.r.pool.Get()
+	rconn := s.r.Get()
 	defer rconn.Close()
 	rconn.Send("MULTI")
 

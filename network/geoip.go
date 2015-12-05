@@ -1,19 +1,21 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package network
 
 import (
 	"errors"
 	"github.com/etix/geoip"
-	"net"
+	. "github.com/etix/mirrorbits/config"
+	"github.com/op/go-logging"
 	"os"
 	"strconv"
 	"strings"
 )
 
 var (
-	errMultipleAddresses = errors.New("The mirror has more than one IP address")
+	ErrMultipleAddresses = errors.New("The mirror has more than one IP address")
+	log                  = logging.MustGetLogger("main")
 )
 
 const (
@@ -29,7 +31,7 @@ type GeoIP struct {
 }
 
 // GeoIPRec defines a GeoIP record for a given IP address
-type GeoIPRec struct {
+type GeoIPRecord struct {
 	*geoip.GeoIPRecord
 	ASName    string
 	ASNum     int
@@ -82,13 +84,13 @@ func (g *GeoIP) LoadGeoIP() (err error) {
 }
 
 // Get details about a given ip address (might be v4 or v6)
-func (g *GeoIP) GetInfos(ip string) (ret GeoIPRec) {
+func (g *GeoIP) GetRecord(ip string) (ret GeoIPRecord) {
 	if g.IsIPv6(ip) {
 		if g.geo6 != nil {
-			ret.GeoIPRecord = g.geo6.GetRecordV6(ip)
+			ret.GeoIPRecord = g.geo6.GetRecord(ip)
 		}
 		if g.asn6 != nil {
-			ret.ASName, ret.ASNetmask = g.asn6.GetNameV6(ip)
+			ret.ASName, ret.ASNetmask = g.asn6.GetName(ip)
 		}
 	} else {
 		if g.geo != nil {
@@ -115,41 +117,6 @@ func (g *GeoIP) IsIPv6(ip string) bool {
 }
 
 // Return true if the given address is valid
-func (g *GeoIPRec) isValid() bool {
+func (g *GeoIPRecord) IsValid() bool {
 	return g.GeoIPRecord != nil
-}
-
-// Return the IP address of a mirror and return an error
-// if the DNS returns more than one address
-func lookupMirrorIP(host string) (string, error) {
-	addrs, err := net.LookupIP(host)
-	if err != nil {
-		return "", err
-	}
-	// A mirror with multiple IP address is a problem
-	// since we can't determine the exact position of
-	// the server.
-	if len(addrs) > 1 {
-		err = errMultipleAddresses
-	}
-
-	return addrs[0].String(), err
-}
-
-// Remove the port from a remote address (x.x.x.x:yyyy)
-func remoteIpFromAddr(remoteAddr string) string {
-	return remoteAddr[:strings.LastIndex(remoteAddr, ":")]
-}
-
-// Extract the remote IP from an X-Forwarded-For header
-func extractRemoteIP(XForwardedFor string) string {
-	addresses := strings.Split(XForwardedFor, ", ")
-	if len(addresses) > 0 {
-		// The left-most address is supposed to be the original client address.
-		// Each successive are added by proxies. In most cases we should probably
-		// take the last address but in case of optimization services this will
-		// probably not work. For now we'll always take the original one.
-		return addresses[0]
-	}
-	return ""
 }

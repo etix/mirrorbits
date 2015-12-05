@@ -1,11 +1,12 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package database
 
 import (
 	"errors"
 	"fmt"
+	. "github.com/etix/mirrorbits/config"
 	"github.com/garyburd/redigo/redis"
 	"sync"
 	"time"
@@ -20,22 +21,23 @@ var (
 	errUnreachable = errors.New("endpoint unreachable")
 )
 
-type redisobj struct {
+type Redis struct {
 	pool         *redis.Pool
-	pubsub       *Pubsub
+	Pubsub       *Pubsub
 	failure      bool
 	failureState sync.RWMutex
 	knownMaster  string
+	daemon       bool
 }
 
-func NewRedis() *redisobj {
-	r := &redisobj{}
-
+func NewRedis(daemon bool) *Redis {
+	r := &Redis{}
+	r.daemon = daemon
 	r.pool = &redis.Pool{
 		MaxIdle:     10,
 		IdleTimeout: 240 * time.Second,
 		Dial: func() (redis.Conn, error) {
-			return r.connect()
+			return r.Connect()
 		},
 		TestOnBorrow: func(c redis.Conn, t time.Time) error {
 			_, err := c.Do("PING")
@@ -46,18 +48,22 @@ func NewRedis() *redisobj {
 	return r
 }
 
-func (r *redisobj) Close() {
+func (r *Redis) Get() redis.Conn {
+	return r.pool.Get()
+}
+
+func (r *Redis) Close() {
 	r.pool.Close()
 	//TODO close pubsub
 }
 
-func (r *redisobj) ConnectPubsub() {
-	if r.pubsub == nil {
-		r.pubsub = NewPubsub(r)
+func (r *Redis) ConnectPubsub() {
+	if r.Pubsub == nil {
+		r.Pubsub = NewPubsub(r)
 	}
 }
 
-func (r *redisobj) connect() (redis.Conn, error) {
+func (r *Redis) Connect() (redis.Conn, error) {
 	sentinels := GetConfig().RedisSentinels
 
 	if len(sentinels) > 0 {
@@ -175,24 +181,24 @@ single:
 
 }
 
-func (r *redisobj) connectTo(address string) (redis.Conn, error) {
+func (r *Redis) connectTo(address string) (redis.Conn, error) {
 	return redis.DialTimeout("tcp", address, redisConnectionTimeout, redisReadWriteTimeout, redisReadWriteTimeout)
 }
 
-func (r *redisobj) askRole(c redis.Conn) (string, error) {
+func (r *Redis) askRole(c redis.Conn) (string, error) {
 	roleReply, err := redis.Values(c.Do("ROLE"))
 	role, err := redis.String(roleReply[0], err)
 	return role, err
 }
 
-func (r *redisobj) auth(c redis.Conn) (err error) {
+func (r *Redis) auth(c redis.Conn) (err error) {
 	if GetConfig().RedisPassword != "" {
 		_, err = c.Do("AUTH", GetConfig().RedisPassword)
 	}
 	return
 }
 
-func (r *redisobj) logError(format string, args ...interface{}) {
+func (r *Redis) logError(format string, args ...interface{}) {
 	if r.getFailureState() == true {
 		log.Debug(format, args...)
 	} else {
@@ -200,8 +206,8 @@ func (r *redisobj) logError(format string, args ...interface{}) {
 	}
 }
 
-func (r *redisobj) printConnectedMaster(address string) {
-	if address != r.knownMaster && daemon {
+func (r *Redis) printConnectedMaster(address string) {
+	if address != r.knownMaster && r.daemon {
 		r.knownMaster = address
 		log.Info("Connected to redis master %s", address)
 	} else {
@@ -209,13 +215,13 @@ func (r *redisobj) printConnectedMaster(address string) {
 	}
 }
 
-func (r *redisobj) setFailureState(failure bool) {
+func (r *Redis) setFailureState(failure bool) {
 	r.failureState.Lock()
 	r.failure = failure
 	r.failureState.Unlock()
 }
 
-func (r *redisobj) getFailureState() bool {
+func (r *Redis) getFailureState() bool {
 	r.failureState.RLock()
 	defer r.failureState.RUnlock()
 	return r.failure

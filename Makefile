@@ -6,8 +6,10 @@ BRANCH := $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
 BUILD := $(SHA)-$(BRANCH)
 PACKAGE := dist/mirrorbits-$(VERSION).tar.gz
 
-GOFLAGS := -ldflags "-X main.VERSION $(VERSION) -X main.BUILD $(BUILD)"
-GOFLAGSDEV := -race -ldflags "-X main.VERSION $(VERSION) -X main.BUILD $(BUILD) -X main.DEV -dev"
+SYMBOLSPREFIX = github.com/etix/mirrorbits/
+
+GOFLAGS := -ldflags "-X $(SYMBOLSPREFIX)core.VERSION $(VERSION) -X $(SYMBOLSPREFIX)core.BUILD $(BUILD)"
+GOFLAGSDEV := -race -ldflags "-X $(SYMBOLSPREFIX)core.VERSION $(VERSION) -X $(SYMBOLSPREFIX)core.BUILD $(BUILD) -X $(SYMBOLSPREFIX)core.DEV -dev"
 
 all: build
 

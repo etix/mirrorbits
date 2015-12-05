@@ -1,7 +1,7 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package core
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ var (
 	DEV     = ""
 )
 
-func printVersion() {
+func PrintVersion() {
 	fmt.Println("Version:", VERSION)
 	fmt.Println("Build:", BUILD+DEV)
 	fmt.Println("GoVersion:", runtime.Version())

@@ -1,12 +1,13 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package scan
 
 import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
 	"io"
 	"os"
@@ -44,8 +45,8 @@ func (r *RsyncScanner) Scan(url, identifier string, conn redis.Conn, stop chan b
 	// Pipe stdout
 	reader := bufio.NewReader(stdout)
 
-	if isStopped(stop) {
-		return scanAborted
+	if utils.IsStopped(stop) {
+		return ScanAborted
 	}
 
 	// Start the process
@@ -70,8 +71,8 @@ func (r *RsyncScanner) Scan(url, identifier string, conn redis.Conn, stop chan b
 		var size int64
 		var f filedata
 
-		if isStopped(stop) {
-			return scanAborted
+		if utils.IsStopped(stop) {
+			return ScanAborted
 		}
 
 		// Parse one line returned by rsync

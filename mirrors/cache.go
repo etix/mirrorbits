@@ -1,10 +1,14 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package mirrors
 
 import (
 	"fmt"
+	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/filesystem"
+	"github.com/etix/mirrorbits/network"
+	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
 	"strconv"
 	"strings"
@@ -15,7 +19,7 @@ import (
 // Cache implements a local caching mechanism of type LRU for content available in the
 // redis database that is automatically invalidated if the object is updated in Redis.
 type Cache struct {
-	r        *redisobj
+	r        *database.Redis
 	fiCache  *LRUCache
 	fmCache  *LRUCache
 	mCache   *LRUCache
@@ -28,7 +32,7 @@ type Cache struct {
 }
 
 type fileInfoValue struct {
-	value FileInfo
+	value filesystem.FileInfo
 }
 
 func (f *fileInfoValue) Size() int {
@@ -52,7 +56,7 @@ func (f *mirrorValue) Size() int {
 }
 
 // NewCache constructs a new instance of Cache
-func NewCache(r *redisobj) *Cache {
+func NewCache(r *database.Redis) *Cache {
 	c := new(Cache)
 	c.r = r
 	c.fiCache = NewLRUCache(1024000)
@@ -67,10 +71,10 @@ func NewCache(r *redisobj) *Cache {
 	c.pubsubReconnectedEvent = make(chan string)
 
 	// Subscribe to events
-	c.r.pubsub.SubscribeEvent(MIRROR_UPDATE, c.mirrorUpdateEvent)
-	c.r.pubsub.SubscribeEvent(FILE_UPDATE, c.fileUpdateEvent)
-	c.r.pubsub.SubscribeEvent(MIRROR_FILE_UPDATE, c.mirrorFileUpdateEvent)
-	c.r.pubsub.SubscribeEvent(PUBSUB_RECONNECTED, c.pubsubReconnectedEvent)
+	c.r.Pubsub.SubscribeEvent(database.MIRROR_UPDATE, c.mirrorUpdateEvent)
+	c.r.Pubsub.SubscribeEvent(database.FILE_UPDATE, c.fileUpdateEvent)
+	c.r.Pubsub.SubscribeEvent(database.MIRROR_FILE_UPDATE, c.mirrorFileUpdateEvent)
+	c.r.Pubsub.SubscribeEvent(database.PUBSUB_RECONNECTED, c.pubsubReconnectedEvent)
 
 	go func() {
 		for {
@@ -103,7 +107,7 @@ func (c *Cache) Clear() {
 
 // GetFileInfo returns file information for a given file either from the cache
 // or directly from the database if the object is not yet stored in the cache.
-func (c *Cache) GetFileInfo(path string) (f FileInfo, err error) {
+func (c *Cache) GetFileInfo(path string) (f filesystem.FileInfo, err error) {
 	v, ok := c.fiCache.Get(path)
 	if ok {
 		f = v.(*fileInfoValue).value
@@ -113,8 +117,8 @@ func (c *Cache) GetFileInfo(path string) (f FileInfo, err error) {
 	return
 }
 
-func (c *Cache) fetchFileInfo(path string) (f FileInfo, err error) {
-	rconn := c.r.pool.Get()
+func (c *Cache) fetchFileInfo(path string) (f filesystem.FileInfo, err error) {
+	rconn := c.r.Get()
 	defer rconn.Close()
 	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILE_%s", path), "size", "modTime", "sha1", "sha256", "md5"))
 	if err != nil {
@@ -134,7 +138,7 @@ func (c *Cache) fetchFileInfo(path string) (f FileInfo, err error) {
 
 // GetMirrors returns all the mirrors serving a given file either from the cache
 // or directly from the database if the object is not yet stored in the cache.
-func (c *Cache) GetMirrors(path string, clientInfo GeoIPRec) (mirrors []Mirror, err error) {
+func (c *Cache) GetMirrors(path string, clientInfo network.GeoIPRecord) (mirrors []Mirror, err error) {
 	var mirrorsIDs []string
 	v, ok := c.fmCache.Get(path)
 	if ok {
@@ -148,7 +152,7 @@ func (c *Cache) GetMirrors(path string, clientInfo GeoIPRec) (mirrors []Mirror, 
 	mirrors = make([]Mirror, 0, len(mirrorsIDs))
 	for _, id := range mirrorsIDs {
 		var mirror Mirror
-		var fileInfo FileInfo
+		var fileInfo filesystem.FileInfo
 		v, ok := c.mCache.Get(id)
 		if ok {
 			mirror = v.(*mirrorValue).value
@@ -176,7 +180,7 @@ func (c *Cache) GetMirrors(path string, clientInfo GeoIPRec) (mirrors []Mirror, 
 		mirror.FileInfo.Path = path
 
 		if clientInfo.GeoIPRecord != nil {
-			mirror.Distance = getDistanceKm(clientInfo.Latitude,
+			mirror.Distance = utils.GetDistanceKm(clientInfo.Latitude,
 				clientInfo.Longitude,
 				mirror.Latitude,
 				mirror.Longitude)
@@ -189,7 +193,7 @@ func (c *Cache) GetMirrors(path string, clientInfo GeoIPRec) (mirrors []Mirror, 
 }
 
 func (c *Cache) fetchFileMirrors(path string) (ids []string, err error) {
-	rconn := c.r.pool.Get()
+	rconn := c.r.Get()
 	defer rconn.Close()
 	ids, err = redis.Strings(rconn.Do("SMEMBERS", fmt.Sprintf("FILEMIRRORS_%s", path)))
 	if err != nil {
@@ -200,7 +204,7 @@ func (c *Cache) fetchFileMirrors(path string) (ids []string, err error) {
 }
 
 func (c *Cache) fetchMirror(mirrorID string) (mirror Mirror, err error) {
-	rconn := c.r.pool.Get()
+	rconn := c.r.Get()
 	defer rconn.Close()
 	reply, err := redis.Values(rconn.Do("HGETALL", fmt.Sprintf("MIRROR_%s", mirrorID)))
 	if err != nil {
@@ -219,8 +223,8 @@ func (c *Cache) fetchMirror(mirrorID string) (mirror Mirror, err error) {
 	return
 }
 
-func (c *Cache) fetchFileInfoMirror(id, path string) (fileInfo FileInfo, err error) {
-	rconn := c.r.pool.Get()
+func (c *Cache) fetchFileInfoMirror(id, path string) (fileInfo filesystem.FileInfo, err error) {
+	rconn := c.r.Get()
 	defer rconn.Close()
 	fileInfo.Size = -1
 	reply, err := redis.Values(rconn.Do("HGETALL", fmt.Sprintf("FILEINFO_%s_%s", id, path)))

@@ -4,8 +4,17 @@
 package main
 
 import (
-	"flag"
 	"fmt"
+	"github.com/etix/mirrorbits/cli"
+	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/core"
+	"github.com/etix/mirrorbits/daemon"
+	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/http"
+	"github.com/etix/mirrorbits/logs"
+	"github.com/etix/mirrorbits/mirrors"
+	"github.com/etix/mirrorbits/process"
+	"github.com/op/go-logging"
 	"os"
 	"os/signal"
 	"runtime"
@@ -16,41 +25,21 @@ import (
 )
 
 var (
-	// Compile time variables
-	defaultPidFile string
-)
-
-var (
-	daemon     bool
-	debug      bool
-	monitor    bool
-	cpuProfile string
-	configFile string
-	pidFile    string
-	runLog     string
+	log = logging.MustGetLogger("main")
 )
 
 func init() {
 	// Improves perf in 1.1.2 linux/amd64
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	flag.BoolVar(&daemon, "D", false, "Daemon mode")
-	flag.BoolVar(&debug, "debug", false, "Debug mode")
-	flag.BoolVar(&monitor, "monitor", true, "Enable the background mirrors monitor")
-	flag.StringVar(&cpuProfile, "cpuprofile", "", "write cpu profile to file")
-	flag.StringVar(&configFile, "config", "", "Path to the config file")
-	flag.StringVar(&pidFile, "p", "", "Path to pid file")
-	flag.StringVar(&runLog, "log", "", "File to output logs (default: stderr)")
-	flag.Parse()
-
 	LoadConfig()
-	ReloadLogs()
+	logs.ReloadLogs()
 }
 
 func main() {
 
-	if cpuProfile != "" {
-		f, err := os.Create(cpuProfile)
+	if core.CpuProfile != "" {
+		f, err := os.Create(core.CpuProfile)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -59,24 +48,24 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	if daemon {
-		writePidFile()
+	if core.Daemon {
+		process.WritePidFile()
 
 		// Show our nice welcome logo
-		fmt.Printf(welcome+"\n\n", VERSION)
+		fmt.Printf(core.Banner+"\n\n", core.VERSION)
 
 		/* Connect to the database */
-		r := NewRedis()
+		r := database.NewRedis(core.Daemon)
 		r.ConnectPubsub()
-		c := NewCache(r)
-		h := HTTPServer(r, c)
+		c := mirrors.NewCache(r)
+		h := http.HTTPServer(r, c)
 
 		defer r.Close()
 
 		/* Start the background monitor */
-		m := NewMonitor(r, c)
-		if monitor {
-			go m.monitorLoop()
+		m := daemon.NewMonitor(r, c)
+		if core.Monitor {
+			go m.MonitorLoop()
 		}
 
 		/* Handle SIGNALS */
@@ -96,7 +85,7 @@ func main() {
 				case syscall.SIGINT:
 					fallthrough
 				case syscall.SIGTERM:
-					removePidFile()
+					process.RemovePidFile()
 					os.Exit(0)
 				case syscall.SIGQUIT:
 					m.Stop()
@@ -104,7 +93,7 @@ func main() {
 						log.Notice("Waiting for running tasks to finish...")
 						h.Stop(5 * time.Second)
 					} else {
-						removePidFile()
+						process.RemovePidFile()
 						os.Exit(0)
 					}
 				case syscall.SIGHUP:
@@ -121,12 +110,12 @@ func main() {
 					h.Reload()
 				case syscall.SIGUSR1:
 					log.Notice("SIGUSR1 Received: Re-opening logs...")
-					ReloadLogs()
+					logs.ReloadLogs()
 				case syscall.SIGUSR2:
 					log.Notice("SIGUSR2 Received: Seamless binary upgrade...")
-					err := Relaunch(*h.Listener)
+					err := process.Relaunch(*h.Listener)
 					if err != nil {
-						log.Error("%s", err)
+						log.Error("Relaunch failed: %s\n", err)
 					} else {
 						m.Stop()
 						h.Stop(10 * time.Second)
@@ -136,11 +125,11 @@ func main() {
 		}()
 
 		// Recover an existing listener (see process.go)
-		if l, ppid, err := Recover(); err == nil {
+		if l, ppid, err := process.Recover(); err == nil {
 			h.SetListener(l)
 			go func() {
 				time.Sleep(500 * time.Millisecond)
-				KillParent(ppid)
+				process.KillParent(ppid)
 			}()
 		}
 
@@ -166,7 +155,7 @@ func main() {
 		log.Debug("Terminating server")
 		h.Terminate()
 
-		removePidFile()
+		process.RemovePidFile()
 
 		if err != nil {
 			log.Fatal(err)
@@ -174,7 +163,7 @@ func main() {
 			log.Notice("Server stopped gracefully.")
 		}
 	} else {
-		if err := ParseCommands(flag.Args()...); err != nil {
+		if err := cli.ParseCommands(core.Args()...); err != nil {
 			log.Fatal(err)
 		}
 	}

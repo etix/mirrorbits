@@ -1,12 +1,17 @@
 // Copyright (c) 2014-2015 Ludovic Fauvet
 // Licensed under the MIT license
 
-package main
+package scan
 
 import (
 	"errors"
 	"fmt"
+	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/filesystem"
+	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
+	"github.com/op/go-logging"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,8 +19,10 @@ import (
 )
 
 var (
-	scanAborted    = errors.New("scan aborted")
-	scanInProgress = errors.New("scan already in progress")
+	ScanAborted    = errors.New("scan aborted")
+	ScanInProgress = errors.New("scan already in progress")
+
+	log = logging.MustGetLogger("main")
 )
 
 type ScannerType int8
@@ -39,7 +46,7 @@ type filedata struct {
 }
 
 type scan struct {
-	redis           *redisobj
+	redis           *database.Redis
 	walkSourceFiles []*filedata
 	walkRedisConn   redis.Conn
 
@@ -54,7 +61,7 @@ func IsScanning(conn redis.Conn, identifier string) (bool, error) {
 	return redis.Bool(conn.Do("EXISTS", fmt.Sprintf("SCANNING_%s", identifier)))
 }
 
-func Scan(typ ScannerType, r *redisobj, url, identifier string, stop chan bool) error {
+func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan bool) error {
 	s := &scan{
 		redis:      r,
 		identifier: identifier,
@@ -75,7 +82,7 @@ func Scan(typ ScannerType, r *redisobj, url, identifier string, stop chan bool) 
 	}
 
 	// Connect to the database
-	conn := s.redis.pool.Get()
+	conn := s.redis.Get()
 	defer conn.Close()
 
 	s.conn = conn
@@ -94,7 +101,7 @@ func Scan(typ ScannerType, r *redisobj, url, identifier string, stop chan bool) 
 		// Make the key expire automatically in case our process gets killed
 		conn.Do("EXPIRE", lockKey, 600)
 	} else {
-		return scanInProgress
+		return ScanInProgress
 	}
 
 	s.setLastSync(conn, identifier, false)
@@ -136,7 +143,7 @@ func Scan(typ ScannerType, r *redisobj, url, identifier string, stop chan bool) 
 			conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", e), identifier)
 			conn.Send("DEL", fmt.Sprintf("FILEINFO_%s_%s", identifier, e))
 			// Publish update
-			SendPublish(conn, MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, e))
+			database.SendPublish(conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, e))
 
 		}
 		_, err = conn.Do("EXEC")
@@ -181,7 +188,7 @@ func (s *scan) ScannerAddFile(f filedata) {
 	s.conn.Send("HSET", ik, "size", f.size)
 
 	// Publish update
-	SendPublish(s.conn, MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", s.identifier, f.path))
+	database.SendPublish(s.conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", s.identifier, f.path))
 }
 
 func (s *scan) ScannerDiscard() {
@@ -209,7 +216,7 @@ func (s *scan) setLastSync(conn redis.Conn, identifier string, successful bool) 
 	_, err := conn.Do("EXEC")
 
 	// Publish an update on redis
-	Publish(conn, MIRROR_UPDATE, identifier)
+	database.Publish(conn, database.MIRROR_UPDATE, identifier)
 
 	return err
 }
@@ -245,7 +252,7 @@ func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 		(GetConfig().Hashes.MD5 && len(md5) == 0)
 
 	if rehash || size != d.size || !modTime.Equal(d.modTime) {
-		h, err := hashFile(GetConfig().Repository + d.path)
+		h, err := filesystem.HashFile(GetConfig().Repository + d.path)
 		if err != nil {
 			log.Warning("%s: hashing failed: %s", d.path, err.Error())
 		} else {
@@ -272,12 +279,12 @@ func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 	return nil
 }
 
-func ScanSource(r *redisobj, stop chan bool) (err error) {
+func ScanSource(r *database.Redis, stop chan bool) (err error) {
 	s := &scan{
 		redis: r,
 	}
 
-	s.walkRedisConn = s.redis.pool.Get()
+	s.walkRedisConn = s.redis.Get()
 	defer s.walkRedisConn.Close()
 	if err != nil {
 		return fmt.Errorf("redis %s", err.Error())
@@ -298,8 +305,8 @@ func ScanSource(r *redisobj, stop chan bool) (err error) {
 
 	log.Info("[source] Scanning the filesystem...")
 	err = filepath.Walk(GetConfig().Repository, s.walkSource)
-	if isStopped(stop) {
-		return scanAborted
+	if utils.IsStopped(stop) {
+		return ScanAborted
 	}
 	if err != nil {
 		return err
@@ -337,7 +344,7 @@ func ScanSource(r *redisobj, stop chan bool) (err error) {
 			"md5", e.md5)
 
 		// Publish update
-		SendPublish(s.walkRedisConn, FILE_UPDATE, e.path)
+		database.SendPublish(s.walkRedisConn, database.FILE_UPDATE, e.path)
 	}
 
 	// Remove old keys
@@ -346,7 +353,7 @@ func ScanSource(r *redisobj, stop chan bool) (err error) {
 			s.walkRedisConn.Send("DEL", fmt.Sprintf("FILE_%s", e))
 
 			// Publish update
-			SendPublish(s.walkRedisConn, FILE_UPDATE, fmt.Sprintf("%s", e))
+			database.SendPublish(s.walkRedisConn, database.FILE_UPDATE, fmt.Sprintf("%s", e))
 		}
 	}
 
