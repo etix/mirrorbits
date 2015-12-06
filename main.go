@@ -62,6 +62,11 @@ func main() {
 
 		defer r.Close()
 
+		if r.CheckVersion() == database.ErrUpgradeRequired {
+			log.Fatalf("Unsupported Redis version, please upgrade to Redis >= %s", database.RedisMinimumVersion)
+			return
+		}
+
 		/* Start the background monitor */
 		m := daemon.NewMonitor(r, c)
 		if core.Monitor {

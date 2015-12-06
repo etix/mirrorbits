@@ -8,6 +8,8 @@ import (
 	"fmt"
 	. "github.com/etix/mirrorbits/config"
 	"github.com/garyburd/redigo/redis"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -15,10 +17,12 @@ import (
 const (
 	redisConnectionTimeout = 200 * time.Millisecond
 	redisReadWriteTimeout  = 300 * time.Second
+	RedisMinimumVersion    = "2.8.12"
 )
 
 var (
 	ErrUnreachable     = errors.New("redis endpoint unreachable")
+	ErrUpgradeRequired = errors.New("unsupported Redis version")
 )
 
 type Redis struct {
@@ -61,6 +65,18 @@ func (r *Redis) ConnectPubsub() {
 	if r.Pubsub == nil {
 		r.Pubsub = NewPubsub(r)
 	}
+}
+
+func (r *Redis) CheckVersion() error {
+	c := r.Get()
+	defer c.Close()
+	info, err := parseInfo(c.Do("INFO", "server"))
+	if err == nil {
+		if parseVersion(info["redis_version"]) < parseVersion(RedisMinimumVersion) {
+			return ErrUpgradeRequired
+		}
+	}
+	return err
 }
 
 func (r *Redis) Connect() (redis.Conn, error) {
@@ -237,4 +253,46 @@ func RedisIsLoading(err error) bool {
 		return true
 	}
 	return false
+}
+
+func parseVersion(version string) int64 {
+	s := strings.Split(version, ".")
+	format := fmt.Sprintf("%%s%%0%ds", 2)
+
+	var v string
+	for _, value := range s {
+		v = fmt.Sprintf(format, v, value)
+	}
+
+	var result int64
+	var err error
+	if result, err = strconv.ParseInt(v, 10, 64); err != nil {
+		return -1
+	}
+	return result
+}
+
+func parseInfo(i interface{}, err error) (map[string]string, error) {
+	v, err := redis.String(i, err)
+	if err != nil {
+		return nil, err
+	}
+
+	m := make(map[string]string)
+	lines := strings.Split(v, "\r\n")
+
+	for _, l := range lines {
+		if strings.HasPrefix(l, "#") {
+			continue
+		}
+
+		kv := strings.SplitN(l, ":", 2)
+		if len(kv) < 2 {
+			continue
+		}
+
+		m[kv[0]] = kv[1]
+	}
+
+	return m, nil
 }
