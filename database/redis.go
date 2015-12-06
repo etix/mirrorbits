@@ -187,6 +187,9 @@ func (r *Redis) connectTo(address string) (redis.Conn, error) {
 
 func (r *Redis) askRole(c redis.Conn) (string, error) {
 	roleReply, err := redis.Values(c.Do("ROLE"))
+	if err != nil {
+		return "", err
+	}
 	role, err := redis.String(roleReply[0], err)
 	return role, err
 }
