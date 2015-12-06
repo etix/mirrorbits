@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	errUnreachable = errors.New("endpoint unreachable")
+	errUnreachable = errors.New("redis endpoint unreachable")
 )
 
 type Redis struct {
