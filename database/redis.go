@@ -132,6 +132,10 @@ func (r *Redis) Connect() (redis.Conn, error) {
 				r.logError("Redis master: auth failed")
 				goto closeMaster
 			}
+			if err = r.selectDB(cm); err != nil {
+				c.Close()
+				return nil, err
+			}
 
 			role, err = r.askRole(cm)
 			if err != nil {
@@ -180,6 +184,10 @@ single:
 		c.Close()
 		return nil, err
 	}
+	if err = r.selectDB(c); err != nil {
+		c.Close()
+		return nil, err
+	}
 	role, err := r.askRole(c)
 	if err != nil {
 		r.logError("Redis master: %s", err.Error())
@@ -214,6 +222,11 @@ func (r *Redis) auth(c redis.Conn) (err error) {
 	if GetConfig().RedisPassword != "" {
 		_, err = c.Do("AUTH", GetConfig().RedisPassword)
 	}
+	return
+}
+
+func (r *Redis) selectDB(c redis.Conn) (err error) {
+	_, err = c.Do("SELECT", GetConfig().RedisDB)
 	return
 }
 

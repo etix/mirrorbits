@@ -78,6 +78,7 @@ ListenAddress | Local address and port to bind
 Gzip | Use gzip compression for the JSON responses
 RedisAddress | Address and port of the Redis database
 RedisPassword | Password to access the Redis database
+RedisDB | Database index
 RedisSentinelMasterName | Name of the redis-sentinel cluster
 RedisSentinels | List of redis-sentinel hosts
 LogDir | Path to the directory where to save log files

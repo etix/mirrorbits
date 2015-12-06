@@ -25,6 +25,7 @@ var (
 		Gzip:                   false,
 		RedisAddress:           "127.0.0.1:6379",
 		RedisPassword:          "",
+		RedisDB:                0,
 		LogDir:                 "",
 		GeoipDatabasePath:      "/usr/share/GeoIP/",
 		ConcurrentSync:         2,
@@ -55,6 +56,7 @@ type configuration struct {
 	Gzip                    bool       `yaml:"Gzip"`
 	RedisAddress            string     `yaml:"RedisAddress"`
 	RedisPassword           string     `yaml:"RedisPassword"`
+	RedisDB                 int        `yaml:"RedisDB"`
 	LogDir                  string     `yaml:"LogDir"`
 	GeoipDatabasePath       string     `yaml:"GeoipDatabasePath"`
 	ConcurrentSync          int        `yaml:"ConcurrentSync"`
