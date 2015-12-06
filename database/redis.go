@@ -176,7 +176,7 @@ single:
 	if err != nil {
 		return nil, err
 	}
-	if r.auth(c); err != nil {
+	if err = r.auth(c); err != nil {
 		c.Close()
 		return nil, err
 	}
