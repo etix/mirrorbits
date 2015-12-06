@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	errUnreachable = errors.New("redis endpoint unreachable")
+	ErrUnreachable     = errors.New("redis endpoint unreachable")
 )
 
 type Redis struct {
@@ -149,7 +149,7 @@ single:
 			log.Error("No redis master available")
 		}
 		r.setFailureState(true)
-		return nil, errUnreachable
+		return nil, ErrUnreachable
 	}
 
 	if len(sentinels) > 0 && r.getFailureState() == false {
@@ -168,12 +168,12 @@ single:
 	if err != nil {
 		r.logError("Redis master: %s", err.Error())
 		r.setFailureState(true)
-		return nil, errUnreachable
+		return nil, ErrUnreachable
 	}
 	if role != "master" {
 		r.logError("Redis master: %s is not a master but a %s", GetConfig().RedisAddress, role)
 		r.setFailureState(true)
-		return nil, errUnreachable
+		return nil, ErrUnreachable
 	}
 	r.setFailureState(false)
 	r.printConnectedMaster(GetConfig().RedisAddress)
