@@ -56,6 +56,18 @@ func (r *RsyncScanner) Scan(url, identifier string, conn redis.Conn, stop chan b
 
 	log.Info("[%s] Requesting file list via rsync...", identifier)
 
+	scanfinished := make(chan bool)
+	go func() {
+		select {
+		case <-stop:
+			cmd.Process.Kill()
+			return
+		case <-scanfinished:
+			return
+		}
+	}()
+	defer close(scanfinished)
+
 	// Get the list of all source files (we do not want to
 	// index files than are not provided by the source)
 	//sourceFiles, err := redis.Values(conn.Do("SMEMBERS", "FILES"))
