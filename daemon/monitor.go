@@ -339,7 +339,7 @@ func (m *Monitor) syncLoop() {
 			}
 			// If it failed or rsync wasn't supported
 			// fallback to FTP
-			if err != nil && mirror.FtpURL != "" {
+			if err != nil && err != scan.ScanAborted && mirror.FtpURL != "" {
 				err = scan.Scan(scan.FTP, m.redis, mirror.FtpURL, k, m.stop)
 			}
 

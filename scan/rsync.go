@@ -138,7 +138,11 @@ func (r *RsyncScanner) Scan(url, identifier string, conn redis.Conn, stop chan b
 			err1 = errors.New("rsync: Timeout in data send/receive")
 			break
 		default:
-			err1 = errors.New("rsync: " + err1.Error())
+			if utils.IsStopped(stop) {
+				err1 = ScanAborted
+			} else {
+				err1 = errors.New("rsync: " + err1.Error())
+			}
 		}
 		return err1
 	}
