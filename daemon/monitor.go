@@ -41,6 +41,7 @@ type Monitor struct {
 	mirrors         map[string]*Mirror
 	mapLock         sync.Mutex
 	httpClient      http.Client
+	httpTransport   http.Transport
 	healthCheckChan chan string
 	syncChan        chan string
 	stop            chan bool
@@ -89,7 +90,7 @@ func NewMonitor(r *database.Redis, c *mirrors.Cache) *Monitor {
 
 	rand.Seed(time.Now().UnixNano())
 
-	transport := http.Transport{
+	monitor.httpTransport = http.Transport{
 		DisableKeepAlives:   true,
 		MaxIdleConnsPerHost: 0,
 		Dial: func(network, addr string) (net.Conn, error) {
@@ -105,7 +106,7 @@ func NewMonitor(r *database.Redis, c *mirrors.Cache) *Monitor {
 
 	monitor.httpClient = http.Client{
 		CheckRedirect: checkRedirect,
-		Transport:     &transport,
+		Transport:     &monitor.httpTransport,
 	}
 	return monitor
 }
@@ -135,6 +136,7 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 // Main monitor loop
 func (m *Monitor) MonitorLoop() {
 	m.wg.Add(1)
+	defer m.wg.Done()
 
 	mirrorUpdateEvent := make(chan string, 10)
 	m.redis.Pubsub.SubscribeEvent(database.MIRROR_UPDATE, mirrorUpdateEvent)
@@ -172,6 +174,15 @@ func (m *Monitor) MonitorLoop() {
 	repositoryScanInterval := -1
 	mirrorCheckTicker := time.NewTicker(1 * time.Second)
 
+	// Disable the mirror check while stopping to avoid spurious events
+	go func() {
+		select {
+		case <-m.stop:
+			mirrorCheckTicker.Stop()
+		}
+	}()
+
+	// Force a first configuration reload to setup the timers
 	select {
 	case m.configNotifier <- true:
 	default:
@@ -180,7 +191,6 @@ func (m *Monitor) MonitorLoop() {
 	for {
 		select {
 		case <-m.stop:
-			m.wg.Done()
 			return
 		case id := <-mirrorUpdateEvent:
 			m.syncMirrorList(id)
@@ -276,12 +286,15 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) error {
 // TODO merge with the monitorLoop?
 func (m *Monitor) healthCheckLoop() {
 	m.wg.Add(1)
+	defer m.wg.Done()
 	for {
 		select {
 		case <-m.stop:
-			m.wg.Done()
 			return
 		case k := <-m.healthCheckChan:
+			if utils.IsStopped(m.stop) {
+				return
+			}
 			m.mapLock.Lock()
 			mirror := m.mirrors[k]
 			m.mapLock.Unlock()
@@ -306,10 +319,10 @@ func (m *Monitor) healthCheckLoop() {
 // TODO merge with the monitorLoop?
 func (m *Monitor) syncLoop() {
 	m.wg.Add(1)
+	defer m.wg.Done()
 	for {
 		select {
 		case <-m.stop:
-			m.wg.Done()
 			return
 		case k := <-m.syncChan:
 			m.mapLock.Lock()
@@ -367,8 +380,13 @@ func (m *Monitor) syncLoop() {
 
 // Do an actual health check against a given mirror
 func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
+	// Format log output
 	format := "%-" + fmt.Sprintf("%d.%ds", m.formatLongestID+4, m.formatLongestID+4)
 
+	// Copy the stop channel to make it nilable locally
+	stopflag := m.stop
+
+	// Get the URL to a random file available on this mirror
 	file, size, err := m.getRandomFile(mirror.ID)
 	if err != nil {
 		if err == redis.ErrNil {
@@ -379,13 +397,42 @@ func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 		return err
 	}
 
+	// Prepare the HTTP request
 	req, err := http.NewRequest("HEAD", strings.TrimRight(mirror.HttpURL, "/")+file, nil)
 	req.Header.Set("User-Agent", userAgent)
 	req.Close = true
 
-	start := time.Now()
-	resp, err := m.httpClient.Do(req)
-	elapsed := time.Since(start)
+	done := make(chan bool)
+	var resp *http.Response
+	var elapsed time.Duration
+
+	// Execute the request inside a goroutine to allow aborting the request
+	go func() {
+		start := time.Now()
+		resp, err = m.httpClient.Do(req)
+		elapsed = time.Since(start)
+
+		if err == nil {
+			resp.Body.Close()
+		}
+
+		done <- true
+	}()
+
+x:
+	for {
+		select {
+		case <-stopflag:
+			log.Debug("Aborting health-check for %s", mirror.HttpURL)
+			m.httpTransport.CancelRequest(req)
+			stopflag = nil
+		case <-done:
+			if utils.IsStopped(m.stop) {
+				return nil
+			}
+			break x
+		}
+	}
 
 	if err != nil {
 		if opErr, ok := err.(*net.OpError); ok {
@@ -395,7 +442,6 @@ func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 		log.Error(format+"Error: %s (%dms)", mirror.ID, err.Error(), elapsed/time.Millisecond)
 		return err
 	}
-	resp.Body.Close()
 
 	contentLength := resp.Header.Get("Content-Length")
 
