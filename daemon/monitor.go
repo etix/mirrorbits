@@ -459,7 +459,6 @@ func (m *Monitor) retry(fn func() error, delay time.Duration) {
 		}
 		select {
 		case <-m.stop:
-			m.wg.Done()
 			return
 		case <-time.After(delay):
 		}
