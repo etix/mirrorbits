@@ -60,8 +60,6 @@ func main() {
 		c := mirrors.NewCache(r)
 		h := http.HTTPServer(r, c)
 
-		defer r.Close()
-
 		if r.CheckVersion() == database.ErrUpgradeRequired {
 			log.Fatalf("Unsupported Redis version, please upgrade to Redis >= %s", database.RedisMinimumVersion)
 			return
@@ -159,6 +157,8 @@ func main() {
 
 		log.Debug("Terminating server")
 		h.Terminate()
+
+		r.Close()
 
 		process.RemovePidFile()
 

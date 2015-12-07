@@ -57,8 +57,9 @@ func (r *Redis) Get() redis.Conn {
 }
 
 func (r *Redis) Close() {
+	log.Debug("Closing databases connections")
+	r.Pubsub.Close()
 	r.pool.Close()
-	//TODO close pubsub
 }
 
 func (r *Redis) ConnectPubsub() {

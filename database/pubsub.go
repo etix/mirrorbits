@@ -27,16 +27,34 @@ const (
 
 type Pubsub struct {
 	r                  *Redis
+	rconn              redis.Conn
+	connlock           sync.Mutex
 	extSubscribers     map[string][]chan string
 	extSubscribersLock sync.RWMutex
+	stop               chan bool
+	wg                 sync.WaitGroup
 }
 
 func NewPubsub(r *Redis) *Pubsub {
 	pubsub := new(Pubsub)
 	pubsub.r = r
+	pubsub.stop = make(chan bool)
 	pubsub.extSubscribers = make(map[string][]chan string)
 	go pubsub.updateEvents()
 	return pubsub
+}
+
+func (p *Pubsub) Close() {
+	close(p.stop)
+	p.connlock.Lock()
+	if p.rconn != nil {
+		// FIXME Calling p.rconn.Close() here will block indefinitely in redigo
+		p.rconn.Send("UNSUBSCRIBE")
+		p.rconn.Send("QUIT")
+		p.rconn.Flush()
+	}
+	p.connlock.Unlock()
+	p.wg.Wait()
 }
 
 // SubscribeEvent allows subscription to a particular kind of events and receive a
@@ -51,13 +69,23 @@ func (p *Pubsub) SubscribeEvent(event PubsubEvent, channel chan string) {
 }
 
 func (p *Pubsub) updateEvents() {
+	p.wg.Add(1)
+	defer p.wg.Done()
 	var disconnected bool = false
 connect:
 	for {
-		rconn := p.r.Get()
-		if _, err := rconn.Do("PING"); err != nil {
+		select {
+		case <-p.stop:
+			return
+		default:
+		}
+		p.connlock.Lock()
+		p.rconn = p.r.Get()
+		if _, err := p.rconn.Do("PING"); err != nil {
 			disconnected = true
-			rconn.Close()
+			p.rconn.Close()
+			p.rconn = nil
+			p.connlock.Unlock()
 			if RedisIsLoading(err) {
 				// Doing a PING after (re-connection) prevents cases where redis
 				// is currently loading the dataset and is still not ready.
@@ -66,8 +94,9 @@ connect:
 			time.Sleep(500 * time.Millisecond)
 			continue
 		}
+		p.connlock.Unlock()
 		log.Info("Subscribing pubsub")
-		psc := redis.PubSubConn{Conn: rconn}
+		psc := redis.PubSubConn{Conn: p.rconn}
 
 		psc.Subscribe(CLUSTER)
 		psc.Subscribe(FILE_UPDATE)
@@ -89,9 +118,14 @@ connect:
 			case redis.Subscription:
 				log.Debug("Redis subscription on channel %s: %s (%d)", v.Channel, v.Kind, v.Count)
 			case error:
+				select {
+				case <-p.stop:
+					return
+				default:
+				}
 				log.Error("Pubsub disconnected: %s", v)
 				psc.Close()
-				rconn.Close()
+				p.rconn.Close()
 				time.Sleep(50 * time.Millisecond)
 				disconnected = true
 				goto connect
