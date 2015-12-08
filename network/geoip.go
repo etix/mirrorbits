@@ -43,6 +43,12 @@ type GeoIPRecord struct {
 	ASNetmask int
 }
 
+// Geolocalizer is an interface representing a GeoIP library
+type Geolocalizer interface {
+	GetRecord(ip string) *geoip.GeoIPRecord
+	GetName(ip string) (name string, netmask int)
+}
+
 // NewGeoIP instanciates a new instance of GeoIP
 func NewGeoIP() *GeoIP {
 	return &GeoIP{}
@@ -76,7 +82,7 @@ func (g *GeoIP) openDatabase(file string) (*geoip.GeoIP, time.Time, error) {
 type geoipDB struct {
 	filename string
 	modTime  time.Time
-	db       *geoip.GeoIP
+	db       Geolocalizer
 }
 
 func (g *GeoIP) loadDB(filename string, geodb **geoipDB, geoiperror *GeoIPError) error {
