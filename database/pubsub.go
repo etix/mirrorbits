@@ -95,7 +95,7 @@ connect:
 			continue
 		}
 		p.connlock.Unlock()
-		log.Info("Subscribing pubsub")
+		log.Debug("Subscribing pubsub")
 		psc := redis.PubSubConn{Conn: p.rconn}
 
 		psc.Subscribe(CLUSTER)
