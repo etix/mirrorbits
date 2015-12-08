@@ -52,6 +52,8 @@ type HTTP struct {
 
 // Templates is a struct embedding instances of the precompiled templates
 type Templates struct {
+	sync.RWMutex
+
 	mirrorlist  *template.Template
 	mirrorstats *template.Template
 }
@@ -128,16 +130,18 @@ func (h *HTTP) Reload() {
 	h.geoip.LoadGeoIP()
 
 	// Reload the templates
+	h.templates.Lock()
 	if t, err := h.LoadTemplates("mirrorlist"); err == nil {
-		h.templates.mirrorlist = t //XXX lock needed?
+		h.templates.mirrorlist = t
 	} else {
 		log.Error("could not reload templates 'mirrorlist': %s", err.Error())
 	}
 	if t, err := h.LoadTemplates("mirrorstats"); err == nil {
-		h.templates.mirrorstats = t //XXX lock needed?
+		h.templates.mirrorstats = t
 	} else {
 		log.Error("could not reload templates 'mirrorstats': %s", err.Error())
 	}
+	h.templates.Unlock()
 }
 
 // RunServer is the main function used to start the HTTP server
@@ -180,7 +184,10 @@ func (h *HTTP) RunServer() (err error) {
 }
 
 func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
+	h.templates.RLock()
 	ctx := NewContext(w, r, h.templates)
+	h.templates.RUnlock()
+
 	w.Header().Set("Server", "Mirrorbits/"+core.VERSION)
 
 	switch ctx.Type() {
