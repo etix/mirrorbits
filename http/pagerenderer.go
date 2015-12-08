@@ -32,21 +32,24 @@ func (w *JsonRenderer) Type() string {
 }
 
 func (w *JsonRenderer) Write(ctx *Context, results *mirrors.Results) (statusCode int, err error) {
-	var output []byte
 
 	if ctx.IsPretty() {
-		output, err = json.MarshalIndent(results, "", "    ")
+		output, err := json.MarshalIndent(results, "", "    ")
+		if err != nil {
+			return http.StatusInternalServerError, err
+		}
+
+		ctx.ResponseWriter().Header().Set("Content-Type", "application/json; charset=utf-8")
+		ctx.ResponseWriter().Header().Set("Content-Length", strconv.Itoa(len(output)))
+		ctx.ResponseWriter().Write(output)
 	} else {
-		output, err = json.Marshal(results)
+		ctx.ResponseWriter().Header().Set("Content-Type", "application/json; charset=utf-8")
+		err = json.NewEncoder(ctx.ResponseWriter()).Encode(results)
+		if err != nil {
+			return http.StatusInternalServerError, err
+		}
 	}
 
-	if err != nil {
-		return http.StatusInternalServerError, err
-	}
-
-	ctx.ResponseWriter().Header().Set("Content-Type", "application/json; charset=utf-8")
-	ctx.ResponseWriter().Header().Set("Content-Length", strconv.Itoa(len(output)))
-	ctx.ResponseWriter().Write(output)
 	return http.StatusOK, nil
 }
 
