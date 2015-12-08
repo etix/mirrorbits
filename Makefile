@@ -29,6 +29,9 @@ clean:
 
 release: $(PACKAGE)
 
+test:
+	@go test ./...
+
 $(PACKAGE): build
 	@echo Packaging release...
 	@mkdir -p tmp/mirrorbits
