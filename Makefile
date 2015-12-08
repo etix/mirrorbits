@@ -8,8 +8,8 @@ PACKAGE := dist/mirrorbits-$(VERSION).tar.gz
 
 SYMBOLSPREFIX = github.com/etix/mirrorbits/
 
-GOFLAGS := -ldflags "-X $(SYMBOLSPREFIX)core.VERSION $(VERSION) -X $(SYMBOLSPREFIX)core.BUILD $(BUILD)"
-GOFLAGSDEV := -race -ldflags "-X $(SYMBOLSPREFIX)core.VERSION $(VERSION) -X $(SYMBOLSPREFIX)core.BUILD $(BUILD) -X $(SYMBOLSPREFIX)core.DEV -dev"
+GOFLAGS := -ldflags "-X $(SYMBOLSPREFIX)core.VERSION=$(VERSION) -X $(SYMBOLSPREFIX)core.BUILD=$(BUILD)"
+GOFLAGSDEV := -race -ldflags "-X $(SYMBOLSPREFIX)core.VERSION=$(VERSION) -X $(SYMBOLSPREFIX)core.BUILD=$(BUILD) -X $(SYMBOLSPREFIX)core.DEV=-dev"
 
 all: build
 
