@@ -68,13 +68,21 @@ func HTTPServer(redis *database.Redis, cache *mirrors.Cache) *HTTP {
 	h.engine = DefaultEngine{}
 	http.Handle("/", NewGzipHandler(h.requestDispatcher))
 
-	// Load the GeoIP database
+	// Load the GeoIP databases
 	if err := h.geoip.LoadGeoIP(); err != nil {
-		log.Critical("Can't load the GeoIP databases: %v", err)
-		if len(GetConfig().Fallbacks) > 0 {
-			log.Warning("All requests will be served by the backup mirrors!")
-		} else {
-			log.Error("Please configure fallback mirrors!")
+		if gerr, ok := err.(network.GeoIPError); ok {
+			for _, e := range gerr.Errors {
+				log.Critical("%s", e)
+			}
+			if gerr.IsFatal() {
+				if len(GetConfig().Fallbacks) == 0 {
+					log.Fatal("Can't load the GeoIP databases, please set a valid path in the mirrorbits configuration")
+				} else {
+					log.Critical("Can't load the GeoIP databases, all requests will be served by the fallback mirrors")
+				}
+			} else {
+				log.Critical("One or more GeoIP database could not be loaded, service will run in degraded mode")
+			}
 		}
 	}
 
@@ -116,6 +124,9 @@ func (h *HTTP) StopChan() <-chan struct{} {
 
 // Reload the configuration
 func (h *HTTP) Reload() {
+	// Reload the GeoIP database
+	h.geoip.LoadGeoIP()
+
 	// Reload the templates
 	if t, err := h.LoadTemplates("mirrorlist"); err == nil {
 		h.templates.mirrorlist = t //XXX lock needed?

@@ -11,6 +11,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 var (
@@ -24,10 +26,13 @@ const (
 
 // GeoIP contains methods to query the GeoIP database
 type GeoIP struct {
-	geo  *geoip.GeoIP
-	geo6 *geoip.GeoIP
-	asn  *geoip.GeoIP
-	asn6 *geoip.GeoIP
+	sync.RWMutex
+	once sync.Once
+
+	geo  *geoipDB
+	geo6 *geoipDB
+	asn  *geoipDB
+	asn6 *geoipDB
 }
 
 // GeoIPRec defines a GeoIP record for a given IP address
@@ -44,62 +49,111 @@ func NewGeoIP() *GeoIP {
 }
 
 // Open the GeoIP database
-func (g *GeoIP) openDatabase(file string) (*geoip.GeoIP, error) {
+func (g *GeoIP) openDatabase(file string) (*geoip.GeoIP, time.Time, error) {
 	dbpath := GetConfig().GeoipDatabasePath
-	if len(dbpath) > 0 {
+	if dbpath != "" && !strings.HasSuffix(dbpath, "/") {
 		dbpath += "/"
 	}
 
 	filename := dbpath + file
 
-	if _, err := os.Stat(filename + geoipUpdatedExt); !os.IsNotExist(err) {
+	var err error
+	var fi os.FileInfo
+	var modTime time.Time
+
+	if fi, err = os.Stat(filename + geoipUpdatedExt); !os.IsNotExist(err) {
 		filename += geoipUpdatedExt
 	}
 
-	return geoip.Open(filename)
+	if fi != nil {
+		modTime = fi.ModTime()
+	}
+
+	db, err := geoip.Open(filename)
+	return db, modTime, err
+}
+
+type geoipDB struct {
+	filename string
+	modTime  time.Time
+	db       *geoip.GeoIP
+}
+
+func (g *GeoIP) loadDB(filename string, geodb **geoipDB, geoiperror *GeoIPError) error {
+	// Increase the loaded counter
+	geoiperror.loaded++
+
+	if *geodb == nil {
+		*geodb = &geoipDB{
+			filename: filename,
+		}
+	}
+
+	db, modTime, err := g.openDatabase(filename)
+	if err != nil {
+		geoiperror.Errors = append(geoiperror.Errors, err)
+		return err
+	}
+	if (*geodb).modTime.Equal(modTime) {
+		return nil
+	}
+
+	(*geodb).db = db
+	(*geodb).modTime = modTime
+
+	log.Infof("Loading %s database (updated on %s)", filename, (*geodb).modTime)
+	return nil
+}
+
+type GeoIPError struct {
+	Errors []error
+	loaded int
+}
+
+func (e GeoIPError) Error() string {
+	return "One or more GeoIP database could not be loaded"
+}
+
+func (e GeoIPError) IsFatal() bool {
+	return e.loaded == len(e.Errors)
 }
 
 // Try to load the GeoIP databases into memory
-func (g *GeoIP) LoadGeoIP() (err error) {
-	g.geo, err = g.openDatabase("GeoLiteCity.dat")
-	if err != nil {
-		log.Critical("Could not open GeoLiteCity database: %s\n", err.Error())
-	}
+func (g *GeoIP) LoadGeoIP() error {
+	var ret GeoIPError
 
-	g.geo6, err = g.openDatabase("GeoLiteCityv6.dat")
-	if err != nil {
-		log.Critical("Could not open GeoLiteCityv6.dat database: %s\n", err.Error())
-	}
+	g.Lock()
+	g.loadDB("GeoLiteCity.dat", &g.geo, &ret)
+	g.loadDB("GeoLiteCityv6.dat", &g.geo6, &ret)
+	g.loadDB("GeoIPASNum.dat", &g.asn, &ret)
+	g.loadDB("GeoIPASNumv6.dat", &g.asn6, &ret)
+	g.Unlock()
 
-	g.asn, err = g.openDatabase("GeoIPASNum.dat")
-	if err != nil {
-		log.Critical("Could not open GeoIPASNum database: %s\n", err.Error())
+	if len(ret.Errors) > 0 {
+		return ret
 	}
-
-	g.asn6, err = g.openDatabase("GeoIPASNumv6.dat")
-	if err != nil {
-		log.Critical("Could not open GeoIPASNumv6 database: %s\n", err.Error())
-	}
-	return err
+	return nil
 }
 
 // Get details about a given ip address (might be v4 or v6)
 func (g *GeoIP) GetRecord(ip string) (ret GeoIPRecord) {
+	g.RLock()
 	if g.IsIPv6(ip) {
-		if g.geo6 != nil {
-			ret.GeoIPRecord = g.geo6.GetRecord(ip)
+		if g.geo6 != nil && g.geo6.db != nil {
+			ret.GeoIPRecord = g.geo6.db.GetRecord(ip)
 		}
-		if g.asn6 != nil {
-			ret.ASName, ret.ASNetmask = g.asn6.GetName(ip)
+		if g.asn6 != nil && g.asn6.db != nil {
+			ret.ASName, ret.ASNetmask = g.asn6.db.GetName(ip)
 		}
 	} else {
-		if g.geo != nil {
-			ret.GeoIPRecord = g.geo.GetRecord(ip)
+		if g.geo != nil && g.geo.db != nil {
+			ret.GeoIPRecord = g.geo.db.GetRecord(ip)
 		}
-		if g.asn != nil {
-			ret.ASName, ret.ASNetmask = g.asn.GetName(ip)
+		if g.asn != nil && g.asn.db != nil {
+			ret.ASName, ret.ASNetmask = g.asn.db.GetName(ip)
 		}
 	}
+	g.RUnlock()
 	if len(ret.ASName) > 0 {
 		// Split the ASNum (i.e "AS12322 Free SAS")
 		ss := strings.SplitN(ret.ASName, " ", 2)

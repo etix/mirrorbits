@@ -271,7 +271,7 @@ func (c *cli) CmdAdd(args ...string) error {
 
 	geo := network.NewGeoIP()
 	if err := geo.LoadGeoIP(); err != nil {
-		log.Fatalf("Can't load GeoIP: %s", err)
+		log.Fatal(err.Error())
 	}
 
 	geoRec := geo.GetRecord(ip)
