@@ -143,7 +143,7 @@ func GetHostname() string {
 // TimeKeyCoverage returns a slice of strings covering the date range
 // used in the redis backend.
 func TimeKeyCoverage(start, end time.Time) (dates []string) {
-	if start.Equal(end) {
+	if start.Day() == end.Day() && start.Month() == end.Month() && start.Year() == end.Year() {
 		dates = append(dates, start.Format("2006_01_02"))
 		return
 	}
