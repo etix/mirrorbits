@@ -6,6 +6,7 @@ package mirrors
 import (
 	"fmt"
 	"github.com/etix/geoip"
+	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/network"
 	. "github.com/etix/mirrorbits/testing"
 	"github.com/garyburd/redigo/redis"
@@ -391,6 +392,8 @@ func TestDisableMirror(t *testing.T) {
 func TestSetMirrorEnabled(t *testing.T) {
 	mock, conn := PrepareRedisTest()
 
+	cmd_publish := mock.Command("PUBLISH", string(database.MIRROR_UPDATE), redigomock.NewAnyData()).Expect("ok")
+
 	cmd_enable := mock.Command("HMSET", "MIRROR_m1", "enabled", true).Expect("ok")
 	SetMirrorEnabled(conn, "m1", true)
 
@@ -398,6 +401,10 @@ func TestSetMirrorEnabled(t *testing.T) {
 		t.Fatalf("Mirror not enabled")
 	} else if mock.Stats(cmd_enable) > 1 {
 		t.Fatalf("Mirror enabled more than once")
+	}
+
+	if mock.Stats(cmd_publish) < 1 {
+		t.Fatalf("Event MIRROR_UPDATE not published")
 	}
 
 	mock.Command("HMSET", "MIRROR_m1", "enabled", true).ExpectError(redis.Error("blah"))
@@ -412,6 +419,10 @@ func TestSetMirrorEnabled(t *testing.T) {
 		t.Fatalf("Mirror not disabled")
 	} else if mock.Stats(cmd_disable) > 1 {
 		t.Fatalf("Mirror disabled more than once")
+	}
+
+	if mock.Stats(cmd_publish) < 2 {
+		t.Fatalf("Event MIRROR_UPDATE not published")
 	}
 
 	mock.Command("HMSET", "MIRROR_m1", "enabled", false).ExpectError(redis.Error("blah"))
@@ -443,6 +454,8 @@ func TestSetMirrorState(t *testing.T) {
 		t.Fatalf("Error expected but nil returned")
 	}
 
+	cmd_publish := mock.Command("PUBLISH", string(database.MIRROR_UPDATE), redigomock.NewAnyData()).Expect("ok")
+
 	/* */
 
 	cmd_previous_state := mock.Command("HGET", "MIRROR_m1", "up").Expect(int64(0)).Expect(int64(1))
@@ -463,6 +476,10 @@ func TestSetMirrorState(t *testing.T) {
 		t.Fatalf("State set more than once")
 	}
 
+	if mock.Stats(cmd_publish) < 1 {
+		t.Fatalf("Event MIRROR_UPDATE not published")
+	}
+
 	/* */
 
 	if err := SetMirrorState(conn, "m1", true, "test2"); err != nil {
@@ -471,6 +488,10 @@ func TestSetMirrorState(t *testing.T) {
 
 	if mock.Stats(cmd_state_since) > 1 || mock.Stats(cmd_state) < 1 {
 		t.Fatalf("The value stateSince isn't supposed to be set")
+	}
+
+	if mock.Stats(cmd_publish) != 1 {
+		t.Fatalf("Event MIRROR_UPDATE should not be sent")
 	}
 
 	/* */
@@ -490,6 +511,10 @@ func TestSetMirrorState(t *testing.T) {
 		t.Fatalf("New state not set")
 	} else if mock.Stats(cmd_state_since) > 1 {
 		t.Fatalf("State set more than once")
+	}
+
+	if mock.Stats(cmd_publish) < 2 {
+		t.Fatalf("Event MIRROR_UPDATE not published")
 	}
 }
 
