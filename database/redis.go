@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/core"
 	"github.com/garyburd/redigo/redis"
 	"strconv"
 	"strings"
@@ -36,16 +37,14 @@ type Redis struct {
 	failure      bool
 	failureState sync.RWMutex
 	knownMaster  string
-	daemon       bool
 }
 
-func NewRedis(daemon bool) *Redis {
-	return NewRedisCustomPool(false, nil)
+func NewRedis() *Redis {
+	return NewRedisCustomPool(nil)
 }
 
-func NewRedisCustomPool(daemon bool, pool RedisPool) *Redis {
+func NewRedisCustomPool(pool RedisPool) *Redis {
 	r := &Redis{}
-	r.daemon = daemon
 
 	if pool != nil {
 		r.pool = pool
@@ -254,7 +253,7 @@ func (r *Redis) logError(format string, args ...interface{}) {
 }
 
 func (r *Redis) printConnectedMaster(address string) {
-	if address != r.knownMaster && r.daemon {
+	if address != r.knownMaster && core.Daemon {
 		r.knownMaster = address
 		log.Info("Connected to redis master %s", address)
 	} else {

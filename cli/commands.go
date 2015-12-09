@@ -125,7 +125,7 @@ func (c *cli) CmdList(args ...string) error {
 		return nil
 	}
 
-	r := database.NewRedis(false)
+	r := database.NewRedis()
 	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
@@ -276,7 +276,7 @@ func (c *cli) CmdAdd(args ...string) error {
 
 	geoRec := geo.GetRecord(ip)
 
-	r := database.NewRedis(false)
+	r := database.NewRedis()
 	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
@@ -387,7 +387,7 @@ func (c *cli) CmdRemove(args ...string) error {
 
 	identifier := list[0]
 
-	r := database.NewRedis(false)
+	r := database.NewRedis()
 	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
@@ -458,7 +458,7 @@ func (c *cli) CmdScan(args ...string) error {
 		return nil
 	}
 
-	r := database.NewRedis(false)
+	r := database.NewRedis()
 	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
@@ -560,7 +560,7 @@ func (c *cli) CmdRefresh(args ...string) error {
 		return nil
 	}
 
-	err := scan.ScanSource(database.NewRedis(false), nil)
+	err := scan.ScanSource(database.NewRedis(), nil)
 	return err
 }
 
@@ -569,7 +569,7 @@ func (c *cli) matchMirror(text string) (list []string, err error) {
 		return nil, errors.New("Nothing to match")
 	}
 
-	r := database.NewRedis(false)
+	r := database.NewRedis()
 	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
@@ -630,7 +630,7 @@ func (c *cli) CmdEdit(args ...string) error {
 	id := list[0]
 
 	// Connect to the database
-	r := database.NewRedis(false)
+	r := database.NewRedis()
 	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
@@ -814,7 +814,7 @@ func (c *cli) CmdShow(args ...string) error {
 	id := list[0]
 
 	// Connect to the database
-	r := database.NewRedis(false)
+	r := database.NewRedis()
 	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
@@ -863,7 +863,7 @@ func (c *cli) CmdExport(args ...string) error {
 		return nil
 	}
 
-	r := database.NewRedis(false)
+	r := database.NewRedis()
 	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)
@@ -955,7 +955,7 @@ func (c *cli) CmdEnable(args ...string) error {
 		return nil
 	}
 
-	err = mirrors.EnableMirror(database.NewRedis(false), list[0])
+	err = mirrors.EnableMirror(database.NewRedis(), list[0])
 	if err != nil {
 		log.Fatal("Couldn't enable the mirror:", err)
 	}
@@ -992,7 +992,7 @@ func (c *cli) CmdDisable(args ...string) error {
 		return nil
 	}
 
-	err = mirrors.DisableMirror(database.NewRedis(false), list[0])
+	err = mirrors.DisableMirror(database.NewRedis(), list[0])
 	if err != nil {
 		log.Fatal("Couldn't disable the mirror:", err)
 	}
@@ -1016,7 +1016,7 @@ func (c *cli) CmdStats(args ...string) error {
 		return nil
 	}
 
-	r := database.NewRedis(false)
+	r := database.NewRedis()
 	conn, err := r.Connect()
 	if err != nil {
 		log.Fatal("Redis: ", err)

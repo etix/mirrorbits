@@ -55,7 +55,7 @@ func main() {
 		fmt.Printf(core.Banner+"\n\n", core.VERSION)
 
 		/* Connect to the database */
-		r := database.NewRedis(core.Daemon)
+		r := database.NewRedis()
 		r.ConnectPubsub()
 		c := mirrors.NewCache(r)
 		h := http.HTTPServer(r, c)
