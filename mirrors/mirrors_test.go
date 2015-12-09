@@ -375,7 +375,7 @@ func prepareRedisTest() (*redigomock.Conn, *database.Redis) {
 		Conn: mock,
 	}
 
-	conn := database.NewRedisCustomPool(false, pool)
+	conn := database.NewRedisCustomPool(pool)
 
 	return mock, conn
 }
