@@ -6,7 +6,6 @@ package mirrors
 import (
 	"fmt"
 	"github.com/etix/geoip"
-	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/network"
 	. "github.com/etix/mirrorbits/testing"
 	"github.com/garyburd/redigo/redis"
@@ -357,20 +356,8 @@ func TestByExcludeReason_Less(t *testing.T) {
 	}
 }
 
-func prepareRedisTest() (*redigomock.Conn, *database.Redis) {
-	mock := redigomock.NewConn()
-
-	pool := &RedisPoolMock{
-		Conn: mock,
-	}
-
-	conn := database.NewRedisCustomPool(pool)
-
-	return mock, conn
-}
-
 func TestEnableMirror(t *testing.T) {
-	mock, conn := prepareRedisTest()
+	mock, conn := PrepareRedisTest()
 
 	cmd_enable := mock.Command("HMSET", "MIRROR_m1", "enabled", true).Expect("ok")
 	EnableMirror(conn, "m1")
@@ -386,7 +373,7 @@ func TestEnableMirror(t *testing.T) {
 }
 
 func TestDisableMirror(t *testing.T) {
-	mock, conn := prepareRedisTest()
+	mock, conn := PrepareRedisTest()
 
 	cmd_disable := mock.Command("HMSET", "MIRROR_m1", "enabled", false).Expect("ok")
 	DisableMirror(conn, "m1")
@@ -402,7 +389,7 @@ func TestDisableMirror(t *testing.T) {
 }
 
 func TestSetMirrorEnabled(t *testing.T) {
-	mock, conn := prepareRedisTest()
+	mock, conn := PrepareRedisTest()
 
 	cmd_enable := mock.Command("HMSET", "MIRROR_m1", "enabled", true).Expect("ok")
 	SetMirrorEnabled(conn, "m1", true)
@@ -434,7 +421,7 @@ func TestSetMirrorEnabled(t *testing.T) {
 }
 
 func TestMarkMirrorUp(t *testing.T) {
-	_, conn := prepareRedisTest()
+	_, conn := PrepareRedisTest()
 
 	if err := MarkMirrorUp(conn, "m1"); err == nil {
 		t.Fatalf("Error expected but nil returned")
@@ -442,7 +429,7 @@ func TestMarkMirrorUp(t *testing.T) {
 }
 
 func TestMarkMirrorDown(t *testing.T) {
-	_, conn := prepareRedisTest()
+	_, conn := PrepareRedisTest()
 
 	if err := MarkMirrorDown(conn, "m1", "test1"); err == nil {
 		t.Fatalf("Error expected but nil returned")
@@ -450,7 +437,7 @@ func TestMarkMirrorDown(t *testing.T) {
 }
 
 func TestSetMirrorState(t *testing.T) {
-	mock, conn := prepareRedisTest()
+	mock, conn := PrepareRedisTest()
 
 	if err := SetMirrorState(conn, "m1", true, "test1"); err == nil {
 		t.Fatalf("Error expected but nil returned")
