@@ -8,6 +8,7 @@ import (
 	"github.com/etix/geoip"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/network"
+	. "github.com/etix/mirrorbits/testing"
 	"github.com/garyburd/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
 	"math/rand"
@@ -354,18 +355,6 @@ func TestByExcludeReason_Less(t *testing.T) {
 	if !matchingMirrorOrder(m, []string{"M2", "M3", "M4", "M0", "M1"}) {
 		t.Fatalf("Order doesn't seem right: %s, expected M2, M3, M4, M0, M1", formatMirrorOrder(m))
 	}
-}
-
-type RedisPoolMock struct {
-	Conn *redigomock.Conn
-}
-
-func (r *RedisPoolMock) Get() redis.Conn {
-	return r.Conn
-}
-
-func (r *RedisPoolMock) Close() error {
-	return nil
 }
 
 func prepareRedisTest() (*redigomock.Conn, *database.Redis) {
