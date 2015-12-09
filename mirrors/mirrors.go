@@ -137,7 +137,9 @@ func SetMirrorEnabled(r *database.Redis, id string, state bool) error {
 	_, err := conn.Do("HMSET", key, "enabled", state)
 
 	// Publish update
-	database.Publish(conn, database.MIRROR_UPDATE, id)
+	if err == nil {
+		database.Publish(conn, database.MIRROR_UPDATE, id)
+	}
 
 	return err
 }
@@ -170,7 +172,7 @@ func SetMirrorState(r *database.Redis, id string, state bool, reason string) err
 
 	_, err = conn.Do("HMSET", args...)
 
-	if state != previousState {
+	if err == nil && state != previousState {
 		// Publish update
 		database.Publish(conn, database.MIRROR_UPDATE, id)
 	}
