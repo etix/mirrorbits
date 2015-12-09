@@ -6,7 +6,10 @@ package mirrors
 import (
 	"fmt"
 	"github.com/etix/geoip"
+	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/network"
+	"github.com/garyburd/redigo/redis"
+	"github.com/rafaeljusto/redigomock"
 	"math/rand"
 	"sort"
 	"strings"
@@ -350,5 +353,213 @@ func TestByExcludeReason_Less(t *testing.T) {
 
 	if !matchingMirrorOrder(m, []string{"M2", "M3", "M4", "M0", "M1"}) {
 		t.Fatalf("Order doesn't seem right: %s, expected M2, M3, M4, M0, M1", formatMirrorOrder(m))
+	}
+}
+
+type RedisPoolMock struct {
+	Conn *redigomock.Conn
+}
+
+func (r *RedisPoolMock) Get() redis.Conn {
+	return r.Conn
+}
+
+func (r *RedisPoolMock) Close() error {
+	return nil
+}
+
+func prepareRedisTest() (*redigomock.Conn, *database.Redis) {
+	mock := redigomock.NewConn()
+
+	pool := &RedisPoolMock{
+		Conn: mock,
+	}
+
+	conn := database.NewRedisCustomPool(false, pool)
+
+	return mock, conn
+}
+
+func TestEnableMirror(t *testing.T) {
+	mock, conn := prepareRedisTest()
+
+	cmd_enable := mock.Command("HMSET", "MIRROR_m1", "enabled", true).Expect("ok")
+	EnableMirror(conn, "m1")
+
+	if mock.Stats(cmd_enable) != 1 {
+		t.Fatalf("Mirror not enabled")
+	}
+
+	mock.Command("HMSET", "MIRROR_m1", "enabled", true).ExpectError(redis.Error("blah"))
+	if EnableMirror(conn, "m1") == nil {
+		t.Fatalf("Error expected")
+	}
+}
+
+func TestDisableMirror(t *testing.T) {
+	mock, conn := prepareRedisTest()
+
+	cmd_disable := mock.Command("HMSET", "MIRROR_m1", "enabled", false).Expect("ok")
+	DisableMirror(conn, "m1")
+
+	if mock.Stats(cmd_disable) != 1 {
+		t.Fatalf("Mirror not enabled")
+	}
+
+	mock.Command("HMSET", "MIRROR_m1", "enabled", false).ExpectError(redis.Error("blah"))
+	if DisableMirror(conn, "m1") == nil {
+		t.Fatalf("Error expected")
+	}
+}
+
+func TestSetMirrorEnabled(t *testing.T) {
+	mock, conn := prepareRedisTest()
+
+	cmd_enable := mock.Command("HMSET", "MIRROR_m1", "enabled", true).Expect("ok")
+	SetMirrorEnabled(conn, "m1", true)
+
+	if mock.Stats(cmd_enable) < 1 {
+		t.Fatalf("Mirror not enabled")
+	} else if mock.Stats(cmd_enable) > 1 {
+		t.Fatalf("Mirror enabled more than once")
+	}
+
+	mock.Command("HMSET", "MIRROR_m1", "enabled", true).ExpectError(redis.Error("blah"))
+	if SetMirrorEnabled(conn, "m1", true) == nil {
+		t.Fatalf("Error expected")
+	}
+
+	cmd_disable := mock.Command("HMSET", "MIRROR_m1", "enabled", false).Expect("ok")
+	SetMirrorEnabled(conn, "m1", false)
+
+	if mock.Stats(cmd_disable) != 1 {
+		t.Fatalf("Mirror not disabled")
+	} else if mock.Stats(cmd_disable) > 1 {
+		t.Fatalf("Mirror disabled more than once")
+	}
+
+	mock.Command("HMSET", "MIRROR_m1", "enabled", false).ExpectError(redis.Error("blah"))
+	if SetMirrorEnabled(conn, "m1", false) == nil {
+		t.Fatalf("Error expected")
+	}
+}
+
+func TestMarkMirrorUp(t *testing.T) {
+	_, conn := prepareRedisTest()
+
+	if err := MarkMirrorUp(conn, "m1"); err == nil {
+		t.Fatalf("Error expected but nil returned")
+	}
+}
+
+func TestMarkMirrorDown(t *testing.T) {
+	_, conn := prepareRedisTest()
+
+	if err := MarkMirrorDown(conn, "m1", "test1"); err == nil {
+		t.Fatalf("Error expected but nil returned")
+	}
+}
+
+func TestSetMirrorState(t *testing.T) {
+	mock, conn := prepareRedisTest()
+
+	if err := SetMirrorState(conn, "m1", true, "test1"); err == nil {
+		t.Fatalf("Error expected but nil returned")
+	}
+
+	/* */
+
+	cmd_previous_state := mock.Command("HGET", "MIRROR_m1", "up").Expect(int64(0)).Expect(int64(1))
+	cmd_state_since := mock.Command("HMSET", "MIRROR_m1", "up", true, "excludeReason", "test1", "stateSince", redigomock.NewAnyInt()).Expect("ok")
+	cmd_state := mock.Command("HMSET", "MIRROR_m1", "up", true, "excludeReason", "test2").Expect("ok")
+
+	if err := SetMirrorState(conn, "m1", true, "test1"); err != nil {
+		t.Fatalf("Unexpected error: %s", err)
+	}
+
+	if mock.Stats(cmd_previous_state) < 1 {
+		t.Fatalf("Previous state not tested")
+	}
+
+	if mock.Stats(cmd_state_since) < 1 {
+		t.Fatalf("New state not set")
+	} else if mock.Stats(cmd_state_since) > 1 {
+		t.Fatalf("State set more than once")
+	}
+
+	/* */
+
+	if err := SetMirrorState(conn, "m1", true, "test2"); err != nil {
+		t.Fatalf("Unexpected error: %s", err)
+	}
+
+	if mock.Stats(cmd_state_since) > 1 || mock.Stats(cmd_state) < 1 {
+		t.Fatalf("The value stateSince isn't supposed to be set")
+	}
+
+	/* */
+
+	cmd_previous_state = mock.Command("HGET", "MIRROR_m1", "up").Expect(int64(1))
+	cmd_state_since = mock.Command("HMSET", "MIRROR_m1", "up", false, "excludeReason", "test3", "stateSince", redigomock.NewAnyInt()).Expect("ok")
+
+	if err := SetMirrorState(conn, "m1", false, "test3"); err != nil {
+		t.Fatalf("Unexpected error: %s", err)
+	}
+
+	if mock.Stats(cmd_previous_state) < 1 {
+		t.Fatalf("Previous state not tested")
+	}
+
+	if mock.Stats(cmd_state_since) < 1 {
+		t.Fatalf("New state not set")
+	} else if mock.Stats(cmd_state_since) > 1 {
+		t.Fatalf("State set more than once")
+	}
+}
+
+func TestGetMirrorMapUrl(t *testing.T) {
+	m := Mirrors{
+		Mirror{
+			ID:        "M0",
+			Latitude:  -80.0,
+			Longitude: 80.0,
+		},
+		Mirror{
+			ID:        "M1",
+			Latitude:  -60.0,
+			Longitude: 60.0,
+		},
+		Mirror{
+			ID:        "M2",
+			Latitude:  -40.0,
+			Longitude: 40.0,
+		},
+		Mirror{
+			ID:        "M3",
+			Latitude:  -20.0,
+			Longitude: 20.0,
+		},
+	}
+
+	c := network.GeoIPRecord{
+		GeoIPRecord: &geoip.GeoIPRecord{
+			Latitude:  -10.0,
+			Longitude: 10.0,
+		},
+		ASNum: 4444,
+	}
+
+	result := GetMirrorMapUrl(m, c)
+
+	if !strings.HasPrefix(result, "//maps.googleapis.com") {
+		t.Fatalf("Bad format")
+	}
+
+	if !strings.Contains(result, "color:red") {
+		t.Fatalf("Missing client marker?")
+	}
+
+	if strings.Count(result, "label:") != len(m) {
+		t.Fatalf("Missing some mirror markers?")
 	}
 }
