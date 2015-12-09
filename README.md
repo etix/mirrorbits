@@ -44,7 +44,7 @@ Yet some things might change before the 1.0 release. If you intend to deploy Mir
 
 * Redis 2.8.12 (or later)
 * libgeoip
-* a recent geoip database (see contrib/geoip/)
+* a recent GeoIP version 1 database from [Maxmind](http://www.maxmind.com/app/c) (see [contrib/geoip/](contrib/geoip/))
 
 **Optional:**
 
@@ -57,7 +57,7 @@ You can either get a [prebuilt version](https://github.com/etix/mirrorbits/relea
 ### Manual build
 
 ```
-$ go get github.com/etix/mirrorbits
+$ go get -u github.com/etix/mirrorbits
 $ cd $GOPATH/src/github.com/etix/mirrorbits
 $ make install
 ```
