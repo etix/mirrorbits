@@ -25,8 +25,13 @@ var (
 	ErrUpgradeRequired = errors.New("unsupported Redis version")
 )
 
+type RedisPool interface {
+	Get() redis.Conn
+	Close() error
+}
+
 type Redis struct {
-	pool         *redis.Pool
+	pool         RedisPool
 	Pubsub       *Pubsub
 	failure      bool
 	failureState sync.RWMutex
@@ -35,18 +40,27 @@ type Redis struct {
 }
 
 func NewRedis(daemon bool) *Redis {
+	return NewRedisCustomPool(false, nil)
+}
+
+func NewRedisCustomPool(daemon bool, pool RedisPool) *Redis {
 	r := &Redis{}
 	r.daemon = daemon
-	r.pool = &redis.Pool{
-		MaxIdle:     10,
-		IdleTimeout: 240 * time.Second,
-		Dial: func() (redis.Conn, error) {
-			return r.Connect()
-		},
-		TestOnBorrow: func(c redis.Conn, t time.Time) error {
-			_, err := c.Do("PING")
-			return err
-		},
+
+	if pool != nil {
+		r.pool = pool
+	} else {
+		r.pool = &redis.Pool{
+			MaxIdle:     10,
+			IdleTimeout: 240 * time.Second,
+			Dial: func() (redis.Conn, error) {
+				return r.Connect()
+			},
+			TestOnBorrow: func(c redis.Conn, t time.Time) error {
+				_, err := c.Do("PING")
+				return err
+			},
+		}
 	}
 
 	return r
