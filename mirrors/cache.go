@@ -57,8 +57,15 @@ func (f *mirrorValue) Size() int {
 
 // NewCache constructs a new instance of Cache
 func NewCache(r *database.Redis) *Cache {
-	c := new(Cache)
-	c.r = r
+	if r == nil || r.Pubsub == nil {
+		return nil
+	}
+
+	c := &Cache{
+		r: r,
+	}
+
+	// Create the LRU
 	c.fiCache = NewLRUCache(1024000)
 	c.fmCache = NewLRUCache(2048000)
 	c.mCache = NewLRUCache(1024000)
