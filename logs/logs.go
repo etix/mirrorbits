@@ -105,7 +105,7 @@ func openLogFile(logfile string) (*os.File, bool, error) {
 		newfile = false
 	}
 
-	f, err := os.OpenFile(logfile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+	f, err := os.OpenFile(logfile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0664)
 	if err != nil {
 		return nil, false, err
 	}
