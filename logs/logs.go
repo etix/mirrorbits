@@ -67,7 +67,7 @@ func ReloadRuntimeLogs() {
 		return
 	}
 
-	if rlogger.f != nil {
+	if rlogger.f != nil && rlogger.f != os.Stderr {
 		rlogger.f.Close()
 	}
 
