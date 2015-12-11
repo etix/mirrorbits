@@ -141,7 +141,12 @@ func LogDownload(typ string, statuscode int, p *mirrors.Results, err error) {
 		return
 	}
 
-	if statuscode == 302 || statuscode == 200 {
+	errstr := "<unknown>"
+	if err != nil {
+		errstr = err.Error()
+	}
+
+	if (statuscode == 302 || statuscode == 200) && p != nil && len(p.MirrorList) > 0 {
 		var distance, countries string
 		m := p.MirrorList[0]
 		distance = strconv.FormatFloat(float64(m.Distance), 'f', 2, 32)
@@ -157,15 +162,20 @@ func LogDownload(typ string, statuscode int, p *mirrors.Results, err error) {
 
 		dlogger.l.Printf("%s %d \"%s\" ip:%s mirror:%s%s %sasn:%d distance:%skm countries:%s",
 			typ, statuscode, p.FileInfo.Path, p.IP, m.ID, fallback, sameASNum, m.Asnum, distance, countries)
-	} else if statuscode == 404 {
+	} else if statuscode == 404 && p != nil {
 		dlogger.l.Printf("%s 404 \"%s\" ip:%s", typ, p.FileInfo.Path, p.IP)
-	} else if statuscode == 500 {
+	} else if statuscode == 500 && p != nil {
 		mirrorID := "unknown"
 		if len(p.MirrorList) > 0 {
 			mirrorID = p.MirrorList[0].ID
 		}
-		dlogger.l.Printf("%s 500 \"%s\" ip:%s mirror:%s error:%s", typ, p.FileInfo.Path, p.IP, mirrorID, err.Error())
+		dlogger.l.Printf("%s 500 \"%s\" ip:%s mirror:%s error:%s", typ, p.FileInfo.Path, p.IP, mirrorID, errstr)
 	} else {
-		dlogger.l.Printf("%s %d \"%s\" ip:%s error:%s", typ, statuscode, p.FileInfo.Path, p.IP, err.Error())
+		var path, ip string
+		if p != nil {
+			path = p.FileInfo.Path
+			ip = p.IP
+		}
+		dlogger.l.Printf("%s %d \"%s\" ip:%s error:%s", typ, statuscode, path, ip, errstr)
 	}
 }
