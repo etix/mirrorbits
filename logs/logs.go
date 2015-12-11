@@ -52,6 +52,14 @@ func ReloadLogs() {
 	}
 }
 
+func isTerminal(f *os.File) bool {
+	stat, _ := f.Stat()
+	if (stat.Mode() & os.ModeCharDevice) != 0 {
+		return true
+	}
+	return false
+}
+
 func ReloadRuntimeLogs() {
 	if rlogger.f == os.Stderr && core.RunLog == "" {
 		// Logger already set up and connected to the console.
@@ -59,12 +67,8 @@ func ReloadRuntimeLogs() {
 		return
 	}
 
-	logColor := false
-
-	stat, _ := os.Stdout.Stat()
-	if (stat.Mode() & os.ModeCharDevice) != 0 {
-		logColor = true //TODO make it optionnal
-	}
+	//TODO make color optional
+	logColor := isTerminal(os.Stdout)
 
 	if rlogger.f != nil {
 		rlogger.f.Close()
