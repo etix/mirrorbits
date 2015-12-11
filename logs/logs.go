@@ -99,8 +99,8 @@ func ReloadRuntimeLogs() {
 func openLogFile(logfile string) (*os.File, bool, error) {
 	newfile := true
 
-	s, err := os.Stat(logfile)
-	if err == nil && s.Size() > 0 {
+	s, _ := os.Stat(logfile)
+	if s != nil && s.Size() > 0 {
 		newfile = false
 	}
 
