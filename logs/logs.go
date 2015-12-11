@@ -10,6 +10,7 @@ import (
 	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/mirrors"
 	"github.com/op/go-logging"
+	"io"
 	stdlog "log"
 	"os"
 	"runtime"
@@ -32,7 +33,15 @@ type runtimeLogger struct {
 type downloadsLogger struct {
 	sync.RWMutex
 	l *stdlog.Logger
-	f *os.File
+	f io.WriteCloser
+}
+
+func (d *downloadsLogger) Close() {
+	if d.f != nil {
+		d.f.Close()
+		d.f = nil
+	}
+	d.l = nil
 }
 
 // ReloadLogs will reopen the logs to allow rotations
@@ -88,36 +97,24 @@ func ReloadRuntimeLogs() {
 	}
 }
 
-func ReloadDownloadLogs() {
-	dlogger.Lock()
-	defer dlogger.Unlock()
-
-	if GetConfig().LogDir == "" {
-		if dlogger.f != nil {
-			dlogger.f.Close()
-		}
-		dlogger.f = nil
-		dlogger.l = nil
-		return
-	}
-
-	logfile := GetConfig().LogDir + "/downloads.log"
-	createHeader := true
+func openLogFile(logfile string) (*os.File, bool, error) {
+	newfile := true
 
 	s, err := os.Stat(logfile)
 	if err == nil && s.Size() > 0 {
-		createHeader = false
+		newfile = false
 	}
 
-	if dlogger.f != nil {
-		dlogger.f.Close()
-	}
-	dlogger.f, err = os.OpenFile(logfile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
-
+	f, err := os.OpenFile(logfile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
-		log.Critical("Warning: cannot open log file %s", logfile)
-		return
+		return nil, false, err
 	}
+
+	return f, newfile, nil
+}
+
+func setDownloadLogWriter(writer io.Writer, createHeader bool) {
+	dlogger.l = stdlog.New(writer, "", stdlog.Ldate|stdlog.Lmicroseconds)
 
 	if createHeader {
 		var buf bytes.Buffer
@@ -125,10 +122,28 @@ func ReloadDownloadLogs() {
 		fmt.Fprintf(&buf, "# Log file created at: %s\n", time.Now().Format("2006/01/02 15:04:05"))
 		fmt.Fprintf(&buf, "# Running on machine: %s\n", hostname)
 		fmt.Fprintf(&buf, "# Binary: Built with %s %s for %s/%s\n", runtime.Compiler, runtime.Version(), runtime.GOOS, runtime.GOARCH)
-		dlogger.f.Write(buf.Bytes())
+		writer.Write(buf.Bytes())
+	}
+}
+
+func ReloadDownloadLogs() {
+	dlogger.Lock()
+	defer dlogger.Unlock()
+
+	dlogger.Close()
+
+	if GetConfig().LogDir == "" {
+		return
 	}
 
-	dlogger.l = stdlog.New(dlogger.f, "", stdlog.Ldate|stdlog.Lmicroseconds)
+	logfile := GetConfig().LogDir + "/downloads.log"
+	f, createHeader, err := openLogFile(logfile)
+	if err != nil {
+		log.Critical("Cannot open log file %s", logfile)
+		return
+	}
+
+	setDownloadLogWriter(f, createHeader)
 }
 
 // This function will write a download result in the logs.
