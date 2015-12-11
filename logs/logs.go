@@ -72,7 +72,7 @@ func ReloadRuntimeLogs() {
 
 	if core.RunLog != "" {
 		var err error
-		rlogger.f, err = os.OpenFile(core.RunLog, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		rlogger.f, err = os.OpenFile(core.RunLog, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Cannot open log file for writing")
 			rlogger.f = os.Stderr
