@@ -158,7 +158,7 @@ func LogDownload(typ string, statuscode int, p *mirrors.Results, err error) {
 		dlogger.l.Printf("%s %d \"%s\" ip:%s mirror:%s%s %sasn:%d distance:%skm countries:%s",
 			typ, statuscode, p.FileInfo.Path, p.IP, m.ID, fallback, sameASNum, m.Asnum, distance, countries)
 	} else if statuscode == 404 {
-		dlogger.l.Printf("%s 404 \"%s\" %s", typ, p.FileInfo.Path, p.IP)
+		dlogger.l.Printf("%s 404 \"%s\" ip:%s", typ, p.FileInfo.Path, p.IP)
 	} else if statuscode == 500 {
 		mirrorID := "unknown"
 		if len(p.MirrorList) > 0 {
