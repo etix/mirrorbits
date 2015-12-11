@@ -6,11 +6,14 @@ package logs
 import (
 	"bytes"
 	"errors"
+	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/mirrors"
 	"github.com/etix/mirrorbits/network"
+	"github.com/op/go-logging"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -46,6 +49,96 @@ func TestDownloadsLogger_Close(t *testing.T) {
 	if dlogger.l != nil || dlogger.f != nil {
 		t.Fatalf("Should be nil")
 	}
+}
+
+func TestIsTerminal(t *testing.T) {
+	stat, _ := os.Stdout.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		t.Skip("Cannot test without a valid terminal")
+	}
+
+	if !isTerminal(os.Stdout) {
+		t.Fatalf("The current terminal is supposed to support colors")
+	}
+
+	f, err := ioutil.TempFile("", "mirrorbits-tests")
+	if err != nil {
+		t.Errorf("Unable to create a temporary file: %s", err.Error())
+		return
+	}
+	defer os.Remove(f.Name())
+
+	if isTerminal(f) {
+		t.Fatalf("The given file cannot be a terminal")
+	}
+}
+
+func TestReloadRuntimeLogs(t *testing.T) {
+	rlogger.f = nil
+
+	ReloadRuntimeLogs()
+
+	if rlogger.f == nil {
+		t.Fatalf("The logger output must be setup")
+	}
+	if rlogger.f != os.Stderr {
+		t.Fatalf("The logger output is expected to be Stderr")
+	}
+	if logging.GetLevel("main") != logging.INFO {
+		t.Fatalf("Log level is supposed to be INFO by default")
+	}
+
+	ptr := reflect.ValueOf(rlogger.f).Pointer()
+	ReloadRuntimeLogs()
+	if reflect.ValueOf(rlogger.f).Pointer() != ptr {
+		t.Fatalf("The logger must not be reloaded when writing on Stderr")
+	}
+
+	/* */
+	core.RunLog = "/"
+	ReloadRuntimeLogs()
+	if rlogger.f != os.Stderr {
+		t.Fatalf("Opening an invalid file must fallback to Stderr")
+	}
+
+	/* */
+	f, err := ioutil.TempFile("", "mirrorbits-tests")
+	if err != nil {
+		t.Errorf("Unable to create a temporary file: %s", err.Error())
+		return
+	}
+	defer os.Remove(f.Name())
+
+	core.RunLog = f.Name()
+	core.Debug = true
+
+	ReloadRuntimeLogs()
+
+	if logging.GetLevel("main") != logging.DEBUG {
+		t.Fatalf("Log level is supposed to be DEBUG")
+	}
+
+	if rlogger.f == os.Stderr {
+		t.Fatalf("The output is expected to be a file, not Stderr")
+	}
+
+	/* */
+	testString := "Testing42"
+	log.Error(testString)
+
+	buf, _ := ioutil.ReadAll(f)
+	if !strings.Contains(string(buf), testString) {
+		t.Fatalf("The log doesn't contain the string %s", testString)
+	}
+
+	/* */
+	core.RunLog = ""
+	ReloadRuntimeLogs()
+
+	if rlogger.f != os.Stderr {
+		t.Fatalf("The output is expected to be Stderr")
+	}
+
 }
 
 func TestOpenLogFile(t *testing.T) {
