@@ -67,28 +67,23 @@ func ReloadRuntimeLogs() {
 		return
 	}
 
-	//TODO make color optional
-	logColor := isTerminal(os.Stdout)
-
 	if rlogger.f != nil {
 		rlogger.f.Close()
 	}
 
 	if core.RunLog != "" {
 		var err error
-		rlogger.f, err = os.OpenFile(core.RunLog, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+		rlogger.f, _, err = openLogFile(core.RunLog)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Cannot open log file for writing")
 			rlogger.f = os.Stderr
-		} else {
-			logColor = false
 		}
 	} else {
 		rlogger.f = os.Stderr
 	}
 
 	logBackend := logging.NewLogBackend(rlogger.f, "", 0)
-	logBackend.Color = logColor
+	logBackend.Color = isTerminal(rlogger.f) //TODO make color optional
 
 	logging.SetBackend(logBackend)
 
