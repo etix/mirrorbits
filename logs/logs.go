@@ -68,8 +68,6 @@ func ReloadRuntimeLogs() {
 
 	if rlogger.f != nil {
 		rlogger.f.Close()
-	} else {
-		rlogger.f = os.Stderr
 	}
 
 	if core.RunLog != "" {
@@ -81,6 +79,8 @@ func ReloadRuntimeLogs() {
 		} else {
 			logColor = false
 		}
+	} else {
+		rlogger.f = os.Stderr
 	}
 
 	logBackend := logging.NewLogBackend(rlogger.f, "", 0)
