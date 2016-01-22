@@ -35,6 +35,7 @@ Mirrorbits is a geographical download redirector written in [Go](www.golang.org)
  * [Popcorn Time](https://popcorntime.io)
  * [SuperRepo](https://superrepo.org)
  * [Kodi](http://kodi.tv) (aka XBMC)
+ * [OSMC](https://osmc.tv)
 
 Yet some things might change before the 1.0 release. If you intend to deploy Mirrorbits in a production system it is advised to notify the author first so we can help you to make any transition as seamless as possible!
 
