@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	rsyncOutputLine = regexp.MustCompile(`^.+\s+([0-9,]+)\s+([0-9/]+)+\s+([0-9:]+)\s+(.*)$`)
+	rsyncOutputLine = regexp.MustCompile(`^.+\s+([0-9,]+)\s+([0-9/]+)\s+([0-9:]+)\s+(.*)$`)
 )
 
 type RsyncScanner struct {
