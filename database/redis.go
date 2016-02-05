@@ -283,7 +283,7 @@ func (r *Redis) getFailureState() bool {
 // RedisIsLoading returns true if the error is of type LOADING
 func RedisIsLoading(err error) bool {
 	// PARSING: "LOADING Redis is loading the dataset in memory"
-	if err != nil && err.Error()[:7] == "LOADING" {
+	if err != nil && strings.HasPrefix(err.Error(), "LOADING") {
 		return true
 	}
 	return false
