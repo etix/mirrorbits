@@ -156,6 +156,10 @@ func (m *Monitor) MonitorLoop() {
 		return nil
 	}, 500*time.Millisecond)
 
+	if utils.IsStopped(m.stop) {
+		return
+	}
+
 	// Start the cluster manager
 	m.cluster.Start()
 
