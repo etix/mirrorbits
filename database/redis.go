@@ -66,6 +66,9 @@ func NewRedisCustomPool(pool RedisPool) *Redis {
 			},
 			TestOnBorrow: func(c redis.Conn, t time.Time) error {
 				_, err := c.Do("PING")
+				if RedisIsLoading(err) {
+					return nil
+				}
 				return err
 			},
 		}
