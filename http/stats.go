@@ -165,7 +165,7 @@ func (s *Stats) pushStats() {
 	_, err := rconn.Do("EXEC")
 
 	if err != nil {
-		fmt.Println("Stats: could not save stats to redis:", err)
+		log.Errorf("Stats: could not save stats to redis: %s", err.Error())
 		return
 	}
 

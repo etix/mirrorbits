@@ -332,8 +332,8 @@ func (m *Monitor) syncLoop() {
 			conn := m.redis.Get()
 			scanning, err := scan.IsScanning(conn, k)
 			if err != nil {
-				log.Error("syncloop: ", err.Error())
 				conn.Close()
+				log.Warning("syncloop: %s", err.Error())
 				goto unlock
 			} else if scanning {
 				// A scan is already in progress on another node
