@@ -53,7 +53,16 @@ func NewRedisCustomPool(pool RedisPool) *Redis {
 			MaxIdle:     10,
 			IdleTimeout: 240 * time.Second,
 			Dial: func() (redis.Conn, error) {
-				return r.Connect()
+				conn, err := r.Connect()
+
+				switch err {
+				case ErrUnreachable:
+					r.setFailureState(true)
+				case nil:
+					r.setFailureState(false)
+				}
+
+				return conn, err
 			},
 			TestOnBorrow: func(c redis.Conn, t time.Time) error {
 				_, err := c.Do("PING")
@@ -163,7 +172,6 @@ func (r *Redis) Connect() (redis.Conn, error) {
 
 			// Close the connection to the sentinel
 			c.Close()
-			r.setFailureState(false)
 
 			r.printConnectedMaster(masterhost)
 			return cm, nil
@@ -182,7 +190,6 @@ single:
 		if len(sentinels) == 0 {
 			log.Error("No redis master available")
 		}
-		r.setFailureState(true)
 		return nil, ErrUnreachable
 	}
 
@@ -205,15 +212,12 @@ single:
 	role, err := r.askRole(c)
 	if err != nil {
 		r.logError("Redis master: %s", err.Error())
-		r.setFailureState(true)
 		return nil, ErrUnreachable
 	}
 	if role != "master" {
 		r.logError("Redis master: %s is not a master but a %s", GetConfig().RedisAddress, role)
-		r.setFailureState(true)
 		return nil, ErrUnreachable
 	}
-	r.setFailureState(false)
 	r.printConnectedMaster(GetConfig().RedisAddress)
 	return c, err
 
