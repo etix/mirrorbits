@@ -211,6 +211,9 @@ func (m *Monitor) MonitorLoop() {
 		case <-repositoryScanTicker:
 			m.scanRepository()
 		case <-mirrorCheckTicker.C:
+			if m.redis.Failure() {
+				continue
+			}
 			m.mapLock.Lock()
 			for k, v := range m.mirrors {
 				if !v.Enabled {
@@ -303,7 +306,9 @@ func (m *Monitor) healthCheckLoop() {
 			mirror := m.mirrors[k]
 			m.mapLock.Unlock()
 
-			if m.healthCheck(mirror.Mirror) == mirrorNotScanned {
+			err := m.healthCheck(mirror.Mirror)
+
+			if err == mirrorNotScanned {
 				// Not removing the 'checking' lock is intended here so the mirror won't
 				// be checked again until the rsync/ftp scan is finished.
 				continue
@@ -311,7 +316,9 @@ func (m *Monitor) healthCheckLoop() {
 
 			m.mapLock.Lock()
 			if _, ok := m.mirrors[k]; ok {
-				m.mirrors[k].lastCheck = time.Now().UTC().Unix()
+				if !database.RedisIsLoading(err) {
+					m.mirrors[k].lastCheck = time.Now().UTC().Unix()
+				}
 				m.mirrors[k].checking = false
 			}
 			m.mapLock.Unlock()
@@ -337,7 +344,9 @@ func (m *Monitor) syncLoop() {
 			scanning, err := scan.IsScanning(conn, k)
 			if err != nil {
 				conn.Close()
-				log.Warning("syncloop: %s", err.Error())
+				if !database.RedisIsLoading(err) {
+					log.Warning("syncloop: %s", err.Error())
+				}
 				goto unlock
 			} else if scanning {
 				// A scan is already in progress on another node
@@ -395,7 +404,7 @@ func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 	if err != nil {
 		if err == redis.ErrNil {
 			return mirrorNotScanned
-		} else {
+		} else if !database.RedisIsLoading(err) {
 			log.Warning(format+"Error: Cannot obtain a random file: %s", mirror.ID, err)
 		}
 		return err

@@ -37,6 +37,7 @@ type Redis struct {
 	failure      bool
 	failureState sync.RWMutex
 	knownMaster  string
+	stop         chan bool
 }
 
 func NewRedis() *Redis {
@@ -45,6 +46,8 @@ func NewRedis() *Redis {
 
 func NewRedisCustomPool(pool RedisPool) *Redis {
 	r := &Redis{}
+
+	r.stop = make(chan bool)
 
 	if pool != nil {
 		r.pool = pool
@@ -56,10 +59,10 @@ func NewRedisCustomPool(pool RedisPool) *Redis {
 				conn, err := r.Connect()
 
 				switch err {
-				case ErrUnreachable:
-					r.setFailureState(true)
 				case nil:
 					r.setFailureState(false)
+				default:
+					r.setFailureState(true)
 				}
 
 				return conn, err
@@ -74,6 +77,8 @@ func NewRedisCustomPool(pool RedisPool) *Redis {
 		}
 	}
 
+	go r.connRecover()
+
 	return r
 }
 
@@ -82,9 +87,15 @@ func (r *Redis) Get() redis.Conn {
 }
 
 func (r *Redis) Close() {
-	log.Debug("Closing databases connections")
-	r.Pubsub.Close()
-	r.pool.Close()
+	select {
+	case _, _ = <-r.stop:
+		return
+	default:
+		log.Debug("Closing databases connections")
+		r.Pubsub.Close()
+		r.pool.Close()
+		close(r.stop)
+	}
 }
 
 func (r *Redis) ConnectPubsub() {
@@ -196,7 +207,7 @@ single:
 		return nil, ErrUnreachable
 	}
 
-	if len(sentinels) > 0 && r.getFailureState() == false {
+	if len(sentinels) > 0 && r.Failure() == false {
 		log.Warning("No redis master available, trying using the configured RedisAddress as fallback")
 	}
 
@@ -252,7 +263,7 @@ func (r *Redis) selectDB(c redis.Conn) (err error) {
 }
 
 func (r *Redis) logError(format string, args ...interface{}) {
-	if r.getFailureState() == true {
+	if r.Failure() {
 		log.Debug(format, args...)
 	} else {
 		log.Error(format, args...)
@@ -274,10 +285,33 @@ func (r *Redis) setFailureState(failure bool) {
 	r.failureState.Unlock()
 }
 
-func (r *Redis) getFailureState() bool {
+func (r *Redis) Failure() bool {
 	r.failureState.RLock()
 	defer r.failureState.RUnlock()
 	return r.failure
+}
+
+func (r *Redis) connRecover() {
+	ticker := time.NewTicker(1 * time.Second)
+
+	for {
+		select {
+		case <-r.stop:
+			return
+		case <-ticker.C:
+			if r.Failure() {
+				if conn := r.Get(); conn != nil {
+					// A successful Get() request will automatically unlock
+					// other services waiting for a working connection.
+					// This is only a way to ensure they wont wait forever.
+					if conn.Err() != nil {
+						log.Warning("Database is down: %s", conn.Err().Error())
+					}
+					conn.Close()
+				}
+			}
+		}
+	}
 }
 
 // RedisIsLoading returns true if the error is of type LOADING
