@@ -286,8 +286,9 @@ func ScanSource(r *database.Redis, stop chan bool) (err error) {
 
 	s.walkRedisConn = s.redis.Get()
 	defer s.walkRedisConn.Close()
-	if err != nil {
-		return fmt.Errorf("redis %s", err.Error())
+
+	if s.walkRedisConn.Err() != nil {
+		return s.walkRedisConn.Err()
 	}
 
 	s.walkSourceFiles = make([]*filedata, 0, 1000)
