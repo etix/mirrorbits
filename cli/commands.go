@@ -260,7 +260,7 @@ func (c *cli) CmdAdd(args ...string) error {
 		os.Exit(-1)
 	}
 
-	if !strings.HasPrefix(*http, "http://") {
+	if !strings.HasPrefix(*http, "http://") || !strings.HasPrefix(*http, "https://") {
 		*http = "http://" + *http
 	}
 

@@ -44,7 +44,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 	var farthestMirror float32
 	for i, m := range mlist {
 		// Does it support http? Is it well formated?
-		if !strings.HasPrefix(m.HttpURL, "http://") {
+		if !strings.HasPrefix(m.HttpURL, "http://") && !strings.HasPrefix(m.HttpURL, "https://") {
 			m.ExcludeReason = "Invalid URL"
 			goto delete
 		}
