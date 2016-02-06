@@ -154,7 +154,10 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 			m.ComputedScore += baseScore / 2
 		}
 
-		m.ComputedScore += int(math.Max(float64(m.ComputedScore)*(float64(m.Score)/100)+0.5, 1))
+		floatingScore := float64(m.ComputedScore) + (float64(m.ComputedScore) * (float64(m.Score) / 100)) + 0.5
+
+		// The minimum allowed score is 1
+		m.ComputedScore = int(math.Max(floatingScore, 1))
 
 		if m.ComputedScore > baseScore {
 			// The weight must always be > 0 to not break the randomization below
