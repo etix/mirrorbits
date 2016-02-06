@@ -513,7 +513,7 @@ func (c *cli) CmdScan(args ...string) error {
 			return err
 		}
 
-		log.Notice("Scanning %s...", id)
+		log.Noticef("Scanning %s...", id)
 
 		err = NoSyncMethod
 
@@ -535,7 +535,7 @@ func (c *cli) CmdScan(args ...string) error {
 		}
 
 		if err != nil {
-			log.Error("Scanning %s failed: %s", id, err.Error())
+			log.Errorf("Scanning %s failed: %s", id, err.Error())
 		}
 
 		// Finally enable the mirror if requested
@@ -1035,7 +1035,7 @@ func (c *cli) CmdStats(args ...string) error {
 
 	tkcoverage := utils.TimeKeyCoverage(start, end)
 	for _, b := range tkcoverage {
-		log.Debug("Requesting %s", b)
+		log.Debugf("Requesting %s", b)
 	}
 
 	if cmd.Arg(0) == "file" {
@@ -1071,7 +1071,7 @@ func (c *cli) CmdStats(args ...string) error {
 					path, _ := redis.String(stats[i], nil)
 					matched := re.MatchString(path)
 					if err != nil {
-						log.Error("%s", err.Error())
+						log.Error(err.Error())
 					} else if matched {
 						reqs, _ := redis.Int64(stats[i+1], nil)
 						m[path] += reqs
@@ -1168,7 +1168,7 @@ func (c *cli) CmdReload(args ...string) error {
 	if pid > 0 {
 		err := syscall.Kill(pid, syscall.SIGHUP)
 		if err != nil {
-			log.Error("Unable to reload configuration: %v", err)
+			log.Errorf("Unable to reload configuration: %v", err)
 		}
 	} else {
 		log.Error("No pid found. Ensures the server is running.")
@@ -1181,7 +1181,7 @@ func (c *cli) CmdUpgrade(args ...string) error {
 	if pid > 0 {
 		err := syscall.Kill(pid, syscall.SIGUSR2)
 		if err != nil {
-			log.Error("Unable to upgrade binary: %v", err)
+			log.Errorf("Unable to upgrade binary: %v", err)
 		}
 	} else {
 		log.Error("No pid found. Ensures the server is running.")

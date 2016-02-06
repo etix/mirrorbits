@@ -127,7 +127,7 @@ func (r *Redis) Connect() (redis.Conn, error) {
 		}
 
 		for _, s := range sentinels {
-			log.Debug("Connecting to redis sentinel %s", s.Host)
+			log.Debugf("Connecting to redis sentinel %s", s.Host)
 			var master []string
 			var masterhost string
 			var cm redis.Conn
@@ -264,18 +264,18 @@ func (r *Redis) selectDB(c redis.Conn) (err error) {
 
 func (r *Redis) logError(format string, args ...interface{}) {
 	if r.Failure() {
-		log.Debug(format, args...)
+		log.Debugf(format, args...)
 	} else {
-		log.Error(format, args...)
+		log.Errorf(format, args...)
 	}
 }
 
 func (r *Redis) printConnectedMaster(address string) {
 	if address != r.knownMaster && core.Daemon {
 		r.knownMaster = address
-		log.Info("Connected to redis master %s", address)
+		log.Infof("Connected to redis master %s", address)
 	} else {
-		log.Debug("Connected to redis master %s", address)
+		log.Debugf("Connected to redis master %s", address)
 	}
 }
 
@@ -305,7 +305,7 @@ func (r *Redis) connRecover() {
 					// other services waiting for a working connection.
 					// This is only a way to ensure they wont wait forever.
 					if conn.Err() != nil {
-						log.Warning("Database is down: %s", conn.Err().Error())
+						log.Warningf("Database is down: %s", conn.Err().Error())
 					}
 					conn.Close()
 				}

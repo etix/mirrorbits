@@ -112,7 +112,7 @@ func (c *cluster) refreshNodeList(nodeID, self string) {
 	// Expire unreachable nodes
 	for i := 0; i < len(c.nodes); i++ {
 		if utils.ElapsedSec(c.nodes[i].LastAnnounce, 5) && c.nodes[i].ID != nodeID && c.nodes[i].ID != self {
-			log.Notice("<- Node %s left the cluster", c.nodes[i].ID)
+			log.Noticef("<- Node %s left the cluster", c.nodes[i].ID)
 			c.nodes = append(c.nodes[:i], c.nodes[i+1:]...)
 			i--
 		} else if c.nodes[i].ID == nodeID {
@@ -124,7 +124,7 @@ func (c *cluster) refreshNodeList(nodeID, self string) {
 	// Join new node
 	if !found {
 		if nodeID != self {
-			log.Notice("-> Node %s joined the cluster", nodeID)
+			log.Noticef("-> Node %s joined the cluster", nodeID)
 		}
 		n := Node{
 			ID:           nodeID,

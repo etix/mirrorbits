@@ -58,7 +58,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 		return err
 	}
 
-	log.Info("[%s] Requesting file list via ftp...", identifier)
+	log.Infof("[%s] Requesting file list via ftp...", identifier)
 
 	var files []*filedata = make([]*filedata, 0, 1000)
 

@@ -122,7 +122,7 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 		// Remove the temporary key
 		conn.Do("DEL", s.filesTmpKey)
 
-		log.Error("[%s] %s", identifier, err.Error())
+		log.Errorf("[%s] %s", identifier, err.Error())
 		return err
 	}
 
@@ -139,7 +139,7 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 	if len(toremove) > 0 {
 		conn.Send("MULTI")
 		for _, e := range toremove {
-			log.Debug("[%s] Removing %s from mirror", identifier, e)
+			log.Debugf("[%s] Removing %s from mirror", identifier, e)
 			conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", e), identifier)
 			conn.Send("DEL", fmt.Sprintf("FILEINFO_%s_%s", identifier, e))
 			// Publish update
@@ -169,7 +169,7 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 	}
 
 	s.setLastSync(conn, identifier, true)
-	log.Info("[%s] Indexed %d files (%d known), %d removed", identifier, s.count, common, len(toremove))
+	log.Infof("[%s] Indexed %d files (%d known), %d removed", identifier, s.count, common, len(toremove))
 	return nil
 }
 
@@ -254,19 +254,19 @@ func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 	if rehash || size != d.size || !modTime.Equal(d.modTime) {
 		h, err := filesystem.HashFile(GetConfig().Repository + d.path)
 		if err != nil {
-			log.Warning("%s: hashing failed: %s", d.path, err.Error())
+			log.Warningf("%s: hashing failed: %s", d.path, err.Error())
 		} else {
 			d.sha1 = h.Sha1
 			d.sha256 = h.Sha256
 			d.md5 = h.Md5
 			if len(d.sha1) > 0 {
-				log.Info("%s: SHA1 %s", d.path, d.sha1)
+				log.Infof("%s: SHA1 %s", d.path, d.sha1)
 			}
 			if len(d.sha256) > 0 {
-				log.Info("%s: SHA256 %s", d.path, d.sha256)
+				log.Infof("%s: SHA256 %s", d.path, d.sha256)
 			}
 			if len(d.md5) > 0 {
-				log.Info("%s: MD5 %s", d.path, d.md5)
+				log.Infof("%s: MD5 %s", d.path, d.md5)
 			}
 		}
 	} else {
@@ -366,7 +366,7 @@ func ScanSource(r *database.Redis, stop chan bool) (err error) {
 		return err
 	}
 
-	log.Info("[source] Scanned %d files", count)
+	log.Infof("[source] Scanned %d files", count)
 
 	return nil
 }

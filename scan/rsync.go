@@ -54,7 +54,7 @@ func (r *RsyncScanner) Scan(url, identifier string, conn redis.Conn, stop chan b
 		return err
 	}
 
-	log.Info("[%s] Requesting file list via rsync...", identifier)
+	log.Infof("[%s] Requesting file list via rsync...", identifier)
 
 	scanfinished := make(chan bool)
 	go func() {
@@ -72,7 +72,7 @@ func (r *RsyncScanner) Scan(url, identifier string, conn redis.Conn, stop chan b
 	// index files than are not provided by the source)
 	//sourceFiles, err := redis.Values(conn.Do("SMEMBERS", "FILES"))
 	//if err != nil {
-	//  log.Error("[%s] Cannot get the list of source files", identifier)
+	//  log.Errorf("[%s] Cannot get the list of source files", identifier)
 	//  return err
 	//}
 
@@ -104,7 +104,7 @@ func (r *RsyncScanner) Scan(url, identifier string, conn redis.Conn, stop chan b
 		// Convert the size to int
 		size, err = strconv.ParseInt(ret[1], 10, 64)
 		if err != nil {
-			log.Error("[%s] ScanRsync: Invalid size: %s", identifier, ret[1])
+			log.Errorf("[%s] ScanRsync: Invalid size: %s", identifier, ret[1])
 			goto cont
 		}
 

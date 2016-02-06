@@ -257,7 +257,7 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) error {
 		}
 		mirror, err := m.cache.GetMirror(id)
 		if err != nil && err != redis.ErrNil {
-			log.Error("Fetching mirror %s failed: %s", id, err.Error())
+			log.Errorf("Fetching mirror %s failed: %s", id, err.Error())
 			continue
 		} else if err == redis.ErrNil {
 			// Mirror has been deleted
@@ -285,7 +285,7 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) error {
 		m.mapLock.Unlock()
 	}
 
-	log.Debug("%d mirror%s updated", len(mirrorsIDs), utils.Plural(len(mirrorsIDs)))
+	log.Debugf("%d mirror%s updated", len(mirrorsIDs), utils.Plural(len(mirrorsIDs)))
 	return nil
 }
 
@@ -345,7 +345,7 @@ func (m *Monitor) syncLoop() {
 			if err != nil {
 				conn.Close()
 				if !database.RedisIsLoading(err) {
-					log.Warning("syncloop: %s", err.Error())
+					log.Warningf("syncloop: %s", err.Error())
 				}
 				goto unlock
 			} else if scanning {
@@ -355,7 +355,7 @@ func (m *Monitor) syncLoop() {
 			}
 			conn.Close()
 
-			log.Debug("Scanning %s", k)
+			log.Debugf("Scanning %s", k)
 
 			err = cli.NoSyncMethod
 
@@ -370,7 +370,7 @@ func (m *Monitor) syncLoop() {
 			}
 
 			if err == scan.ScanInProgress {
-				log.Warning("%-30.30s Scan already in progress", k)
+				log.Warningf("%-30.30s Scan already in progress", k)
 				goto unlock
 			}
 
@@ -405,7 +405,7 @@ func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 		if err == redis.ErrNil {
 			return mirrorNotScanned
 		} else if !database.RedisIsLoading(err) {
-			log.Warning(format+"Error: Cannot obtain a random file: %s", mirror.ID, err)
+			log.Warningf(format+"Error: Cannot obtain a random file: %s", mirror.ID, err)
 		}
 		return err
 	}
@@ -436,7 +436,7 @@ x:
 	for {
 		select {
 		case <-stopflag:
-			log.Debug("Aborting health-check for %s", mirror.HttpURL)
+			log.Debugf("Aborting health-check for %s", mirror.HttpURL)
 			m.httpTransport.CancelRequest(req)
 			stopflag = nil
 		case <-done:
@@ -449,10 +449,10 @@ x:
 
 	if err != nil {
 		if opErr, ok := err.(*net.OpError); ok {
-			log.Debug("Op: %s | Net: %s | Addr: %s | Err: %s | Temporary: %t", opErr.Op, opErr.Net, opErr.Addr, opErr.Error(), opErr.Temporary())
+			log.Debugf("Op: %s | Net: %s | Addr: %s | Err: %s | Temporary: %t", opErr.Op, opErr.Net, opErr.Addr, opErr.Error(), opErr.Temporary())
 		}
 		mirrors.MarkMirrorDown(m.redis, mirror.ID, "Unreachable")
-		log.Error(format+"Error: %s (%dms)", mirror.ID, err.Error(), elapsed/time.Millisecond)
+		log.Errorf(format+"Error: %s (%dms)", mirror.ID, err.Error(), elapsed/time.Millisecond)
 		return err
 	}
 
@@ -463,17 +463,17 @@ x:
 		if GetConfig().DisableOnMissingFile {
 			mirrors.DisableMirror(m.redis, mirror.ID)
 		}
-		log.Error(format+"Error: File %s not found (error 404)", mirror.ID, file)
+		log.Errorf(format+"Error: File %s not found (error 404)", mirror.ID, file)
 	} else if resp.StatusCode != 200 {
 		mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", resp.StatusCode))
-		log.Warning(format+"Down! Status: %d", mirror.ID, resp.StatusCode)
+		log.Warningf(format+"Down! Status: %d", mirror.ID, resp.StatusCode)
 	} else {
 		mirrors.MarkMirrorUp(m.redis, mirror.ID)
 		rsize, err := strconv.ParseInt(contentLength, 10, 64)
 		if err == nil && rsize != size {
-			log.Warning(format+"File size mismatch! [%s] (%dms)", mirror.ID, file, elapsed/time.Millisecond)
+			log.Warningf(format+"File size mismatch! [%s] (%dms)", mirror.ID, file, elapsed/time.Millisecond)
 		} else {
-			log.Notice(format+"Up! (%dms)", mirror.ID, elapsed/time.Millisecond)
+			log.Noticef(format+"Up! (%dms)", mirror.ID, elapsed/time.Millisecond)
 		}
 	}
 	return nil

@@ -73,7 +73,7 @@ func Relaunch(l net.Listener) error {
 	if err != nil {
 		return err
 	}
-	log.Info("Spawned child %d\n", p.Pid)
+	log.Infof("Spawned child %d\n", p.Pid)
 	return nil
 }
 
@@ -131,7 +131,7 @@ func GetPidLocation() string {
 func WritePidFile() {
 	pid := fmt.Sprintf("%d", os.Getpid())
 	if err := ioutil.WriteFile(GetPidLocation(), []byte(pid), 0644); err != nil {
-		log.Error("Unable to write pid file: %v", err)
+		log.Errorf("Unable to write pid file: %v", err)
 	}
 }
 
@@ -143,7 +143,7 @@ func RemovePidFile() {
 		// This can happen during seamless binary upgrade
 		if GetRemoteProcPid() == os.Getpid() {
 			if err = os.Remove(pidFile); err != nil {
-				log.Error("Unable to remove pid file: %v", err)
+				log.Errorf("Unable to remove pid file: %v", err)
 			}
 		}
 	}

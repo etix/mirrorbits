@@ -102,7 +102,7 @@ func main() {
 				case syscall.SIGHUP:
 					listenAddress := GetConfig().ListenAddress
 					if err := ReloadConfig(); err != nil {
-						log.Warning("SIGHUP Received: %s\n", err)
+						log.Warningf("SIGHUP Received: %s\n", err)
 					} else {
 						log.Notice("SIGHUP Received: Reloading configuration...")
 					}
@@ -118,7 +118,7 @@ func main() {
 					log.Notice("SIGUSR2 Received: Seamless binary upgrade...")
 					err := process.Relaunch(*h.Listener)
 					if err != nil {
-						log.Error("Relaunch failed: %s\n", err)
+						log.Errorf("Relaunch failed: %s\n", err)
 					} else {
 						m.Stop()
 						h.Stop(10 * time.Second)

@@ -74,7 +74,7 @@ func HTTPServer(redis *database.Redis, cache *mirrors.Cache) *HTTP {
 	if err := h.geoip.LoadGeoIP(); err != nil {
 		if gerr, ok := err.(network.GeoIPError); ok {
 			for _, e := range gerr.Errors {
-				log.Critical("%s", e)
+				log.Critical(e.Error())
 			}
 			if gerr.IsFatal() {
 				if len(GetConfig().Fallbacks) == 0 {
@@ -134,12 +134,12 @@ func (h *HTTP) Reload() {
 	if t, err := h.LoadTemplates("mirrorlist"); err == nil {
 		h.templates.mirrorlist = t
 	} else {
-		log.Error("could not reload templates 'mirrorlist': %s", err.Error())
+		log.Errorf("could not reload templates 'mirrorlist': %s", err.Error())
 	}
 	if t, err := h.LoadTemplates("mirrorstats"); err == nil {
 		h.templates.mirrorstats = t
 	} else {
-		log.Error("could not reload templates 'mirrorstats': %s", err.Error())
+		log.Errorf("could not reload templates 'mirrorstats': %s", err.Error())
 	}
 	h.templates.Unlock()
 }
@@ -177,7 +177,7 @@ func (h *HTTP) RunServer() (err error) {
 	}
 	h.serverStopChan = h.server.StopChan()
 
-	log.Info("Service listening on %s", GetConfig().ListenAddress)
+	log.Infof("Service listening on %s", GetConfig().ListenAddress)
 
 	/* Serve until we receive a SIGTERM */
 	return h.server.Serve(*h.Listener)
@@ -318,7 +318,7 @@ func (h *HTTP) LoadTemplates(name string) (t *template.Template, err error) {
 		filepath.Clean(fmt.Sprintf("%s/%s.html", GetConfig().Templates, name)))
 	if err != nil {
 		if e, ok := err.(*os.PathError); ok {
-			log.Fatal(fmt.Sprintf("Cannot load template %s: %s", e.Path, e.Err.Error()))
+			log.Fatalf(fmt.Sprintf("Cannot load template %s: %s", e.Path, e.Err.Error()))
 		} else {
 			log.Fatal(err.Error())
 		}
@@ -410,7 +410,7 @@ func (h *HTTP) checksumHandler(w http.ResponseWriter, r *http.Request, ctx *Cont
 		http.NotFound(w, r)
 		return
 	} else if err != nil {
-		log.Error("Error while fetching Fileinfo: %s", err.Error())
+		log.Errorf("Error while fetching Fileinfo: %s", err.Error())
 		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 		return
 	}
@@ -541,7 +541,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err = ctx.Templates().mirrorstats.ExecuteTemplate(ctx.ResponseWriter(), "base", MirrorStatsPage{results, mlist})
 	if err != nil {
-		log.Error("HTTP error: %s", err.Error())
+		log.Errorf("HTTP error: %s", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

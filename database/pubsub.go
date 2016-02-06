@@ -113,17 +113,17 @@ connect:
 		for {
 			switch v := psc.Receive().(type) {
 			case redis.Message:
-				//log.Debug("Redis message on channel %s: message: %s", v.Channel, v.Data)
+				//log.Debugf("Redis message on channel %s: message: %s", v.Channel, v.Data)
 				p.handleMessage(v.Channel, v.Data)
 			case redis.Subscription:
-				log.Debug("Redis subscription on channel %s: %s (%d)", v.Channel, v.Kind, v.Count)
+				log.Debugf("Redis subscription on channel %s: %s (%d)", v.Channel, v.Kind, v.Count)
 			case error:
 				select {
 				case <-p.stop:
 					return
 				default:
 				}
-				log.Error("Pubsub disconnected: %s", v)
+				log.Errorf("Pubsub disconnected: %s", v)
 				psc.Close()
 				p.rconn.Close()
 				time.Sleep(50 * time.Millisecond)
