@@ -112,6 +112,7 @@ func (c *cli) CmdList(args ...string) error {
 	http := cmd.Bool("http", false, "Print HTTP addresses")
 	rsync := cmd.Bool("rsync", false, "Print rsync addresses")
 	ftp := cmd.Bool("ftp", false, "Print FTP addresses")
+	location := cmd.Bool("location", false, "Print the country and continent code")
 	state := cmd.Bool("state", true, "Print the state of the mirror")
 	disabled := cmd.Bool("disabled", false, "List disabled mirrors only")
 	enabled := cmd.Bool("enabled", false, "List enabled mirrors only")
@@ -160,6 +161,9 @@ func (c *cli) CmdList(args ...string) error {
 	if *ftp == true {
 		fmt.Fprint(w, "\tFTP ")
 	}
+	if *location == true {
+		fmt.Fprint(w, "\tLOCATION ")
+	}
 	if *state == true {
 		fmt.Fprint(w, "\tSTATE\tSINCE")
 	}
@@ -199,6 +203,14 @@ func (c *cli) CmdList(args ...string) error {
 			}
 			if *ftp == true {
 				fmt.Fprintf(w, "\t%s ", mirror.FtpURL)
+			}
+			if *location == true {
+				countries := strings.Split(mirror.CountryCodes, " ")
+				countryCode := "/"
+				if len(countries) >= 1 {
+					countryCode = countries[0]
+				}
+				fmt.Fprintf(w, "\t%s (%s) ", countryCode, mirror.ContinentCode)
 			}
 			if *state == true {
 				if mirror.Enabled == false {
