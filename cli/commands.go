@@ -267,6 +267,8 @@ func (c *cli) CmdAdd(args ...string) error {
 	ip, err := network.LookupMirrorIP(u.Host)
 	if err == network.ErrMultipleAddresses {
 		fmt.Fprintf(os.Stderr, "Warning: the hostname returned more than one address! This is highly unreliable.\n")
+	} else if err != nil {
+		log.Fatal("IP lookup failed: ", err.Error())
 	}
 
 	geo := network.NewGeoIP()
