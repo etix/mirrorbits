@@ -254,14 +254,14 @@ func (c *cli) CmdAdd(args ...string) error {
 		os.Exit(-1)
 	}
 
+	if !strings.HasPrefix(*http, "http://") && !strings.HasPrefix(*http, "https://") {
+		*http = "http://" + *http
+	}
+
 	u, err := url.Parse(*http)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Can't parse HTTP url\n")
 		os.Exit(-1)
-	}
-
-	if !strings.HasPrefix(*http, "http://") || !strings.HasPrefix(*http, "https://") {
-		*http = "http://" + *http
 	}
 
 	ip, err := network.LookupMirrorIP(u.Host)
