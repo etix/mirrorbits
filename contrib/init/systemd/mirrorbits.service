@@ -9,3 +9,6 @@ ExecReload=/bin/kill -HUP $MAINPID
 ExecStop=-/bin/kill -QUIT $MAINPID
 TimeoutStopSec=5
 KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target
