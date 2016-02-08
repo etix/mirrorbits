@@ -150,15 +150,15 @@ func (c *cli) CmdList(args ...string) error {
 
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
-	fmt.Fprint(w, "Identifier")
+	fmt.Fprint(w, "Identifier ")
 	if *http == true {
-		fmt.Fprint(w, "\tHTTP")
+		fmt.Fprint(w, "\tHTTP ")
 	}
 	if *rsync == true {
-		fmt.Fprint(w, "\tRSYNC")
+		fmt.Fprint(w, "\tRSYNC ")
 	}
 	if *ftp == true {
-		fmt.Fprint(w, "\tFTP")
+		fmt.Fprint(w, "\tFTP ")
 	}
 	if *state == true {
 		fmt.Fprint(w, "\tSTATE\tSINCE")
@@ -190,15 +190,15 @@ func (c *cli) CmdList(args ...string) error {
 					continue
 				}
 			}
-			fmt.Fprintf(w, "%s", mirror.ID)
+			fmt.Fprintf(w, "%s ", mirror.ID)
 			if *http == true {
-				fmt.Fprintf(w, "\t%s", mirror.HttpURL)
+				fmt.Fprintf(w, "\t%s ", mirror.HttpURL)
 			}
 			if *rsync == true {
-				fmt.Fprintf(w, "\t%s", mirror.RsyncURL)
+				fmt.Fprintf(w, "\t%s ", mirror.RsyncURL)
 			}
 			if *ftp == true {
-				fmt.Fprintf(w, "\t%s", mirror.FtpURL)
+				fmt.Fprintf(w, "\t%s ", mirror.FtpURL)
 			}
 			if *state == true {
 				if mirror.Enabled == false {
