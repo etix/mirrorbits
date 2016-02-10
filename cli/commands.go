@@ -1136,6 +1136,7 @@ func (c *cli) CmdStats(args ...string) error {
 
 		conn.Send("MULTI")
 
+		// Fetch the stats
 		for _, k := range tkcoverage {
 			conn.Send("HGET", "STATS_MIRROR_"+k, list[0])
 			conn.Send("HGET", "STATS_MIRROR_BYTES_"+k, list[0])
@@ -1144,6 +1145,20 @@ func (c *cli) CmdStats(args ...string) error {
 		stats, err := redis.Strings(conn.Do("EXEC"))
 		if err != nil {
 			log.Critical("Cannot fetch stats: %s", err)
+			return err
+		}
+
+		// Fetch the mirror struct
+		m, err := redis.Values(conn.Do("HGETALL", fmt.Sprintf("MIRROR_%s", list[0])))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot fetch mirror details: %s\n", err)
+			return err
+		}
+
+		var mirror mirrors.Mirror
+		err = redis.ScanStruct(m, &mirror)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot fetch mirror details: %s\n", err)
 			return err
 		}
 
@@ -1164,6 +1179,13 @@ func (c *cli) CmdStats(args ...string) error {
 		w.Init(os.Stdout, 0, 8, 0, '\t', 0)
 
 		fmt.Fprintf(w, "Identifier:\t%s\n", list[0])
+		if !mirror.Enabled {
+			fmt.Fprintf(w, "Status:\tdisabled\n")
+		} else if mirror.Up {
+			fmt.Fprintf(w, "Status:\tup\n")
+		} else {
+			fmt.Fprintf(w, "Status:\tdown\n")
+		}
 		fmt.Fprintf(w, "Download requests:\t%d\n", requests)
 		fmt.Fprint(w, "Bytes transfered:\t")
 		if *human {
