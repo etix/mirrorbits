@@ -172,42 +172,52 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 	// Sort mirrors by computed score
 	sort.Sort(mirrors.ByComputedScore{mlist})
 
-	// If mirrorlist is not requested we can discard most mirrors to
-	// improve the processing speed.
-	if !ctx.IsMirrorlist() {
-		// Reduce the number of mirrors to process
-		v := math.Min(math.Max(5, float64(selected)), float64(len(mlist)))
-		mlist = mlist[:int(v)]
-	}
-
 	if selected > 1 {
-		// Randomize the order of the selected mirrors considering their weights
-		weightedMirrors := make([]mirrors.Mirror, selected)
-		rest := totalScore
-		for i := 0; i < selected; i++ {
-			var id string
-			rv := rand.Int31n(int32(rest))
-			s := 0
-			for k, v := range weights {
-				s += v
-				if int32(s) > rv {
-					id = k
-					break
-				}
-			}
-			for _, m := range mlist {
-				if m.ID == id {
-					m.Weight = float32(float64(weights[id]) * 100 / float64(totalScore))
-					weightedMirrors[i] = m
-					break
-				}
-			}
-			rest -= weights[id]
-			delete(weights, id)
-		}
 
-		// Replace the head of the list by its reordered counterpart
-		mlist = append(weightedMirrors, mlist[selected:]...)
+		if ctx.IsMirrorlist() {
+			// Don't reorder the results, just set the percentage
+			for i := 0; i < selected; i++ {
+				id := mlist[i].ID
+				for j := 0; j < len(mlist); j++ {
+					if mlist[j].ID == id {
+						mlist[j].Weight = float32(float64(weights[id]) * 100 / float64(totalScore))
+						break
+					}
+				}
+			}
+		} else {
+			// Randomize the order of the selected mirrors considering their weights
+			weightedMirrors := make([]mirrors.Mirror, selected)
+			rest := totalScore
+			for i := 0; i < selected; i++ {
+				var id string
+				rv := rand.Int31n(int32(rest))
+				s := 0
+				for k, v := range weights {
+					s += v
+					if int32(s) > rv {
+						id = k
+						break
+					}
+				}
+				for _, m := range mlist {
+					if m.ID == id {
+						m.Weight = float32(float64(weights[id]) * 100 / float64(totalScore))
+						weightedMirrors[i] = m
+						break
+					}
+				}
+				rest -= weights[id]
+				delete(weights, id)
+			}
+
+			// Replace the head of the list by its reordered counterpart
+			mlist = append(weightedMirrors, mlist[selected:]...)
+
+			// Reduce the number of mirrors to return
+			v := math.Min(math.Min(5, float64(selected)), float64(len(mlist)))
+			mlist = mlist[:int(v)]
+		}
 	} else if selected == 1 && len(mlist) > 0 {
 		mlist[0].Weight = 100
 	}
