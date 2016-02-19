@@ -290,6 +290,8 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		}
 	}
 
+	ctx.ResponseWriter().Header().Set("Cache-Control", "private, no-cache")
+
 	status, err := resultRenderer.Write(ctx, results)
 	if err != nil {
 		http.Error(w, err.Error(), status)
