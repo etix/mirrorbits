@@ -114,6 +114,7 @@ func (c *cli) CmdList(args ...string) error {
 	ftp := cmd.Bool("ftp", false, "Print FTP addresses")
 	location := cmd.Bool("location", false, "Print the country and continent code")
 	state := cmd.Bool("state", true, "Print the state of the mirror")
+	score := cmd.Bool("score", false, "Print the score of the mirror")
 	disabled := cmd.Bool("disabled", false, "List disabled mirrors only")
 	enabled := cmd.Bool("enabled", false, "List enabled mirrors only")
 	down := cmd.Bool("down", false, "List only mirrors currently down")
@@ -152,6 +153,9 @@ func (c *cli) CmdList(args ...string) error {
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
 	fmt.Fprint(w, "Identifier ")
+	if *score == true {
+		fmt.Fprint(w, "\tSCORE")
+	}
 	if *http == true {
 		fmt.Fprint(w, "\tHTTP ")
 	}
@@ -195,6 +199,9 @@ func (c *cli) CmdList(args ...string) error {
 				}
 			}
 			fmt.Fprintf(w, "%s ", mirror.ID)
+			if *score == true {
+				fmt.Fprintf(w, "\t%d ", mirror.Score)
+			}
 			if *http == true {
 				fmt.Fprintf(w, "\t%s ", mirror.HttpURL)
 			}
