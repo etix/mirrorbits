@@ -19,6 +19,7 @@ import (
 
 var (
 	rsyncOutputLine = regexp.MustCompile(`^.+\s+([0-9,]+)\s+([0-9/]+)\s+([0-9:]+)\s+(.*)$`)
+	rsyncLoginURL = regexp.MustCompile("rsync://(?P<user>.+?):(?P<password>.+?)@(?P<host>.+?)/(?P<path>.*)")
 )
 
 type RsyncScanner struct {
@@ -35,7 +36,17 @@ func (r *RsyncScanner) Scan(url, identifier string, conn redis.Conn, stop chan b
 		url = url + "/"
 	}
 
+	env := os.Environ()
+
+	// Handle URLs with passwords
+	ret := rsyncLoginURL.FindStringSubmatch(url)
+	if len(ret) > 0 {
+		env = append(env, fmt.Sprintf("RSYNC_PASSWORD=%s", ret[2]))
+		url = fmt.Sprintf("rsync://%s@%s/%s", ret[1], ret[3], ret[4])
+	}
+
 	cmd := exec.Command("rsync", "-r", "--no-motd", "--timeout=30", "--contimeout=30", url)
+	cmd.Env = env
 	stdout, err := cmd.StdoutPipe()
 
 	if err != nil {
