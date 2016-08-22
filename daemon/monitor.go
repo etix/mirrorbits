@@ -374,11 +374,8 @@ func (m *Monitor) syncLoop() {
 				goto end
 			}
 
-			if mirror.Up == false {
-				select {
-				case m.healthCheckChan <- k:
-				default:
-				}
+			if err == nil && mirror.Enabled == true && mirror.Up == false {
+				m.healthCheckChan <- k
 			}
 
 		end:
