@@ -302,8 +302,15 @@ func (m *Monitor) healthCheckLoop() {
 			if utils.IsStopped(m.stop) {
 				return
 			}
+
+			var mirror *Mirror
+			var ok bool
+
 			m.mapLock.Lock()
-			mirror := m.mirrors[k]
+			if mirror, ok = m.mirrors[k]; !ok {
+				m.mapLock.Unlock()
+				continue
+			}
 			m.mapLock.Unlock()
 
 			err := m.healthCheck(mirror.Mirror)
@@ -315,11 +322,11 @@ func (m *Monitor) healthCheckLoop() {
 			}
 
 			m.mapLock.Lock()
-			if _, ok := m.mirrors[k]; ok {
+			if mirror, ok := m.mirrors[k]; ok {
 				if !database.RedisIsLoading(err) {
-					m.mirrors[k].lastCheck = time.Now().UTC().Unix()
+					mirror.lastCheck = time.Now().UTC().Unix()
 				}
-				m.mirrors[k].checking = false
+				mirror.checking = false
 			}
 			m.mapLock.Unlock()
 		}
@@ -336,8 +343,15 @@ func (m *Monitor) syncLoop() {
 		case <-m.stop:
 			return
 		case k := <-m.syncChan:
+
+			var mirror *Mirror
+			var ok bool
+
 			m.mapLock.Lock()
-			mirror := m.mirrors[k]
+			if mirror, ok = m.mirrors[k]; !ok {
+				m.mapLock.Unlock()
+				continue
+			}
 			m.mapLock.Unlock()
 
 			conn := m.redis.Get()
@@ -380,8 +394,8 @@ func (m *Monitor) syncLoop() {
 
 		end:
 			m.mapLock.Lock()
-			if _, ok := m.mirrors[k]; ok {
-				m.mirrors[k].scanning = false
+			if mirror, ok = m.mirrors[k]; ok {
+				mirror.scanning = false
 			}
 			m.mapLock.Unlock()
 		}
