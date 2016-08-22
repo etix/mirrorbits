@@ -347,11 +347,11 @@ func (m *Monitor) syncLoop() {
 				if !database.RedisIsLoading(err) {
 					log.Warningf("syncloop: %s", err.Error())
 				}
-				goto unlock
+				goto end
 			} else if scanning {
 				// A scan is already in progress on another node
 				conn.Close()
-				goto unlock
+				goto end
 			}
 			conn.Close()
 
@@ -371,7 +371,7 @@ func (m *Monitor) syncLoop() {
 
 			if err == scan.ScanInProgress {
 				log.Warningf("%-30.30s Scan already in progress", k)
-				goto unlock
+				goto end
 			}
 
 			if mirror.Up == false {
@@ -381,7 +381,7 @@ func (m *Monitor) syncLoop() {
 				}
 			}
 
-		unlock:
+		end:
 			m.mapLock.Lock()
 			if _, ok := m.mirrors[k]; ok {
 				m.mirrors[k].scanning = false
