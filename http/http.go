@@ -290,7 +290,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		}
 	}
 
-	ctx.ResponseWriter().Header().Set("Cache-Control", "private, no-cache")
+	w.Header().Set("Cache-Control", "private, no-cache")
 
 	status, err := resultRenderer.Write(ctx, results)
 	if err != nil {
@@ -541,7 +541,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	// </map>
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err = ctx.Templates().mirrorstats.ExecuteTemplate(ctx.ResponseWriter(), "base", MirrorStatsPage{results, mlist})
+	err = ctx.Templates().mirrorstats.ExecuteTemplate(w, "base", MirrorStatsPage{results, mlist})
 	if err != nil {
 		log.Errorf("HTTP error: %s", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
