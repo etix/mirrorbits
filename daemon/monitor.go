@@ -128,6 +128,11 @@ func (m *Monitor) Wait() {
 // Return an error if the endpoint is an unauthorized redirect
 func checkRedirect(req *http.Request, via []*http.Request) error {
 	if GetConfig().DisallowRedirects {
+		for _, r := range via {
+			if r.URL != nil {
+				log.Warning("Unauthorized redirection from %s via: %s", req.URL.String(), r.URL.String())
+			}
+		}
 		return redirectError
 	}
 	return nil
