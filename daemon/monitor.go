@@ -474,16 +474,8 @@ x:
 
 	contentLength := resp.Header.Get("Content-Length")
 
-	if resp.StatusCode == 404 {
-		mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("File not found %s (error 404)", file))
-		if GetConfig().DisableOnMissingFile {
-			mirrors.DisableMirror(m.redis, mirror.ID)
-		}
-		log.Errorf(format+"Error: File %s not found (error 404)", mirror.ID, file)
-	} else if resp.StatusCode != 200 {
-		mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", resp.StatusCode))
-		log.Warningf(format+"Down! Status: %d", mirror.ID, resp.StatusCode)
-	} else {
+	switch resp.StatusCode {
+	case 200:
 		mirrors.MarkMirrorUp(m.redis, mirror.ID)
 		rsize, err := strconv.ParseInt(contentLength, 10, 64)
 		if err == nil && rsize != size {
@@ -491,6 +483,15 @@ x:
 		} else {
 			log.Noticef(format+"Up! (%dms)", mirror.ID, elapsed/time.Millisecond)
 		}
+	case 404:
+		mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("File not found %s (error 404)", file))
+		if GetConfig().DisableOnMissingFile {
+			mirrors.DisableMirror(m.redis, mirror.ID)
+		}
+		log.Errorf(format+"Error: File %s not found (error 404)", mirror.ID, file)
+	default:
+		mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", resp.StatusCode))
+		log.Warningf(format+"Down! Status: %d", mirror.ID, resp.StatusCode)
 	}
 	return nil
 }
