@@ -4,6 +4,7 @@
 package daemon
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/etix/mirrorbits/cli"
@@ -128,9 +129,10 @@ func (m *Monitor) Wait() {
 // Return an error if the endpoint is an unauthorized redirect
 func checkRedirect(req *http.Request, via []*http.Request) error {
 	if GetConfig().DisallowRedirects {
+		mid := req.Context().Value("mid")
 		for _, r := range via {
 			if r.URL != nil {
-				log.Warningf("Unauthorized redirection to %s from %s", req.URL.String(), r.URL.String())
+				log.Warningf("Unauthorized redirection for %s: %s => %s", mid, r.URL.String(), req.URL.String())
 			}
 		}
 		return redirectError
@@ -412,9 +414,6 @@ func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 	// Format log output
 	format := "%-" + fmt.Sprintf("%d.%ds", m.formatLongestID+4, m.formatLongestID+4)
 
-	// Copy the stop channel to make it nilable locally
-	stopflag := m.stop
-
 	// Get the URL to a random file available on this mirror
 	file, size, err := m.getRandomFile(mirror.ID)
 	if err != nil {
@@ -431,37 +430,31 @@ func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 	req.Header.Set("User-Agent", userAgent)
 	req.Close = true
 
-	done := make(chan bool)
-	var resp *http.Response
-	var elapsed time.Duration
+	ctx, cancel := context.WithTimeout(req.Context(), clientDeadline)
+	ctx = context.WithValue(ctx, "mid", mirror.ID)
+	req = req.WithContext(ctx)
+	defer cancel()
 
-	// Execute the request inside a goroutine to allow aborting the request
 	go func() {
-		start := time.Now()
-		resp, err = m.httpClient.Do(req)
-		elapsed = time.Since(start)
-
-		if err == nil {
-			resp.Body.Close()
+		select {
+		case <-m.stop:
+			log.Debugf("Aborting health-check for %s", mirror.HttpURL)
+			cancel()
+		case <-ctx.Done():
 		}
-
-		done <- true
 	}()
 
-x:
-	for {
-		select {
-		case <-stopflag:
-			log.Debugf("Aborting health-check for %s", mirror.HttpURL)
-			m.httpTransport.CancelRequest(req)
-			stopflag = nil
-		case <-done:
-			if utils.IsStopped(m.stop) {
-				return nil
-			}
-			break x
+	var contentLength string
+	var statusCode int
+	elapsed, err := m.httpDo(ctx, req, func(resp *http.Response, err error) error {
+		if err != nil {
+			return err
 		}
-	}
+		defer resp.Body.Close()
+		statusCode = resp.StatusCode
+		contentLength = resp.Header.Get("Content-Length")
+		return nil
+	})
 
 	if err != nil {
 		if opErr, ok := err.(*net.OpError); ok {
@@ -472,9 +465,7 @@ x:
 		return err
 	}
 
-	contentLength := resp.Header.Get("Content-Length")
-
-	switch resp.StatusCode {
+	switch statusCode {
 	case 200:
 		mirrors.MarkMirrorUp(m.redis, mirror.ID)
 		rsize, err := strconv.ParseInt(contentLength, 10, 64)
@@ -490,10 +481,31 @@ x:
 		}
 		log.Errorf(format+"Error: File %s not found (error 404)", mirror.ID, file)
 	default:
-		mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", resp.StatusCode))
-		log.Warningf(format+"Down! Status: %d", mirror.ID, resp.StatusCode)
+		mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", statusCode))
+		log.Warningf(format+"Down! Status: %d", mirror.ID, statusCode)
 	}
 	return nil
+}
+
+func (m *Monitor) httpDo(ctx context.Context, req *http.Request, f func(*http.Response, error) error) (time.Duration, error) {
+	var elapsed time.Duration
+	c := make(chan error, 1)
+
+	go func() {
+		start := time.Now()
+		err := f(m.httpClient.Do(req))
+		elapsed = time.Since(start)
+		c <- err
+	}()
+
+	select {
+	case <-ctx.Done():
+		m.httpTransport.CancelRequest(req)
+		<-c // Wait for f to return.
+		return elapsed, ctx.Err()
+	case err := <-c:
+		return elapsed, err
+	}
 }
 
 // Get a random filename known to be served by the given mirror
