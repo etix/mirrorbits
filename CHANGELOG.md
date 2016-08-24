@@ -1,3 +1,27 @@
+## master
+
+### FEATURES
+
+- Allow negative scores to reduce the weight of a mirror
+
+### ENHANCEMENTS
+
+- Support password protected rsync URLs
+- Allow https URLs when adding a mirror
+- Display location and score in the list output
+- Display mirror status in the stats output
+- Improvements in the selection algorithm
+- Load OSM tiles using https
+- Keep the list of mirrors sorted by score in the mirrorlist
+- Set cache-control to disable caching
+- Log unauthorized redirection from a mirror
+- Improved error reporting
+
+### BUGFIXES
+
+- Fix a possible crash while Redis is loading the dataset
+- Fix a race condition when updating mirrors state
+
 ## v0.3
 
 ### FEATURES
