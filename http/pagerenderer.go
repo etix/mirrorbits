@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/etix/mirrorbits/mirrors"
+	. "github.com/etix/mirrorbits/config"
 	"net/http"
 	"sort"
 	"strconv"
@@ -66,13 +67,21 @@ func (w *RedirectRenderer) Write(ctx *Context, results *mirrors.Results) (status
 
 		path := strings.TrimPrefix(results.FileInfo.Path, "/")
 
-		// Generate the header alternative links
-		for i, m := range results.MirrorList[1:] {
-			var countryCode string
-			if len(m.CountryFields) > 0 {
-				countryCode = strings.ToLower(m.CountryFields[0])
+		mh := len(results.MirrorList)
+		maxheaders := GetConfig().MaxLinkHeaders
+		if mh > maxheaders + 1 {
+			mh = maxheaders + 1
+		}
+
+		if mh >= 1 {
+			// Generate the header alternative links
+			for i, m := range results.MirrorList[1:mh] {
+				var countryCode string
+				if len(m.CountryFields) > 0 {
+					countryCode = strings.ToLower(m.CountryFields[0])
+				}
+				ctx.ResponseWriter().Header().Add("Link", fmt.Sprintf("<%s>; rel=duplicate; pri=%d; geo=%s", m.HttpURL+path, i+1, countryCode))
 			}
-			ctx.ResponseWriter().Header().Add("Link", fmt.Sprintf("<%s>; rel=duplicate; pri=%d; geo=%s", m.HttpURL+path, i+1, countryCode))
 		}
 
 		// Finally issue the redirect
