@@ -10,6 +10,7 @@ import (
 	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"regexp"
@@ -25,19 +26,37 @@ type RsyncScanner struct {
 	scan *scan
 }
 
-func (r *RsyncScanner) Scan(url, identifier string, conn redis.Conn, stop chan bool) error {
-	if !strings.HasPrefix(url, "rsync://") {
-		return fmt.Errorf("%s does not start with rsync://", url)
+func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop chan bool) error {
+	var env []string
+
+	if !strings.HasPrefix(rsyncURL, "rsync://") {
+		return fmt.Errorf("%s does not start with rsync://", rsyncURL)
 	}
 
-	// Always ensures there's a trailing slash
-	if url[len(url)-1] != '/' {
-		url = url + "/"
+	u, err := url.Parse(rsyncURL)
+	if err != nil {
+		return err
 	}
 
-	cmd := exec.Command("rsync", "-r", "--no-motd", "--timeout=30", "--contimeout=30", url)
+	// Extract the credentials
+	if u.User != nil {
+		if u.User.Username() != "" {
+			env = append(env, fmt.Sprintf("USER=%s", u.User.Username()))
+		}
+		if password, ok := u.User.Password(); ok {
+			env = append(env, fmt.Sprintf("RSYNC_PASSWORD=%s", password))
+		}
+
+		// Remove the credentials from the URL as we pass them through the environnement
+		u.User = nil
+	}
+
+	cmd := exec.Command("rsync", "-r", "--no-motd", "--timeout=30", "--contimeout=30", u.String())
+
+	// Setup the environnement
+	cmd.Env = env
+
 	stdout, err := cmd.StdoutPipe()
-
 	if err != nil {
 		return err
 	}
