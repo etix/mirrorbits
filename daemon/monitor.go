@@ -130,7 +130,7 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 	if GetConfig().DisallowRedirects {
 		for _, r := range via {
 			if r.URL != nil {
-				log.Warning("Unauthorized redirection from %s via: %s", req.URL.String(), r.URL.String())
+				log.Warningf("Unauthorized redirection from %s via: %s", req.URL.String(), r.URL.String())
 			}
 		}
 		return redirectError
