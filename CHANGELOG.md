@@ -15,6 +15,7 @@
 - Keep the list of mirrors sorted by score in the mirrorlist
 - Set cache-control to disable caching
 - Log unauthorized redirection from a mirror
+- New option to set the maximum number of backup mirrors to return in link headers
 - Improved error reporting
 
 ### BUGFIXES
