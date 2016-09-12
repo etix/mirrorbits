@@ -170,11 +170,13 @@ func (m *Monitor) MonitorLoop() {
 
 	// Start the health check routines
 	for i := 0; i < healthCheckThreads; i++ {
+		m.wg.Add(1)
 		go m.healthCheckLoop()
 	}
 
 	// Start the mirror sync routines
 	for i := 0; i < GetConfig().ConcurrentSync; i++ {
+		m.wg.Add(1)
 		go m.syncLoop()
 	}
 
@@ -297,7 +299,6 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) error {
 // Main health check loop
 // TODO merge with the monitorLoop?
 func (m *Monitor) healthCheckLoop() {
-	m.wg.Add(1)
 	defer m.wg.Done()
 	for {
 		select {
@@ -341,7 +342,6 @@ func (m *Monitor) healthCheckLoop() {
 // Main sync loop
 // TODO merge with the monitorLoop?
 func (m *Monitor) syncLoop() {
-	m.wg.Add(1)
 	defer m.wg.Done()
 	for {
 		select {
