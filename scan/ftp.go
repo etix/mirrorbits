@@ -118,6 +118,9 @@ func (f *FTPScanner) walkFtp(c *ftp.ServerConn, files []*filedata, path string, 
 			newf.size = int64(e.Size)
 			files = append(files, newf)
 		} else if e.Type == ftp.EntryTypeFolder {
+			if e.Name == "." || e.Name == ".." {
+				continue
+			}
 			files, err = f.walkFtp(c, files, path+e.Name+"/", stop)
 			if err != nil {
 				return files, err
