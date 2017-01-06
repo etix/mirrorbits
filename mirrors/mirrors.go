@@ -6,6 +6,7 @@ package mirrors
 import (
 	"bytes"
 	"fmt"
+	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/network"
@@ -183,6 +184,10 @@ func SetMirrorState(r *database.Redis, id string, state bool, reason string) err
 func GetMirrorMapUrl(mirrors Mirrors, clientInfo network.GeoIPRecord) string {
 	var buffer bytes.Buffer
 	buffer.WriteString("//maps.googleapis.com/maps/api/staticmap?size=520x320&sensor=false&visual_refresh=true")
+
+	if key := GetConfig().GoogleMapsAPIKey; key != "" {
+		buffer.WriteString(fmt.Sprintf("&key=%s", key))
+	}
 
 	if clientInfo.IsValid() {
 		buffer.WriteString(fmt.Sprintf("&markers=size:mid|color:red|%f,%f", clientInfo.Latitude, clientInfo.Longitude))

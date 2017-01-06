@@ -41,6 +41,7 @@ var (
 		DisallowRedirects:       false,
 		WeightDistributionRange: 1.5,
 		DisableOnMissingFile:    false,
+		GoogleMapsAPIKey:        "",
 	}
 	config      *configuration
 	configMutex sync.RWMutex
@@ -73,6 +74,8 @@ type configuration struct {
 
 	RedisSentinelMasterName string      `yaml:"RedisSentinelMasterName"`
 	RedisSentinels          []sentinels `yaml:"RedisSentinels"`
+
+	GoogleMapsAPIKey string `yaml:"GoogleMapsAPIKey"`
 }
 
 type fallback struct {

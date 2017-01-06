@@ -74,6 +74,7 @@ Option | description
 ------ | -----------
 Repository | Path to your own copy of the repository
 Templates | Path containing the templates
+GoogleMapsAPIKey | Google Maps API key that you can [obtain here](https://developers.google.com/maps/documentation/javascript/get-api-key).
 OutputMode | auto: based on the *Accept* header content<br>redirect: do an HTTP redirect to the destination<br>json: return a JSON formatted document (also known as API mode)
 ListenAddress | Local address and port to bind
 Gzip | Use gzip compression for the JSON responses
