@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
-	"strings"
+	"path/filepath"
 	"sync"
 )
 
@@ -137,7 +137,10 @@ func ReloadConfig() error {
 	if !isInSlice(c.OutputMode, []string{"auto", "json", "redirect"}) {
 		return fmt.Errorf("Config: outputMode can only be set to 'auto', 'json' or 'redirect'")
 	}
-	c.Repository = strings.TrimRight(c.Repository, "/")
+	c.Repository, err = filepath.Abs(c.Repository)
+	if err != nil {
+		return fmt.Errorf("Invalid local repository path: %s", err)
+	}
 	if c.RepositoryScanInterval < 0 {
 		c.RepositoryScanInterval = 0
 	}
