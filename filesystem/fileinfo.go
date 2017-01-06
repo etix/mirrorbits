@@ -17,3 +17,10 @@ type FileInfo struct {
     Sha256  string    `redis:"sha256" json:",omitempty"`
     Md5     string    `redis:"md5" json:",omitempty"`
 }
+
+// NewFileInfo returns a new FileInfo object
+func NewFileInfo(path string) FileInfo {
+    return FileInfo{
+        Path: path,
+    }
+}

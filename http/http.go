@@ -218,9 +218,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		return
 	}
 
-	fileInfo := filesystem.FileInfo{
-		Path: urlPath,
-	}
+	fileInfo := filesystem.NewFileInfo(urlPath)
 
 	remoteIP := network.ExtractRemoteIP(r.Header.Get("X-Forwarded-For"))
 	if len(remoteIP) == 0 {
