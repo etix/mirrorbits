@@ -456,6 +456,10 @@ func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 		return nil
 	})
 
+	if utils.IsStopped(m.stop) {
+		return nil
+	}
+
 	if err != nil {
 		if opErr, ok := err.(*net.OpError); ok {
 			log.Debugf("Op: %s | Net: %s | Addr: %s | Err: %s | Temporary: %t", opErr.Op, opErr.Net, opErr.Addr, opErr.Error(), opErr.Temporary())
