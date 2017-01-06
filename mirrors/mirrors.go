@@ -20,7 +20,7 @@ import (
 type Mirror struct {
 	ID                 string   `redis:"ID" yaml:"-"`
 	HttpURL            string   `redis:"http" yaml:"HttpURL"`
-	RsyncURL           string   `redis:"rsync" yaml:"RsyncURL"`
+	RsyncURL           string   `redis:"rsync" json:"-" yaml:"RsyncURL"`
 	FtpURL             string   `redis:"ftp" yaml:"FtpURL"`
 	SponsorName        string   `redis:"sponsorName" yaml:"SponsorName"`
 	SponsorURL         string   `redis:"sponsorURL" yaml:"SponsorURL"`
