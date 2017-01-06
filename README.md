@@ -121,6 +121,14 @@ Enable the mirror:
 mirrorbits enable mirrors.example
 ```
 
+### Realtime file availability
+
+By appending `?mirrorlist` to any file served by mirrorbits, you'll be able to get some useful realtime informations about the given file. You can see a [live example here](https://get.videolan.org/vlc/2.2.4/win32/vlc-2.2.4-win32.exe?mirrorlist).
+
+### Realtime mirrors statistics
+
+Mirror statistics are available by querying mirrorbits with the `?mirrorstats` argument. You can see a [live example here](https://get.videolan.org/?mirrorstats).
+
 ## Clustering / High availability
 
 **Note: Clustering support has been added recently and should be treated as experimental.**
