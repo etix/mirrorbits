@@ -22,14 +22,15 @@ const (
 type cluster struct {
 	redis *database.Redis
 
-	nodes        []Node
-	nodeIndex    int
-	nodeTotal    int
-	nodesLock    sync.RWMutex
-	mirrorsIndex []string
-	stop         chan bool
-	wg           sync.WaitGroup
-	running      bool
+	nodes         []Node
+	nodeIndex     int
+	nodeTotal     int
+	nodesLock     sync.RWMutex
+	mirrorsIndex  []string
+	stop          chan bool
+	wg            sync.WaitGroup
+	running       bool
+	StartStopLock sync.Mutex
 }
 
 type Node struct {
@@ -53,6 +54,9 @@ func NewCluster(r *database.Redis) *cluster {
 }
 
 func (c *cluster) Start() {
+	c.StartStopLock.Lock()
+	defer c.StartStopLock.Unlock()
+
 	if c.running == true {
 		return
 	}
@@ -64,6 +68,9 @@ func (c *cluster) Start() {
 }
 
 func (c *cluster) Stop() {
+	c.StartStopLock.Lock()
+	defer c.StartStopLock.Unlock()
+
 	select {
 	case _, _ = <-c.stop:
 		return
