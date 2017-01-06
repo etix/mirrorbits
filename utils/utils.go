@@ -140,6 +140,13 @@ func GetHostname() string {
 	return hostname
 }
 
+func ConcatURL(url, path string) string {
+	if strings.HasSuffix(url, "/") && strings.HasPrefix(path, "/") {
+		return url[:len(url)-1] + path
+	}
+	return url + path
+}
+
 // TimeKeyCoverage returns a slice of strings covering the date range
 // used in the redis backend.
 func TimeKeyCoverage(start, end time.Time) (dates []string) {
