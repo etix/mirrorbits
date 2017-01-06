@@ -207,14 +207,19 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 	//XXX it would be safer to recover in case of panic
 
-	// Check if the file exists in the local repository
-	if _, err := os.Stat(GetConfig().Repository + r.URL.Path); err != nil {
-		http.NotFound(w, r)
+	// Sanitize path
+	urlPath, err := filesystem.EvaluateFilePath(GetConfig().Repository, r.URL.Path)
+	if err != nil {
+		if err == filesystem.ErrOutsideRepo {
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}
 
 	fileInfo := filesystem.FileInfo{
-		Path: r.URL.Path,
+		Path: urlPath,
 	}
 
 	remoteIP := network.ExtractRemoteIP(r.Header.Get("X-Forwarded-For"))
