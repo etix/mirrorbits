@@ -4,16 +4,16 @@
 package filesystem
 
 import (
-	"time"
+    "time"
 )
 
 // FileInfo is a struct embedding details about a file served by
 // the redirector.
 type FileInfo struct {
-	Path    string    `redis:"-"`
-	Size    int64     `redis:"size" json:",omitempty"`
-	ModTime time.Time `redis:"modTime" json:",omitempty"`
-	Sha1    string    `redis:"sha1" json:",omitempty"`
-	Sha256  string    `redis:"sha256" json:",omitempty"`
-	Md5     string    `redis:"md5" json:",omitempty"`
+    Path    string    `redis:"-"`
+    Size    int64     `redis:"size" json:",omitempty"`
+    ModTime time.Time `redis:"modTime" json:",omitempty"`
+    Sha1    string    `redis:"sha1" json:",omitempty"`
+    Sha256  string    `redis:"sha256" json:",omitempty"`
+    Md5     string    `redis:"md5" json:",omitempty"`
 }

@@ -8,8 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/etix/mirrorbits/mirrors"
 	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/mirrors"
 	"net/http"
 	"sort"
 	"strconv"
@@ -69,7 +69,7 @@ func (w *RedirectRenderer) Write(ctx *Context, results *mirrors.Results) (status
 
 		mh := len(results.MirrorList)
 		maxheaders := GetConfig().MaxLinkHeaders
-		if mh > maxheaders + 1 {
+		if mh > maxheaders+1 {
 			mh = maxheaders + 1
 		}
 
@@ -111,7 +111,7 @@ func (w *MirrorListRenderer) Write(ctx *Context, results *mirrors.Results) (stat
 	// Create a temporary output buffer to render the page
 	var buf bytes.Buffer
 
-	// Generate the URL to the map
+	// Generate the URL for the map
 	results.MapURL = mirrors.GetMirrorMapUrl(results.MirrorList, results.ClientInfo)
 	ctx.ResponseWriter().Header().Set("Content-Type", "text/html; charset=utf-8")
 
