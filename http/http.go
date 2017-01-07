@@ -317,6 +317,7 @@ func (h *HTTP) LoadTemplates(name string) (t *template.Template, err error) {
 		"add":       utils.Add,
 		"sizeof":    utils.ReadableSize,
 		"version":   utils.Version,
+		"hostname":  utils.Hostname,
 		"concaturl": utils.ConcatURL,
 	})
 	t, err = t.ParseFiles(

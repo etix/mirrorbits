@@ -59,6 +59,11 @@ func Version() string {
 	return core.VERSION
 }
 
+func Hostname() string {
+	hostname, _ := os.Hostname()
+	return hostname
+}
+
 // Return true is `a` is contained in `list`
 // Warning: this is slow, don't use it for long datasets
 func IsInSlice(a string, list []string) bool {
