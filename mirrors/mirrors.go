@@ -18,37 +18,38 @@ import (
 
 // Mirror is the structure representing all the information about a mirror
 type Mirror struct {
-	ID                 string   `redis:"ID" yaml:"-"`
-	HttpURL            string   `redis:"http" yaml:"HttpURL"`
-	RsyncURL           string   `redis:"rsync" yaml:"RsyncURL"`
-	FtpURL             string   `redis:"ftp" yaml:"FtpURL"`
-	SponsorName        string   `redis:"sponsorName" yaml:"SponsorName"`
-	SponsorURL         string   `redis:"sponsorURL" yaml:"SponsorURL"`
-	SponsorLogoURL     string   `redis:"sponsorLogo" yaml:"SponsorLogoURL"`
-	AdminName          string   `redis:"adminName" yaml:"AdminName"`
-	AdminEmail         string   `redis:"adminEmail" yaml:"AdminEmail"`
-	CustomData         string   `redis:"customData" yaml:"CustomData"`
-	ContinentOnly      bool     `redis:"continentOnly" yaml:"ContinentOnly"`
-	CountryOnly        bool     `redis:"countryOnly" yaml:"CountryOnly"`
-	ASOnly             bool     `redis:"asOnly" yaml:"ASOnly"`
-	Score              int      `redis:"score" yaml:"Score"`
-	Latitude           float32  `redis:"latitude" yaml:"Latitude"`
-	Longitude          float32  `redis:"longitude" yaml:"Longitude"`
-	ContinentCode      string   `redis:"continentCode" yaml:"ContinentCode"`
-	CountryCodes       string   `redis:"countryCodes" yaml:"CountryCodes"`
-	Asnum              int      `redis:"asnum" yaml:"ASNum"`
-	Comment            string   `redis:"comment" yaml:"-"`
-	Enabled            bool     `redis:"enabled" yaml:"Enabled"`
-	Up                 bool     `redis:"up" json:"-" yaml:"-"`
-	ExcludeReason      string   `redis:"excludeReason" json:",omitempty" yaml:"-"`
-	StateSince         int64    `redis:"stateSince" json:",omitempty" yaml:"-"`
-	Distance           float32  `redis:"-" yaml:"-"`
-	CountryFields      []string `redis:"-" json:"-" yaml:"-"`
-	Filepath           string   `redis:"-" json:"-" yaml:"-"`
-	Weight             float32  `redis:"-" json:"-" yaml:"-"`
-	ComputedScore      int      `redis:"-" yaml:"-"`
-	LastSync           int64    `redis:"lastSync" yaml:"-"`
-	LastSuccessfulSync int64    `redis:"lastSuccessfulSync" yaml:"-"`
+	ID                 string    `redis:"ID" yaml:"-"`
+	HttpURL            string    `redis:"http" yaml:"HttpURL"`
+	RsyncURL           string    `redis:"rsync" yaml:"RsyncURL"`
+	FtpURL             string    `redis:"ftp" yaml:"FtpURL"`
+	SponsorName        string    `redis:"sponsorName" yaml:"SponsorName"`
+	SponsorURL         string    `redis:"sponsorURL" yaml:"SponsorURL"`
+	SponsorLogoURL     string    `redis:"sponsorLogo" yaml:"SponsorLogoURL"`
+	AdminName          string    `redis:"adminName" yaml:"AdminName"`
+	AdminEmail         string    `redis:"adminEmail" yaml:"AdminEmail"`
+	CustomData         string    `redis:"customData" yaml:"CustomData"`
+	ContinentOnly      bool      `redis:"continentOnly" yaml:"ContinentOnly"`
+	CountryOnly        bool      `redis:"countryOnly" yaml:"CountryOnly"`
+	ASOnly             bool      `redis:"asOnly" yaml:"ASOnly"`
+	Score              int       `redis:"score" yaml:"Score"`
+	Latitude           float32   `redis:"latitude" yaml:"Latitude"`
+	Longitude          float32   `redis:"longitude" yaml:"Longitude"`
+	ContinentCode      string    `redis:"continentCode" yaml:"ContinentCode"`
+	CountryCodes       string    `redis:"countryCodes" yaml:"CountryCodes"`
+	Asnum              int       `redis:"asnum" yaml:"ASNum"`
+	Comment            string    `redis:"comment" yaml:"-"`
+	Enabled            bool      `redis:"enabled" yaml:"Enabled"`
+	Up                 bool      `redis:"up" json:"-" yaml:"-"`
+	ExcludeReason      string    `redis:"excludeReason" json:",omitempty" yaml:"-"`
+	StateSince         int64     `redis:"stateSince" json:",omitempty" yaml:"-"`
+	AllowRedirects     Redirects `redis:"allowredirects" json:",omitempty" yaml:"AllowRedirects"`
+	Distance           float32   `redis:"-" yaml:"-"`
+	CountryFields      []string  `redis:"-" json:"-" yaml:"-"`
+	Filepath           string    `redis:"-" json:"-" yaml:"-"`
+	Weight             float32   `redis:"-" json:"-" yaml:"-"`
+	ComputedScore      int       `redis:"-" yaml:"-"`
+	LastSync           int64     `redis:"lastSync" yaml:"-"`
+	LastSuccessfulSync int64     `redis:"lastSuccessfulSync" yaml:"-"`
 
 	FileInfo *filesystem.FileInfo `redis:"-" json:"-" yaml:"-"` // Details of the requested file on this specific mirror
 }
@@ -224,4 +225,50 @@ type Results struct {
 	MirrorList   Mirrors
 	ExcludedList Mirrors `json:",omitempty"`
 	Fallback     bool    `json:",omitempty"`
+}
+
+// Redirects is handling the per-mirror authorization of HTTP redirects
+type Redirects int
+
+// Allowed will return true if redirects are authorized for this mirror
+func (r *Redirects) Allowed() bool {
+	switch *r {
+	case 1:
+		return true
+	case 2:
+		return false
+	default:
+		return GetConfig().DisallowRedirects == false
+	}
+}
+
+// MarshalYAML converts internal values to YAML
+func (r Redirects) MarshalYAML() (interface{}, error) {
+	var b *bool
+	switch r {
+	case 1:
+		v := true
+		b = &v
+	case 2:
+		v := false
+		b = &v
+	default:
+	}
+	return b, nil
+}
+
+// UnmarshalYAML converts YAML to internal values
+func (r *Redirects) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var b *bool
+	if err := unmarshal(&b); err != nil {
+		return err
+	}
+	if b == nil {
+		*r = 0
+	} else if *b == true {
+		*r = 1
+	} else {
+		*r = 2
+	}
+	return nil
 }

@@ -792,6 +792,7 @@ reopen:
 		"countryCodes", mirror.CountryCodes,
 		"asnum", mirror.Asnum,
 		"comment", mirror.Comment,
+		"allowredirects", mirror.AllowRedirects,
 		"enabled", mirror.Enabled)
 
 	if err != nil {

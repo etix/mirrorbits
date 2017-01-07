@@ -128,16 +128,19 @@ func (m *Monitor) Wait() {
 
 // Return an error if the endpoint is an unauthorized redirect
 func checkRedirect(req *http.Request, via []*http.Request) error {
-	if GetConfig().DisallowRedirects {
-		mid := req.Context().Value("mid")
-		for _, r := range via {
-			if r.URL != nil {
-				log.Warningf("Unauthorized redirection for %s: %s => %s", mid, r.URL.String(), req.URL.String())
-			}
-		}
-		return redirectError
+	redirects := req.Context().Value("allowredirects").(mirrors.Redirects)
+
+	if redirects.Allowed() {
+		return nil
 	}
-	return nil
+
+	mid := req.Context().Value("mid")
+	for _, r := range via {
+		if r.URL != nil {
+			log.Warningf("Unauthorized redirection for %s: %s => %s", mid, r.URL.String(), req.URL.String())
+		}
+	}
+	return redirectError
 }
 
 // Main monitor loop
@@ -432,6 +435,7 @@ func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 
 	ctx, cancel := context.WithTimeout(req.Context(), clientDeadline)
 	ctx = context.WithValue(ctx, "mid", mirror.ID)
+	ctx = context.WithValue(ctx, "allowredirects", mirror.AllowRedirects)
 	req = req.WithContext(ctx)
 	defer cancel()
 
