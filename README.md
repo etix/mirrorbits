@@ -1,7 +1,7 @@
 Mirrorbits
 ===========
 
-Mirrorbits is a geographical download redirector written in [Go](www.golang.org) for distributing files efficiently across a set of mirrors. It offers a simple and economic way to create a Content Delivery Network layer using a pure software stack. It is primarily designed for the distribution of large-scale Open-Source projects with a lot of traffic.
+Mirrorbits is a geographical download redirector written in [Go](https://golang.org) for distributing files efficiently across a set of mirrors. It offers a simple and economic way to create a Content Delivery Network layer using a pure software stack. It is primarily designed for the distribution of large-scale Open-Source projects with a lot of traffic.
 
 ![mirrorbits_screenshot](https://cloud.githubusercontent.com/assets/38853/3636687/ab6bba38-0fd8-11e4-9d69-01543ed2531a.png)
 
