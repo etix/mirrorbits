@@ -5,6 +5,7 @@ package utils
 
 import (
 	"github.com/etix/geoip"
+	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/network"
 	"strings"
 	"testing"
@@ -53,6 +54,18 @@ func TestMax(t *testing.T) {
 func TestAdd(t *testing.T) {
 	if r := Add(2, 40); r != 42 {
 		t.Fatalf("Expected 42, got %d", r)
+	}
+}
+
+func TestVersion(t *testing.T) {
+	if r := Version(); len(r) == 0 || r != core.VERSION {
+		t.Fatalf("Expected %s, got %s", core.VERSION, r)
+	}
+}
+
+func TestHostname(t *testing.T) {
+	if r := Hostname(); len(r) == 0 {
+		t.Fatalf("Expected a valid hostname")
 	}
 }
 
@@ -146,7 +159,7 @@ func TestReadableSize(t *testing.T) {
 	ivalues := []int64{0, 1, 1024, 1000000}
 	svalues := []string{"0.0 bytes", "1.0 bytes", "1.0 KB", "976.6 KB"}
 
-	for i, _ := range ivalues {
+	for i := range ivalues {
 		if r := ReadableSize(ivalues[i]); r != svalues[i] {
 			t.Fatalf("Expected %q, got %q", svalues[i], r)
 		}
@@ -184,6 +197,15 @@ func TestPlural(t *testing.T) {
 	}
 	if Plural(0) != "" {
 		t.Fatalf("Expected '', got 's'")
+	}
+}
+
+func TestConcatURL(t *testing.T) {
+	part1 := "http://test.example/somedir/"
+	part2 := "/somefile.bin"
+	result := "http://test.example/somedir/somefile.bin"
+	if r := ConcatURL(part1, part2); r != result {
+		t.Fatalf("Expected %s, got %s", result, r)
 	}
 }
 
