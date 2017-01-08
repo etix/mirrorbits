@@ -141,6 +141,9 @@ func ConcatURL(url, path string) string {
 	if strings.HasSuffix(url, "/") && strings.HasPrefix(path, "/") {
 		return url[:len(url)-1] + path
 	}
+	if !strings.HasSuffix(url, "/") && !strings.HasPrefix(path, "/") {
+		return url + "/" + path
+	}
 	return url + path
 }
 

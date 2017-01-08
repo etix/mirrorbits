@@ -206,6 +206,20 @@ func TestConcatURL(t *testing.T) {
 	if r := ConcatURL(part1, part2); r != result {
 		t.Fatalf("Expected %s, got %s", result, r)
 	}
+
+	part1 = "http://test.example/somedir"
+	part2 = "/somefile.bin"
+	result = "http://test.example/somedir/somefile.bin"
+	if r := ConcatURL(part1, part2); r != result {
+		t.Fatalf("Expected %s, got %s", result, r)
+	}
+
+	part1 = "http://test.example/somedir"
+	part2 = "somefile.bin"
+	result = "http://test.example/somedir/somefile.bin"
+	if r := ConcatURL(part1, part2); r != result {
+		t.Fatalf("Expected %s, got %s", result, r)
+	}
 }
 
 func TestTimeKeyCoverage(t *testing.T) {
