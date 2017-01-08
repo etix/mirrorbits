@@ -86,7 +86,10 @@ func (c *cluster) clusterLoop() {
 	clusterChan := make(chan string, 10)
 	announceTicker := time.NewTicker(1 * time.Second)
 
-	hostname := utils.GetHostname()
+	hostname := utils.Hostname()
+	if len(hostname) == 0 {
+		hostname = "unknown"
+	}
 	nodeID := fmt.Sprintf("%s-%05d", hostname, rand.Intn(32000))
 
 	c.refreshNodeList(nodeID, nodeID)

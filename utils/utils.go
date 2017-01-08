@@ -137,14 +137,6 @@ func Plural(value interface{}) string {
 	return ""
 }
 
-func GetHostname() string {
-	hostname, err := os.Hostname()
-	if err != nil {
-		hostname = "hostname"
-	}
-	return hostname
-}
-
 func ConcatURL(url, path string) string {
 	if strings.HasSuffix(url, "/") && strings.HasPrefix(path, "/") {
 		return url[:len(url)-1] + path

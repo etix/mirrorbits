@@ -7,7 +7,6 @@ import (
 	"github.com/etix/geoip"
 	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/network"
-	"strings"
 	"testing"
 	"time"
 )
@@ -206,15 +205,6 @@ func TestConcatURL(t *testing.T) {
 	result := "http://test.example/somedir/somefile.bin"
 	if r := ConcatURL(part1, part2); r != result {
 		t.Fatalf("Expected %s, got %s", result, r)
-	}
-}
-
-func TestGetHostname(t *testing.T) {
-	if len(GetHostname()) == 0 {
-		t.Fatalf("Expected something, got nothing")
-	}
-	if strings.Contains(GetHostname(), " ") {
-		t.Fatalf("Expected no space, got a least one space")
 	}
 }
 
