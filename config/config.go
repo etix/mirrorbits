@@ -17,7 +17,7 @@ import (
 var (
 	log = logging.MustGetLogger("main")
 
-	defaultConfig = configuration{
+	defaultConfig = Configuration{
 		Repository:             "",
 		Templates:              "",
 		OutputMode:             "auto",
@@ -43,14 +43,14 @@ var (
 		DisableOnMissingFile:    false,
 		GoogleMapsAPIKey:        "",
 	}
-	config      *configuration
+	config      *Configuration
 	configMutex sync.RWMutex
 
 	subscribers     []chan bool
 	subscribersLock sync.RWMutex
 )
 
-type configuration struct {
+type Configuration struct {
 	Repository              string     `yaml:"Repository"`
 	Templates               string     `yaml:"Templates"`
 	OutputMode              string     `yaml:"OutputMode"`
@@ -169,7 +169,7 @@ func ReloadConfig() error {
 
 // GetConfig returns a pointer to a configuration object
 // FIXME reading from the pointer could cause a race!
-func GetConfig() *configuration {
+func GetConfig() *Configuration {
 	configMutex.RLock()
 	defer configMutex.RUnlock()
 
@@ -178,6 +178,11 @@ func GetConfig() *configuration {
 	}
 
 	return config
+}
+
+// SetConfiguration is only used for testing purpose
+func SetConfiguration(c *Configuration) {
+	config = c
 }
 
 func SubscribeConfig(subscriber chan bool) {
