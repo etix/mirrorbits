@@ -9,67 +9,75 @@
         <style type="text/css">
             #map { }
             .marker-cluster {
-              border-radius: 50%;
-              opacity: 0.6;
+                border-radius: 50%;
+                opacity: 0.6;
             }
             .marker-good {
-              background-color: green;
+                background-color: green;
             }
             .marker-bad {
-              background-color: red;
+                background-color: red;
             }
             .marker-mixed {
-              background-color: orange;
+                background-color: orange;
             }
             .popup-content {
                 font-size: 0.8em;
             }
-        </style>
 
-        <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-        <script type="text/javascript">
-
-            google.charts.load('current', {packages: ['corechart', 'bar']});
-            google.charts.setOnLoadCallback(drawChart);
-
-            function drawChart() {
-                // Create and populate the data table.
-                var data = google.visualization.arrayToDataTable([
-                    ['Mirror', 'Downloads', '', 'Bytes transferred', ''],
-                    {{range $i, $v := .List}}['{{$v.ID}}', {{$v.Downloads}}, 'Number of downloads: {{$v.Downloads}}', {{$v.Bytes}}, '{{sizeof $v.Bytes}}'],{{end}}
-                ]);
-
-                // Defines tooltip columns
-                data.setColumnProperty(2, 'role', 'tooltip');
-                data.setColumnProperty(4, 'role', 'tooltip');
-
-                // Compute target height
-                var height = data.getNumberOfRows() * 30;
-
-                // Create and draw the visualization.
-                new google.visualization.BarChart(document.getElementById('chart_div')).
-                draw(data, {
-                    title:"Mirrors usage (today)",
-                    height: height,
-                    chartArea: {'width': '40%', 'height': '95%'},
-                    vAxis: {title: "Mirrors"},
-                    hAxis: {title: "Downloads"},
-                    series:{
-                        1:{
-                            targetAxisIndex:1
-                        },
-                        2:{
-                            targetAxisIndex:2
-                        }
-                    }
-                });
+            .tooltip {
+                position: relative;
+                display: inline-block;
+                opacity: 0.8;
             }
-        </script>
+
+            .tooltip .tooltiptext {
+                visibility: hidden;
+                width: 120px;
+                background-color: black;
+                color: #fff;
+                text-align: center;
+                border-radius: 6px;
+                padding: 5px 0;
+                position: absolute;
+                z-index: 1;
+                top: -16px;
+                left: 110%;
+            }
+
+            .tooltip .tooltiptext::after {
+                content: "";
+                position: absolute;
+                top: 50%;
+                right: 100%;
+                margin-top: -5px;
+                border-width: 5px;
+                border-style: solid;
+                border-color: transparent black transparent transparent;
+            }
+            .tooltip:hover .tooltiptext {
+                visibility: visible;
+            }
+        </style>
 {{end}}
 
 {{define "body"}}
         <div id="map" style="width: 100%; height: 512px;"></div>
-        <div id="chart_div" style="width: 100%;"></div>
+
+
+        <div id="chart">
+            <table>
+                {{range $i, $v := .List}}
+                <tr>
+                    <td rowspan="2">{{$v.ID}}</td>
+                    <td width="500" class="tooltip"><div style="height: 15px; width: {{$v.PercentD}}%; background-color: #4078C0;"><span class="tooltiptext">{{$v.Downloads}}<br>downloads</span></div></td>
+                </tr>
+                <tr>
+                    <td width="500" class="tooltip"><div style="height: 15px; width: {{$v.PercentB}}%; background-color: #7CA2D3;"><span class="tooltiptext">{{sizeof $v.Bytes}}<br>transferred</span></div></td>
+                </tr>
+                {{end}}
+            </table>
+        </div>
 
         <script src="//cdnjs.cloudflare.com/ajax/libs/openlayers/2.13.1/OpenLayers.js"></script>
         <script>

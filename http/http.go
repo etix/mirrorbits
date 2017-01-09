@@ -448,6 +448,8 @@ type MirrorStats struct {
 	ID        string
 	Downloads int64
 	Bytes     int64
+	PercentD  float32
+	PercentB  float32
 }
 
 type MirrorStatsPage struct {
@@ -499,6 +501,8 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 		return
 	}
 
+	var maxdownloads int64
+	var maxbytes int64
 	var results []MirrorStats
 	var index int64
 	for _, id := range mirrorsIDs {
@@ -510,6 +514,14 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 		if v, _ := redis.String(stats[index+1], nil); v != "" {
 			bytes, _ = strconv.ParseInt(v, 10, 64)
 		}
+
+		if downloads > maxdownloads {
+			maxdownloads = downloads
+		}
+		if bytes > maxbytes {
+			maxbytes = bytes
+		}
+
 		s := MirrorStats{
 			ID:        id,
 			Downloads: downloads,
@@ -520,6 +532,11 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	}
 
 	sort.Sort(ByDownloadNumbers{results})
+
+	for i := 0; i < len(results); i++ {
+		results[i].PercentD = float32(results[i].Downloads) * 100 / float32(maxdownloads)
+		results[i].PercentB = float32(results[i].Bytes) * 100 / float32(maxbytes)
+	}
 
 	// </dlstats>
 	// <map>
