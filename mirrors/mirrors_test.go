@@ -6,6 +6,7 @@ package mirrors
 import (
 	"fmt"
 	"github.com/etix/geoip"
+	"github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/network"
 	. "github.com/etix/mirrorbits/testing"
@@ -519,6 +520,8 @@ func TestSetMirrorState(t *testing.T) {
 }
 
 func TestGetMirrorMapUrl(t *testing.T) {
+	config.SetConfiguration(&config.Configuration{})
+
 	m := Mirrors{
 		Mirror{
 			ID:        "M0",
