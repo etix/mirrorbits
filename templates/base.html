@@ -35,7 +35,7 @@
 				padding-bottom: 20px;
 			}
 			#footer {
-				text-align: right;
+				text-align: center;
 				vertical-align: bottom;
 				height: 20px;
 				bottom: 0;
@@ -61,6 +61,45 @@
 				vertical-align: middle;
 				text-align: center;
 			}
+			#container {
+				overflow: hidden;
+				width: 100%;
+			}
+			#left-col {
+				float: left;
+				width: 50%;
+				padding-bottom: 500em;
+				margin-bottom: -500em;
+			}
+			#right-col {
+				float: left;
+				width: 50%;
+				margin-right: -1px;
+				padding-bottom: 500em;
+				margin-bottom: -500em;
+			}
+			tr:nth-child(even) {
+				background-color: #F4F4F4;
+			}
+			tr:nth-child(odd) {
+				background-color: #FAFAFA;
+			}
+			a:link {
+				color: #4078C0;
+				text-decoration: none;
+			}
+			a:visited {
+				color: #4078C0;
+				text-decoration: none;
+			}
+			a:hover {
+				color: #4078C0;
+				text-decoration: underline;
+			}
+			a:active {
+				color: #4078C0;
+				text-decoration: underline;
+			}
 		</style>
 {{template "head" .}}
 	</head>
@@ -76,7 +115,7 @@
 {{template "body" .}}
 			</div>
 			<div id="footer">
-			{{version}} running on {{hostname}}
+			Mirrorbits {{version}} running on {{hostname}}
 			</div>
 		</div>
 	</body>

@@ -147,6 +147,10 @@ func ConcatURL(url, path string) string {
 	return url + path
 }
 
+func FormattedDateUTC(t time.Time) string {
+	return t.UTC().Format(time.RFC1123)
+}
+
 // TimeKeyCoverage returns a slice of strings covering the date range
 // used in the redis backend.
 func TimeKeyCoverage(start, end time.Time) (dates []string) {

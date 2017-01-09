@@ -319,6 +319,7 @@ func (h *HTTP) LoadTemplates(name string) (t *template.Template, err error) {
 		"version":   utils.Version,
 		"hostname":  utils.Hostname,
 		"concaturl": utils.ConcatURL,
+		"dateutc":   utils.FormattedDateUTC,
 	})
 	t, err = t.ParseFiles(
 		filepath.Clean(GetConfig().Templates+"/base.html"),

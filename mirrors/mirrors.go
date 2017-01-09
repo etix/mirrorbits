@@ -184,7 +184,7 @@ func SetMirrorState(r *database.Redis, id string, state bool, reason string) err
 
 func GetMirrorMapUrl(mirrors Mirrors, clientInfo network.GeoIPRecord) string {
 	var buffer bytes.Buffer
-	buffer.WriteString("//maps.googleapis.com/maps/api/staticmap?size=520x320&sensor=false&visual_refresh=true")
+	buffer.WriteString("//maps.googleapis.com/maps/api/staticmap?size=600x320&sensor=false&visual_refresh=true")
 
 	if key := GetConfig().GoogleMapsAPIKey; key != "" {
 		buffer.WriteString(fmt.Sprintf("&key=%s", key))

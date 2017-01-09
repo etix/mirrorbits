@@ -17,7 +17,8 @@
                 width:                          600,
                 height:                         320,
                 chartArea:                      {'width': '90%', 'height': '90%'},
-                sliceVisibilityThreshold:       .01
+                sliceVisibilityThreshold:       .01,
+                is3D: true
             };
 
             // Instantiate and draw our chart, passing in some options.
@@ -28,22 +29,36 @@
 {{end}}
 
 {{define "body"}}
-<h3>Client</h3>
-<div>You are connecting with IP address <i>{{.IP}}</i>, which belongs to autonomous system <i>{{.ClientInfo.ASName}} (ASN{{.ClientInfo.ASNum}})</i>.<br />
-{{if .ClientInfo.GeoIPRecord}}We believe you are {{if .ClientInfo.City}}near <i>{{.ClientInfo.City}}</i> in {{else}}somewhere in {{end}}<i>{{.ClientInfo.CountryName}}</i> and have selected mirrors based on this.{{else}}We were not able to use your IP to approximate your location, so have chosen the mirrors at random.{{end}}
+
+<div id="container">
+    <div id="left-col">
+        <h3>Client</h3>
+        <div>You are connecting with IP address <i>{{.IP}}</i>, which belongs to autonomous system <i>{{.ClientInfo.ASName}} (ASN{{.ClientInfo.ASNum}})</i>.<br />
+        {{if .ClientInfo.GeoIPRecord}}We believe you are {{if .ClientInfo.City}}near <i>{{.ClientInfo.City}}</i> in {{else}}somewhere in {{end}}<i>{{.ClientInfo.CountryName}}</i> and have selected mirrors based on this.{{else}}We were not able to use your IP to approximate your location, so have chosen the mirrors at random.{{end}}</div>
+    </div>
+
+    <div id="right-col">
+        <h3>File</h3>
+        <div>The file <b>{{.FileInfo.Path}}</b> has a size of {{sizeof .FileInfo.Size}} ({{.FileInfo.Size}} bytes) and was last modified on {{dateutc .FileInfo.ModTime}}.</div>
+        <div>
+            <br/>Known hashes:
+            <table>
+                <tr><td>MD5</td><td>{{if .FileInfo.Md5}}{{.FileInfo.Md5}}{{else}}N/A{{end}}</td></tr>
+                <tr><td>SHA1</td><td>{{if .FileInfo.Sha1}}{{.FileInfo.Sha1}}{{else}}N/A{{end}}</td></tr>
+                <tr><td>SHA256</td><td>{{if .FileInfo.Sha256}}{{.FileInfo.Sha256}}{{else}}N/A{{end}}</td></tr>
+            </table>
+        </div>
+        <br/>
+    </div>
 </div>
 
-<h3>Graphs</h3>
-<div style="width: 100%; overflow: hidden;">
-    <div style="float: left; margin-right: 50px;">
-        <img style="border: 1px grey;"  width="500" height="320" src="{{.MapURL}}"/>
-    </div>
-    <div style="float: left;">
-        <div id="chart_div" style="width:600; height:320;"></div>
-    </div>
+<div style="display: flex; justify-content: space-between;">
+    <div style=""><img style="border: 1px grey;"  width="600" height="320" src="{{.MapURL}}"/></div>
+    <div id="chart_div" style="width:600; height:320;"></div>
 </div>
 
 <div style="clear:both;">
+    <br/>
     <h3>Mirrors</h3>
 
     {{if .Fallback}}<p style="color:red">Warning: file not served by any mirror, fallbacks to the rescue.</p>{{end}}
@@ -51,12 +66,12 @@
     {{if .MirrorList}}
     <table border="0" cellpadding="2" style="width: 95%; text-align:left;">
     <tr>
-        <th>Rank</th><th>Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center;">Direct Link</th><th style="text-align: center;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center;">Probabilistic weight</th><th style="text-align: right;">File size</th>
+        <th style="width: 3%;">Rank</th><th style="width: 20%;">Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center; width: 10%;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center;">Selection</th>
     </tr>
     {{end}}
     {{range $i, $v := .MirrorList}}
     <tr{{if not $v.Weight}} style="color: grey;"{{end}}>
-        <td>{{add $i 1}}.</td><td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.ID}}{{end}}</td><td style="text-align: right;"><i>{{$v.HttpURL}}</i></td><td style="text-align: center;"><a href="{{concaturl $v.HttpURL $.FileInfo.Path}}">link</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align: right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{if $v.Weight}}{{if ge $v.Weight 1.0}}{{printf "%.0f" $v.Weight}}{{else}}<1{{end}}%{{else}}n/a{{end}}</td><td style="text-align: right;">{{if $v.FileInfo}}{{$v.FileInfo.Size}}{{end}}</td>
+        <td>{{add $i 1}}.</td><td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.ID}}{{end}}</td><td style="text-align: right;"><a href="{{concaturl $v.HttpURL $.FileInfo.Path}}">{{$v.HttpURL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align: right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{if $v.Weight}}{{if ge $v.Weight 1.0}}{{printf "%.0f" $v.Weight}}{{else}}<1{{end}}%{{else}}n/a{{end}}</td>
     </tr>
     {{else}}
     <i>No mirrors for this file</i>
@@ -67,8 +82,8 @@
 
     {{if .ExcludedList}}
     <h3>Excluded Mirrors</h3>
-    <table border="0" cellpadding="2" style="width: 60%; text-align:left;">
-    <th>Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center;">Exclude Reason</th>
+    <table border="0" cellpadding="2" style="width: 95%; text-align:left;">
+    <th style="width: 23%;">Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center; width: 10%;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center; width: 20%;">Exclude Reason</th>
     {{end}}
     {{range $i, $v := .ExcludedList}}
         <tr>
