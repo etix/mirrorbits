@@ -22,6 +22,7 @@ const (
 type cluster struct {
 	redis *database.Redis
 
+	nodeID        string
 	nodes         []Node
 	nodeIndex     int
 	nodeTotal     int
@@ -50,6 +51,12 @@ func NewCluster(r *database.Redis) *cluster {
 		nodes: make([]Node, 0),
 		stop:  make(chan bool),
 	}
+
+	hostname := utils.Hostname()
+	if len(hostname) == 0 {
+		hostname = "unknown"
+	}
+	c.nodeID = fmt.Sprintf("%s-%05d", hostname, rand.Intn(32000))
 	return c
 }
 
@@ -86,13 +93,7 @@ func (c *cluster) clusterLoop() {
 	clusterChan := make(chan string, 10)
 	announceTicker := time.NewTicker(1 * time.Second)
 
-	hostname := utils.Hostname()
-	if len(hostname) == 0 {
-		hostname = "unknown"
-	}
-	nodeID := fmt.Sprintf("%s-%05d", hostname, rand.Intn(32000))
-
-	c.refreshNodeList(nodeID, nodeID)
+	c.refreshNodeList(c.nodeID, c.nodeID)
 	c.redis.Pubsub.SubscribeEvent(database.CLUSTER, clusterChan)
 
 	for {
@@ -107,7 +108,7 @@ func (c *cluster) clusterLoop() {
 				// Garbage
 				continue
 			}
-			c.refreshNodeList(data[len(clusterAnnounce)+1:], nodeID)
+			c.refreshNodeList(data[len(clusterAnnounce)+1:], c.nodeID)
 		}
 	}
 }
