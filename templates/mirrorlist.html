@@ -42,7 +42,7 @@
         <div>The file <b>{{.FileInfo.Path}}</b> has a size of {{sizeof .FileInfo.Size}} ({{.FileInfo.Size}} bytes) and was last modified on {{dateutc .FileInfo.ModTime}}.</div>
         <div>
             <br/>Known hashes:
-            <table>
+            <table class="alt">
                 <tr><td>MD5</td><td>{{if .FileInfo.Md5}}{{.FileInfo.Md5}}{{else}}N/A{{end}}</td></tr>
                 <tr><td>SHA1</td><td>{{if .FileInfo.Sha1}}{{.FileInfo.Sha1}}{{else}}N/A{{end}}</td></tr>
                 <tr><td>SHA256</td><td>{{if .FileInfo.Sha256}}{{.FileInfo.Sha256}}{{else}}N/A{{end}}</td></tr>
@@ -64,7 +64,7 @@
     {{if .Fallback}}<p style="color:red">Warning: file not served by any mirror, fallbacks to the rescue.</p>{{end}}
 
     {{if .MirrorList}}
-    <table border="0" cellpadding="2" style="width: 95%; text-align:left;">
+    <table border="0" cellpadding="2" class="alt" style="width: 95%; text-align:left;">
     <tr>
         <th style="width: 3%;">Rank</th><th style="width: 20%;">Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center; width: 10%;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center;">Selection</th>
     </tr>
@@ -82,7 +82,7 @@
 
     {{if .ExcludedList}}
     <h3>Excluded Mirrors</h3>
-    <table border="0" cellpadding="2" style="width: 95%; text-align:left;">
+    <table border="0" cellpadding="2" class="alt" style="width: 95%; text-align:left;">
     <th style="width: 23%;">Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center; width: 10%;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center; width: 20%;">Exclude Reason</th>
     {{end}}
     {{range $i, $v := .ExcludedList}}
