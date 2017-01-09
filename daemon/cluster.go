@@ -101,9 +101,7 @@ func (c *cluster) clusterLoop() {
 			c.wg.Done()
 			return
 		case <-announceTicker.C:
-			r := c.redis.Get()
-			database.Publish(r, database.CLUSTER, fmt.Sprintf("%s %s", clusterAnnounce, nodeID))
-			r.Close()
+			c.announce()
 		case data := <-clusterChan:
 			if !strings.HasPrefix(data, clusterAnnounce+" ") {
 				// Garbage
@@ -112,6 +110,12 @@ func (c *cluster) clusterLoop() {
 			c.refreshNodeList(data[len(clusterAnnounce)+1:], nodeID)
 		}
 	}
+}
+
+func (c *cluster) announce() {
+	r := c.redis.Get()
+	database.Publish(r, database.CLUSTER, fmt.Sprintf("%s %s", clusterAnnounce, c.nodeID))
+	r.Close()
 }
 
 func (c *cluster) refreshNodeList(nodeID, self string) {
