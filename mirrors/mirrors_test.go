@@ -566,4 +566,18 @@ func TestGetMirrorMapUrl(t *testing.T) {
 	if strings.Count(result, "label:") != len(m) {
 		t.Fatalf("Missing some mirror markers?")
 	}
+
+	if strings.Contains(result, "key=") {
+		t.Fatalf("Result should not contain an api key")
+	}
+
+	config.SetConfiguration(&config.Configuration{
+		GoogleMapsAPIKey: "qwerty",
+	})
+
+	result = GetMirrorMapUrl(m, c)
+
+	if !strings.Contains(result, "key=qwerty") {
+		t.Fatalf("Result must contain the api key")
+	}
 }
