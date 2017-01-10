@@ -29,6 +29,7 @@ type Cache struct {
 	fileUpdateEvent        chan string
 	mirrorFileUpdateEvent  chan string
 	pubsubReconnectedEvent chan string
+	invalidationEvent      chan string
 }
 
 type fileInfoValue struct {
@@ -77,6 +78,8 @@ func NewCache(r *database.Redis) *Cache {
 	c.mirrorFileUpdateEvent = make(chan string, 10)
 	c.pubsubReconnectedEvent = make(chan string)
 
+	c.invalidationEvent = make(chan string, 10)
+
 	// Subscribe to events
 	c.r.Pubsub.SubscribeEvent(database.MIRROR_UPDATE, c.mirrorUpdateEvent)
 	c.r.Pubsub.SubscribeEvent(database.FILE_UPDATE, c.fileUpdateEvent)
@@ -89,6 +92,11 @@ func NewCache(r *database.Redis) *Cache {
 			select {
 			case data := <-c.mirrorUpdateEvent:
 				c.mCache.Delete(data)
+				select {
+				case c.invalidationEvent <- data:
+				default:
+					// Non-blocking
+				}
 			case data := <-c.fileUpdateEvent:
 				c.fiCache.Delete(data)
 			case data := <-c.mirrorFileUpdateEvent:
@@ -110,6 +118,14 @@ func (c *Cache) Clear() {
 	c.fmCache.Clear()
 	c.mCache.Clear()
 	c.fimCache.Clear()
+}
+
+// GetMirrorInvalidationEvent returns a channel that contains ID of mirrors
+// that have just been invalidated. This function is supposed to have only
+// ONE reader and is made to avoid a race for MIRROR_UPDATE events between
+// a mirror invalidation and a mirror being fetched from the cache.
+func (c *Cache) GetMirrorInvalidationEvent() <-chan string {
+	return c.invalidationEvent
 }
 
 // GetFileInfo returns file information for a given file either from the cache

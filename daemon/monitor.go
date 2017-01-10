@@ -148,8 +148,7 @@ func (m *Monitor) MonitorLoop() {
 	m.wg.Add(1)
 	defer m.wg.Done()
 
-	mirrorUpdateEvent := make(chan string, 10)
-	m.redis.Pubsub.SubscribeEvent(database.MIRROR_UPDATE, mirrorUpdateEvent)
+	mirrorUpdateEvent := m.cache.GetMirrorInvalidationEvent()
 
 	// Scan the local repository
 	m.retry(func() error {
