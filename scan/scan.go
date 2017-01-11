@@ -89,15 +89,15 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 
 	// Try to aquire a lock so we don't have a scanning race
 	// from different nodes.
-	lock, err := redis.Bool(conn.Do("SETNX", lockKey, 1))
+	// Also make the key expire automatically in case our process
+	// gets killed.
+	lock, err := redis.Bool(conn.Do("SET", lockKey, 1, "NX", "EX", 600))
 	if err != nil {
 		return err
 	}
 	if lock {
-		// Lock aquired.
+		// Lock aquired, delete the lock once done
 		defer conn.Do("DEL", lockKey)
-		// Make the key expire automatically in case our process gets killed
-		conn.Do("EXPIRE", lockKey, 600)
 	} else {
 		return ScanInProgress
 	}
