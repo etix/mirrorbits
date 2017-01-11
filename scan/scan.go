@@ -85,22 +85,40 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 
 	s.conn = conn
 
-	lockKey := fmt.Sprintf("SCANNING_%s", identifier)
-
 	// Try to aquire a lock so we don't have a scanning race
 	// from different nodes.
 	// Also make the key expire automatically in case our process
 	// gets killed.
-	lock, err := redis.Bool(conn.Do("SET", lockKey, 1, "NX", "EX", 600))
-	if err != nil {
+	lockKey := fmt.Sprintf("SCANNING_%s", identifier)
+	_, err := redis.String(conn.Do("SET", lockKey, 1, "NX", "EX", 10))
+	if err == redis.ErrNil {
+		return ScanInProgress
+	} else if err != nil {
 		return err
 	}
-	if lock {
-		// Lock aquired, delete the lock once done
-		defer conn.Do("DEL", lockKey)
-	} else {
-		return ScanInProgress
-	}
+
+	// Lock acquired, delete the lock once done
+	defer conn.Do("DEL", lockKey)
+
+	// Maintain the lock active while the scan is in progress
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		conn := s.redis.Get()
+		defer conn.Close()
+
+		for {
+			select {
+			case <-done:
+				return
+			case <-stop:
+				return
+			case <-time.After(5 * time.Second):
+				conn.Do("EXPIRE", lockKey, 10)
+				log.Debugf("[%s] Lock renewed", identifier)
+			}
+		}
+	}()
 
 	s.setLastSync(conn, identifier, false)
 
