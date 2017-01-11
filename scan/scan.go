@@ -315,6 +315,25 @@ func ScanSource(r *database.Redis, stop chan bool) (err error) {
 	}
 	log.Info("[source] Indexing the files...")
 
+	lock := network.NewClusterLock(s.redis, "SOURCE_REPO_SYNC", "source repository")
+
+	retry := 10
+	for {
+		if retry == 0 {
+			return ScanInProgress
+		}
+		done, err := lock.Get()
+		if err != nil {
+			return err
+		} else if done != nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
+		retry--
+	}
+
+	defer lock.Release()
+
 	conn.Send("MULTI")
 
 	// Remove any left over
