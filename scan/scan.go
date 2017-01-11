@@ -46,8 +46,7 @@ type filedata struct {
 }
 
 type scan struct {
-	redis           *database.Redis
-	walkSourceFiles []*filedata
+	redis *database.Redis
 
 	conn        redis.Conn
 	identifier  string
@@ -221,9 +220,9 @@ func (s *scan) setLastSync(conn redis.Conn, identifier string, successful bool) 
 }
 
 // Walk inside the source/reference repository
-func (s *scan) walkSource(conn redis.Conn, path string, f os.FileInfo, err error) error {
+func (s *scan) walkSource(conn redis.Conn, path string, f os.FileInfo, err error) (*filedata, error) {
 	if f == nil || f.IsDir() || f.Mode()&os.ModeSymlink != 0 {
-		return nil
+		return nil, nil
 	}
 
 	d := new(filedata)
@@ -234,7 +233,7 @@ func (s *scan) walkSource(conn redis.Conn, path string, f os.FileInfo, err error
 	// Get the previous file properties
 	properties, err := redis.Strings(conn.Do("HMGET", fmt.Sprintf("FILE_%s", d.path), "size", "modTime", "sha1", "sha256", "md5"))
 	if err != nil && err != redis.ErrNil {
-		return err
+		return nil, err
 	} else if len(properties) < 5 {
 		// This will force a rehash
 		properties = make([]string, 5)
@@ -274,8 +273,7 @@ func (s *scan) walkSource(conn redis.Conn, path string, f os.FileInfo, err error
 		d.md5 = md5
 	}
 
-	s.walkSourceFiles = append(s.walkSourceFiles, d)
-	return nil
+	return d, nil
 }
 
 func ScanSource(r *database.Redis, stop chan bool) (err error) {
@@ -290,11 +288,7 @@ func ScanSource(r *database.Redis, stop chan bool) (err error) {
 		return conn.Err()
 	}
 
-	s.walkSourceFiles = make([]*filedata, 0, 1000)
-	defer func() {
-		// Reset the slice so it can be garbage collected
-		s.walkSourceFiles = nil
-	}()
+	sourceFiles := make([]*filedata, 0, 1000)
 
 	//TODO lock atomically inside redis to avoid two simultanous scan
 
@@ -304,7 +298,14 @@ func ScanSource(r *database.Redis, stop chan bool) (err error) {
 
 	log.Info("[source] Scanning the filesystem...")
 	err = filepath.Walk(GetConfig().Repository, func(path string, f os.FileInfo, err error) error {
-		return s.walkSource(conn, path, f, err)
+		fd, err := s.walkSource(conn, path, f, err)
+		if err != nil {
+			return err
+		}
+		if fd != nil {
+			sourceFiles = append(sourceFiles, fd)
+		}
+		return nil
 	})
 
 	if utils.IsStopped(stop) {
@@ -322,7 +323,7 @@ func ScanSource(r *database.Redis, stop chan bool) (err error) {
 
 	// Add all the files to a temporary key
 	count := 0
-	for _, e := range s.walkSourceFiles {
+	for _, e := range sourceFiles {
 		conn.Send("SADD", "FILES_TMP", e.path)
 		count++
 	}
@@ -337,7 +338,7 @@ func ScanSource(r *database.Redis, stop chan bool) (err error) {
 
 	// Create/Update the files' hash keys with the fresh infos
 	conn.Send("MULTI")
-	for _, e := range s.walkSourceFiles {
+	for _, e := range sourceFiles {
 		conn.Send("HMSET", fmt.Sprintf("FILE_%s", e.path),
 			"size", e.size,
 			"modTime", e.modTime,
