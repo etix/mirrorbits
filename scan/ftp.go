@@ -9,7 +9,6 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"github.com/jlaffaye/ftp"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 )
@@ -67,18 +66,13 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 		return fmt.Errorf("ftp error %s", err.Error())
 	}
 
-	prefixDir, err := c.CurrentDir()
+	_, err = c.CurrentDir()
 	if err != nil {
 		return fmt.Errorf("ftp error %s", err.Error())
 	}
-	if os.Getenv("DEBUG") != "" {
-		_ = prefixDir
-		//fmt.Printf("[%s] Current dir: %s\n", identifier, prefixDir)
-	}
-	prefix := ftpurl.Path
 
 	// Remove the trailing slash
-	prefix = strings.TrimRight(prefix, "/")
+	prefix := strings.TrimRight(ftpurl.Path, "/")
 
 	files, err = f.walkFtp(c, files, prefix+"/", stop)
 	if err != nil {
@@ -88,13 +82,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 	count := 0
 	for _, fd := range files {
 		fd.path = strings.TrimPrefix(fd.path, prefix)
-
-		if os.Getenv("DEBUG") != "" {
-			fmt.Printf("%s\n", fd.path)
-		}
-
 		f.scan.ScannerAddFile(*fd)
-
 		count++
 	}
 

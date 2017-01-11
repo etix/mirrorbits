@@ -11,7 +11,6 @@ import (
 	"github.com/garyburd/redigo/redis"
 	"io"
 	"net/url"
-	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -87,14 +86,6 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 	}()
 	defer close(scanfinished)
 
-	// Get the list of all source files (we do not want to
-	// index files than are not provided by the source)
-	//sourceFiles, err := redis.Values(conn.Do("SMEMBERS", "FILES"))
-	//if err != nil {
-	//  log.Errorf("[%s] Cannot get the list of source files", identifier)
-	//  return err
-	//}
-
 	count := 0
 
 	line, err := readln(reader)
@@ -130,10 +121,6 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 		// Fill the struct
 		f.size = size
 		f.path = ret[4]
-
-		if os.Getenv("DEBUG") != "" {
-			//fmt.Printf("[%s] %s", identifier, f.path)
-		}
 
 		r.scan.ScannerAddFile(f)
 
