@@ -122,7 +122,9 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 					log.Errorf("Renewing lock for %s failed: lock disappeared", identifier)
 					return
 				}
-				log.Debugf("[%s] Lock renewed", identifier)
+				if os.Getenv("DEBUG") != "" {
+					log.Debugf("[%s] Lock renewed", identifier)
+				}
 			}
 		}
 	}()
