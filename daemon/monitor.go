@@ -539,7 +539,7 @@ func (m *Monitor) getRandomFile(identifier string) (file string, size int64, err
 func (m *Monitor) scanRepository() error {
 	err := scan.ScanSource(m.redis, m.stop)
 	if err != nil {
-		log.Error("Scanning source failed: %s", err.Error())
+		log.Errorf("Scanning source failed: %s", err.Error())
 	}
 	return err
 }
