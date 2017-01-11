@@ -9,6 +9,7 @@ import (
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/filesystem"
+	"github.com/etix/mirrorbits/network"
 	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
 	"github.com/op/go-logging"
@@ -89,45 +90,16 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 	// from different nodes.
 	// Also make the key expire automatically in case our process
 	// gets killed.
-	lockKey := fmt.Sprintf("SCANNING_%s", identifier)
-	_, err := redis.String(conn.Do("SET", lockKey, 1, "NX", "EX", 10))
-	if err == redis.ErrNil {
-		return ScanInProgress
-	} else if err != nil {
+	lock := network.NewClusterLock(s.redis, fmt.Sprintf("SCANNING_%s", identifier), identifier)
+
+	done, err := lock.Get()
+	if err != nil {
 		return err
+	} else if done == nil {
+		return ScanInProgress
 	}
 
-	// Lock acquired, delete the lock once done
-	defer conn.Do("DEL", lockKey)
-
-	// Maintain the lock active while the scan is in progress
-	done := make(chan struct{})
-	defer close(done)
-	go func() {
-		conn := s.redis.Get()
-		defer conn.Close()
-
-		for {
-			select {
-			case <-done:
-				return
-			case <-stop:
-				return
-			case <-time.After(5 * time.Second):
-				result, err := redis.Int(conn.Do("EXPIRE", lockKey, 10))
-				if err != nil {
-					log.Errorf("Renewing lock for %s failed: %s", identifier, err)
-					return
-				} else if result == 0 {
-					log.Errorf("Renewing lock for %s failed: lock disappeared", identifier)
-					return
-				}
-				if os.Getenv("DEBUG") != "" {
-					log.Debugf("[%s] Lock renewed", identifier)
-				}
-			}
-		}
-	}()
+	defer lock.Release()
 
 	s.setLastSync(conn, identifier, false)
 
