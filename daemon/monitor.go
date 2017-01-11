@@ -372,7 +372,7 @@ func (m *Monitor) syncLoop() {
 				}
 				goto end
 			} else if scanning {
-				// A scan is already in progress on another node
+				log.Debugf("[%s] scan already in progress on another node", k)
 				conn.Close()
 				goto end
 			}
