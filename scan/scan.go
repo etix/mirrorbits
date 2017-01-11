@@ -114,7 +114,14 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 			case <-stop:
 				return
 			case <-time.After(5 * time.Second):
-				conn.Do("EXPIRE", lockKey, 10)
+				result, err := redis.Int(conn.Do("EXPIRE", lockKey, 10))
+				if err != nil {
+					log.Errorf("Renewing lock for %s failed: %s", identifier, err)
+					return
+				} else if result == 0 {
+					log.Errorf("Renewing lock for %s failed: lock disappeared", identifier)
+					return
+				}
 				log.Debugf("[%s] Lock renewed", identifier)
 			}
 		}
