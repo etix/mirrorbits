@@ -48,7 +48,6 @@ type filedata struct {
 type scan struct {
 	redis           *database.Redis
 	walkSourceFiles []*filedata
-	walkRedisConn   redis.Conn
 
 	conn        redis.Conn
 	identifier  string
@@ -222,7 +221,7 @@ func (s *scan) setLastSync(conn redis.Conn, identifier string, successful bool) 
 }
 
 // Walk inside the source/reference repository
-func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
+func (s *scan) walkSource(conn redis.Conn, path string, f os.FileInfo, err error) error {
 	if f == nil || f.IsDir() || f.Mode()&os.ModeSymlink != 0 {
 		return nil
 	}
@@ -233,7 +232,7 @@ func (s *scan) walkSource(path string, f os.FileInfo, err error) error {
 	d.modTime = f.ModTime()
 
 	// Get the previous file properties
-	properties, err := redis.Strings(s.walkRedisConn.Do("HMGET", fmt.Sprintf("FILE_%s", d.path), "size", "modTime", "sha1", "sha256", "md5"))
+	properties, err := redis.Strings(conn.Do("HMGET", fmt.Sprintf("FILE_%s", d.path), "size", "modTime", "sha1", "sha256", "md5"))
 	if err != nil && err != redis.ErrNil {
 		return err
 	} else if len(properties) < 5 {
@@ -284,11 +283,11 @@ func ScanSource(r *database.Redis, stop chan bool) (err error) {
 		redis: r,
 	}
 
-	s.walkRedisConn = s.redis.Get()
-	defer s.walkRedisConn.Close()
+	conn := s.redis.Get()
+	defer conn.Close()
 
-	if s.walkRedisConn.Err() != nil {
-		return s.walkRedisConn.Err()
+	if conn.Err() != nil {
+		return conn.Err()
 	}
 
 	s.walkSourceFiles = make([]*filedata, 0, 1000)
@@ -304,7 +303,10 @@ func ScanSource(r *database.Redis, stop chan bool) (err error) {
 	}
 
 	log.Info("[source] Scanning the filesystem...")
-	err = filepath.Walk(GetConfig().Repository, s.walkSource)
+	err = filepath.Walk(GetConfig().Repository, func(path string, f os.FileInfo, err error) error {
+		return s.walkSource(conn, path, f, err)
+	})
+
 	if utils.IsStopped(stop) {
 		return ScanAborted
 	}
@@ -313,30 +315,30 @@ func ScanSource(r *database.Redis, stop chan bool) (err error) {
 	}
 	log.Info("[source] Indexing the files...")
 
-	s.walkRedisConn.Send("MULTI")
+	conn.Send("MULTI")
 
 	// Remove any left over
-	s.walkRedisConn.Send("DEL", "FILES_TMP")
+	conn.Send("DEL", "FILES_TMP")
 
 	// Add all the files to a temporary key
 	count := 0
 	for _, e := range s.walkSourceFiles {
-		s.walkRedisConn.Send("SADD", "FILES_TMP", e.path)
+		conn.Send("SADD", "FILES_TMP", e.path)
 		count++
 	}
 
-	_, err = s.walkRedisConn.Do("EXEC")
+	_, err = conn.Do("EXEC")
 	if err != nil {
 		return err
 	}
 
 	// Do a diff between the sets to get the removed files
-	toremove, err := redis.Values(s.walkRedisConn.Do("SDIFF", "FILES", "FILES_TMP"))
+	toremove, err := redis.Values(conn.Do("SDIFF", "FILES", "FILES_TMP"))
 
 	// Create/Update the files' hash keys with the fresh infos
-	s.walkRedisConn.Send("MULTI")
+	conn.Send("MULTI")
 	for _, e := range s.walkSourceFiles {
-		s.walkRedisConn.Send("HMSET", fmt.Sprintf("FILE_%s", e.path),
+		conn.Send("HMSET", fmt.Sprintf("FILE_%s", e.path),
 			"size", e.size,
 			"modTime", e.modTime,
 			"sha1", e.sha1,
@@ -344,24 +346,24 @@ func ScanSource(r *database.Redis, stop chan bool) (err error) {
 			"md5", e.md5)
 
 		// Publish update
-		database.SendPublish(s.walkRedisConn, database.FILE_UPDATE, e.path)
+		database.SendPublish(conn, database.FILE_UPDATE, e.path)
 	}
 
 	// Remove old keys
 	if len(toremove) > 0 {
 		for _, e := range toremove {
-			s.walkRedisConn.Send("DEL", fmt.Sprintf("FILE_%s", e))
+			conn.Send("DEL", fmt.Sprintf("FILE_%s", e))
 
 			// Publish update
-			database.SendPublish(s.walkRedisConn, database.FILE_UPDATE, fmt.Sprintf("%s", e))
+			database.SendPublish(conn, database.FILE_UPDATE, fmt.Sprintf("%s", e))
 		}
 	}
 
 	// Finally rename the temporary sets containing the list
 	// of files to the production key
-	s.walkRedisConn.Send("RENAME", "FILES_TMP", "FILES")
+	conn.Send("RENAME", "FILES_TMP", "FILES")
 
-	_, err = s.walkRedisConn.Do("EXEC")
+	_, err = conn.Do("EXEC")
 	if err != nil {
 		return err
 	}
