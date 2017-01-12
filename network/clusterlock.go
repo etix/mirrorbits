@@ -11,6 +11,11 @@ import (
     "time"
 )
 
+const (
+    LockTTL     = 10 // in seconds
+    LockRefresh = 5  // in seconds
+)
+
 type ClusterLock struct {
     redis      *database.Redis
     key        string
@@ -38,7 +43,7 @@ func (n *ClusterLock) Get() (<-chan struct{}, error) {
         return nil, conn.Err()
     }
 
-    _, err := redis.String(conn.Do("SET", n.key, 1, "NX", "EX", 10))
+    _, err := redis.String(conn.Do("SET", n.key, 1, "NX", "EX", LockTTL))
     if err == redis.ErrNil {
         return nil, nil
     } else if err != nil {
@@ -58,8 +63,8 @@ func (n *ClusterLock) Get() (<-chan struct{}, error) {
                 n.done = nil
                 conn.Do("DEL", n.key)
                 return
-            case <-time.After(5 * time.Second):
-                result, err := redis.Int(conn.Do("EXPIRE", n.key, 10))
+            case <-time.After(LockRefresh * time.Second):
+                result, err := redis.Int(conn.Do("EXPIRE", n.key, LockTTL))
                 if err != nil {
                     log.Errorf("Renewing lock for %s failed: %s", n.identifier, err)
                     return
