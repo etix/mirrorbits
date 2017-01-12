@@ -45,7 +45,7 @@ func TestGeoIP_GetRecord(t *testing.T) {
 		t.Fatalf("Expected 4 got %d", r.ASNum)
 	}
 	if r.ASName != "IPV4" {
-		t.Fatalf("Expected IPV4 got %d", r.ASName)
+		t.Fatalf("Expected IPV4 got %s", r.ASName)
 	}
 	if r.IsValid() == false {
 		t.Fatalf("Expected valid got invalid")
@@ -60,7 +60,7 @@ func TestGeoIP_GetRecord(t *testing.T) {
 		t.Fatalf("Expected 6 got %d", r.ASNum)
 	}
 	if r.ASName != "IPV6" {
-		t.Fatalf("Expected IPV6 got %d", r.ASName)
+		t.Fatalf("Expected IPV6 got %s", r.ASName)
 	}
 	if r.IsValid() == false {
 		t.Fatalf("Expected valid got invalid")
