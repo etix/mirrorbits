@@ -1195,7 +1195,7 @@ func (c *cli) CmdStats(args ...string) error {
 			fmt.Fprintf(w, "Status:\tdown\n")
 		}
 		fmt.Fprintf(w, "Download requests:\t%d\n", requests)
-		fmt.Fprint(w, "Bytes transfered:\t")
+		fmt.Fprint(w, "Bytes transferred:\t")
 		if *human {
 			fmt.Fprintln(w, utils.ReadableSize(bytes))
 		} else {

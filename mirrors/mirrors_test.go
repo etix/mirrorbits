@@ -100,7 +100,7 @@ func TestByRank_Less(t *testing.T) {
 	m1 := generateSimpleMirrorList(50)
 	m2 := generateSimpleMirrorList(50)
 
-	// Mirrors are indentical (besides name) so ByRank is expected
+	// Mirrors are identical (besides name) so ByRank is expected
 	// to randomize their order.
 	sort.Sort(ByRank{m1, c})
 

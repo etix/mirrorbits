@@ -86,7 +86,7 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 
 	s.conn = conn
 
-	// Try to aquire a lock so we don't have a scanning race
+	// Try to acquire a lock so we don't have a scanning race
 	// from different nodes.
 	// Also make the key expire automatically in case our process
 	// gets killed.
@@ -289,7 +289,7 @@ func ScanSource(r *database.Redis, stop chan bool) (err error) {
 
 	sourceFiles := make([]*filedata, 0, 1000)
 
-	//TODO lock atomically inside redis to avoid two simultanous scan
+	//TODO lock atomically inside redis to avoid two simultaneous scan
 
 	if _, err := os.Stat(GetConfig().Repository); os.IsNotExist(err) {
 		return fmt.Errorf("%s: No such file or directory", GetConfig().Repository)
