@@ -5,9 +5,9 @@ package scan
 
 import (
 	"fmt"
+	"github.com/etix/goftp"
 	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
-	"github.com/jlaffaye/ftp"
 	"net/url"
 	"strings"
 	"time"
@@ -15,6 +15,9 @@ import (
 
 type FTPScanner struct {
 	scan *scan
+
+	featMLST bool
+	featMDTM bool
 }
 
 func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan bool) error {
@@ -55,6 +58,13 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 	err = c.Login(username, password)
 	if err != nil {
 		return err
+	}
+
+	_, f.featMLST = c.Feature("MLST")
+	_, f.featMDTM = c.Feature("MDTM")
+
+	if !f.featMLST && !f.featMDTM {
+		log.Warning("This server does not support any of the RFC 3659 extensions, consider using rsync instead.")
 	}
 
 	log.Infof("[%s] Requesting file list via ftp...", identifier)
