@@ -50,6 +50,9 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 		u.User = nil
 	}
 
+	// Don't use the local timezone, use UTC
+	env = append(env, "TZ=UTC")
+
 	cmd := exec.Command("rsync", "-r", "--no-motd", "--timeout=30", "--contimeout=30", u.String())
 
 	// Setup the environnement
