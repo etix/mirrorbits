@@ -133,19 +133,14 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 		switch err1.Error() {
 		case "exit status 5":
 			err1 = errors.New("rsync: Error starting client-server protocol")
-			break
 		case "exit status 10":
 			err1 = errors.New("rsync: Error in socket I/O")
-			break
 		case "exit status 11":
 			err1 = errors.New("rsync: Error in file I/O")
-			break
 		case "exit status 30":
 			err1 = errors.New("rsync: Timeout in data send/receive")
-			break
 		case "exit status 35":
 			err1 = errors.New("Timeout waiting for daemon connection")
-			break
 		default:
 			if utils.IsStopped(stop) {
 				err1 = ScanAborted
