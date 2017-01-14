@@ -27,6 +27,7 @@ var (
 		RedisPassword:          "",
 		RedisDB:                0,
 		LogDir:                 "",
+		TraceFileLocation:      "",
 		GeoipDatabasePath:      "/usr/share/GeoIP/",
 		ConcurrentSync:         2,
 		ScanInterval:           30,
@@ -60,6 +61,7 @@ type Configuration struct {
 	RedisPassword           string     `yaml:"RedisPassword"`
 	RedisDB                 int        `yaml:"RedisDB"`
 	LogDir                  string     `yaml:"LogDir"`
+	TraceFileLocation       string     `yaml:"TraceFileLocation"`
 	GeoipDatabasePath       string     `yaml:"GeoipDatabasePath"`
 	ConcurrentSync          int        `yaml:"ConcurrentSync"`
 	ScanInterval            int        `yaml:"ScanInterval"`

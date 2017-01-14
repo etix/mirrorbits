@@ -194,3 +194,30 @@ func TimeKeyCoverage(start, end time.Time) (dates []string) {
 
 	return
 }
+
+func FuzzyTimeStr(duration time.Duration) string {
+	hours := duration.Hours()
+	minutes := duration.Minutes()
+
+	if int(minutes) == 0 {
+		return "up-to-date"
+	}
+
+	if minutes < 0 {
+		return "in the future"
+	}
+
+	if hours < 1 {
+		return fmt.Sprintf("%d minute%s ago", int(duration.Minutes()), Plural(int(duration.Minutes())))
+	}
+
+	if hours/24 < 1 {
+		return fmt.Sprintf("%d hour%s ago", int(hours), Plural(int(hours)))
+	}
+
+	if hours/24/365 > 1 {
+		return fmt.Sprintf("%d year%s ago", int(hours/24/365), Plural(int(hours/24/365)))
+	}
+
+	return fmt.Sprintf("%d day%s ago", int(hours/24), Plural(int(hours/24)))
+}

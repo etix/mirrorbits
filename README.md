@@ -84,6 +84,7 @@ RedisDB | Database index
 RedisSentinelMasterName | Name of the redis-sentinel cluster
 RedisSentinels | List of redis-sentinel hosts
 LogDir | Path to the directory where to save log files
+TraceFileLocation | Relative path to a trace file (from the repository root) containing a Unix timestamp regularly updated
 GeoipDatabasePath | Path to the geoip databases
 ConcurrentSync | Maximum number of server sync (rsync/ftp) do to simultaneously
 ScanInterval | Interval between rsync/ftp synchronizations (in minutes)

@@ -445,11 +445,18 @@ func (h *HTTP) checksumHandler(w http.ResponseWriter, r *http.Request, ctx *Cont
 }
 
 type MirrorStats struct {
-	ID        string
-	Downloads int64
-	Bytes     int64
-	PercentD  float32
-	PercentB  float32
+	ID         string
+	Downloads  int64
+	Bytes      int64
+	PercentD   float32
+	PercentB   float32
+	SyncOffset SyncOffset
+}
+
+type SyncOffset struct {
+	Valid         bool
+	Value         int // in hours
+	HumanReadable string
 }
 
 type MirrorStatsPage struct {
@@ -485,7 +492,6 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 		return
 	}
 
-	// <dlstats>
 	rconn.Send("MULTI")
 
 	// Get all mirrors stats
@@ -505,7 +511,14 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	var maxbytes int64
 	var results []MirrorStats
 	var index int64
+	mlist := make([]mirrors.Mirror, 0, len(mirrorsIDs))
 	for _, id := range mirrorsIDs {
+		mirror, err := h.cache.GetMirror(id)
+		if err != nil {
+			continue
+		}
+		mlist = append(mlist, mirror)
+
 		var downloads int64
 		if v, _ := redis.String(stats[index], nil); v != "" {
 			downloads, _ = strconv.ParseInt(v, 10, 64)
@@ -522,10 +535,23 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 			maxbytes = bytes
 		}
 
+		var lastModTime time.Time
+
+		if mirror.LastModTime > 0 {
+			lastModTime = time.Unix(mirror.LastModTime, 0)
+		}
+
+		elapsed := time.Now().UTC().Sub(lastModTime)
+
 		s := MirrorStats{
 			ID:        id,
 			Downloads: downloads,
 			Bytes:     bytes,
+			SyncOffset: SyncOffset{
+				Valid:         !lastModTime.IsZero(),
+				Value:         int(elapsed.Hours()),
+				HumanReadable: utils.FuzzyTimeStr(elapsed),
+			},
 		}
 		results = append(results, s)
 		index += 2
@@ -537,31 +563,6 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 		results[i].PercentD = float32(results[i].Downloads) * 100 / float32(maxdownloads)
 		results[i].PercentB = float32(results[i].Bytes) * 100 / float32(maxbytes)
 	}
-
-	// </dlstats>
-	// <map>
-
-	var mlist []mirrors.Mirror
-	mlist = make([]mirrors.Mirror, 0, len(mirrorsIDs))
-	for _, mirrorID := range mirrorsIDs {
-		var mirror mirrors.Mirror
-		reply, err := redis.Values(rconn.Do("HGETALL", fmt.Sprintf("MIRROR_%s", mirrorID)))
-		if err != nil {
-			continue
-		}
-		if len(reply) == 0 {
-			err = redis.ErrNil
-			continue
-		}
-		err = redis.ScanStruct(reply, &mirror)
-		if err != nil {
-			continue
-		}
-		mirror.CountryFields = strings.Fields(mirror.CountryCodes)
-		mlist = append(mlist, mirror)
-	}
-
-	// </map>
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err = ctx.Templates().mirrorstats.ExecuteTemplate(w, "base", MirrorStatsPage{results, mlist})

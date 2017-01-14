@@ -51,6 +51,7 @@ type Monitor struct {
 	formatLongestID int
 
 	cluster *cluster
+	trace   *scan.Trace
 }
 
 type Mirror struct {
@@ -86,6 +87,7 @@ func NewMonitor(r *database.Redis, c *mirrors.Cache) *Monitor {
 	monitor.syncChan = make(chan string)
 	monitor.stop = make(chan bool)
 	monitor.configNotifier = make(chan bool, 1)
+	monitor.trace = scan.NewTraceHandler(monitor.redis, monitor.stop)
 
 	SubscribeConfig(monitor.configNotifier)
 
@@ -353,14 +355,16 @@ func (m *Monitor) syncLoop() {
 			return
 		case k := <-m.syncChan:
 
-			var mirror *Mirror
+			var mirror Mirror
+			var mirrorPtr *Mirror
 			var ok bool
 
 			m.mapLock.Lock()
-			if mirror, ok = m.mirrors[k]; !ok {
+			if mirrorPtr, ok = m.mirrors[k]; !ok {
 				m.mapLock.Unlock()
 				continue
 			}
+			mirror = *mirrorPtr
 			m.mapLock.Unlock()
 
 			conn := m.redis.Get()
@@ -379,6 +383,21 @@ func (m *Monitor) syncLoop() {
 			conn.Close()
 
 			log.Debugf("Scanning %s", k)
+
+			// Start fetching the latest trace
+			go func() {
+				err := m.trace.GetLastUpdate(mirror.Mirror)
+				if err != nil && err != scan.ErrNoTrace {
+					if numError, ok := err.(*strconv.NumError); ok {
+						if numError.Err == strconv.ErrSyntax {
+							log.Warningf("[%s] parsing trace file failed: %s is not a valid timestamp", mirror.ID, strconv.Quote(numError.Num))
+							return
+						}
+					} else {
+						log.Warningf("[%s] fetching trace file failed: %s", mirror.ID, err)
+					}
+				}
+			}()
 
 			err = cli.NoSyncMethod
 
@@ -403,8 +422,8 @@ func (m *Monitor) syncLoop() {
 
 		end:
 			m.mapLock.Lock()
-			if mirror, ok = m.mirrors[k]; ok {
-				mirror.scanning = false
+			if mirrorPtr, ok = m.mirrors[k]; ok {
+				mirrorPtr.scanning = false
 			}
 			m.mapLock.Unlock()
 		}

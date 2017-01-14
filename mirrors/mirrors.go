@@ -50,6 +50,7 @@ type Mirror struct {
 	ComputedScore      int       `redis:"-" yaml:"-"`
 	LastSync           int64     `redis:"lastSync" yaml:"-"`
 	LastSuccessfulSync int64     `redis:"lastSuccessfulSync" yaml:"-"`
+	LastModTime        int64     `redis:"lastModTime" yaml:"-"`
 
 	FileInfo *filesystem.FileInfo `redis:"-" json:"-" yaml:"-"` // Details of the requested file on this specific mirror
 }

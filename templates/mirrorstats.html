@@ -76,13 +76,16 @@
                 <tr>
                     <th>Mirror</th>
                     <th>So far today…</th>
+                    <th>Last update</th>
                 </tr>
                 {{range $i, $v := .List}}<tr>
                     <td rowspan="2">{{$v.ID}}</td>
                     <td width="500" class="tooltip"><div class="bar-download" style="width: {{$v.PercentD}}%;"><span class="tooltiptext">{{$v.Downloads}}<br>downloads</span></div></td>
+                    <td rowspan="2"><span style="color:{{if $v.SyncOffset.Valid}}{{if gt $v.SyncOffset.Value 720}}red{{else if gt $v.SyncOffset.Value 48}}orange{{else}}green{{end}}{{else}}black{{end}}">{{if $v.SyncOffset.Valid}}{{$v.SyncOffset.HumanReadable}}{{else}}unknown{{end}}</span></td>
                 </tr>
                 <tr>
                     <td width="500" class="tooltip"><div class="bar-bytes" style="width: {{$v.PercentB}}%;"><span class="tooltiptext">{{sizeof $v.Bytes}}<br>transferred</span></div></td>
+                    <td></td>
                 </tr>{{end}}
             </table>
         </div>
