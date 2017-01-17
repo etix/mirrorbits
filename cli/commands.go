@@ -408,6 +408,17 @@ func (c *cli) CmdRemove(args ...string) error {
 
 	identifier := list[0]
 
+	fmt.Printf("Removing %s, are you sure? [y/N]", identifier)
+	reader := bufio.NewReader(os.Stdin)
+	s, _ := reader.ReadString('\n')
+	switch s[0] {
+	case 'y', 'Y':
+		break
+	default:
+		fmt.Println("Skipped")
+		return nil
+	}
+
 	r := database.NewRedis()
 	conn, err := r.Connect()
 	if err != nil {
