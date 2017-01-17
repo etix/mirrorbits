@@ -51,7 +51,6 @@ type scan struct {
 
 	conn        redis.Conn
 	identifier  string
-	filesKey    string
 	filesTmpKey string
 	count       uint
 }
@@ -105,7 +104,7 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 
 	conn.Send("MULTI")
 
-	s.filesKey = fmt.Sprintf("MIRROR_%s_FILES", identifier)
+	filesKey := fmt.Sprintf("MIRROR_%s_FILES", identifier)
 	s.filesTmpKey = fmt.Sprintf("MIRROR_%s_FILES_TMP", identifier)
 
 	// Remove any left over
@@ -127,7 +126,7 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 	s.ScannerCommit()
 
 	// Get the list of files no more present on this mirror
-	toremove, err := redis.Values(conn.Do("SDIFF", s.filesKey, s.filesTmpKey))
+	toremove, err := redis.Values(conn.Do("SDIFF", filesKey, s.filesTmpKey))
 	if err != nil {
 		return err
 	}
@@ -151,7 +150,7 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 
 	// Finally rename the temporary sets containing the list
 	// of files for this mirror to the production key
-	_, err = conn.Do("RENAME", s.filesTmpKey, s.filesKey)
+	_, err = conn.Do("RENAME", s.filesTmpKey, filesKey)
 	if err != nil {
 		return err
 	}
@@ -159,7 +158,7 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 	sinterKey := fmt.Sprintf("HANDLEDFILES_%s", identifier)
 
 	// Count the number of files known on the remote end
-	common, _ := redis.Int64(conn.Do("SINTERSTORE", sinterKey, "FILES", s.filesKey))
+	common, _ := redis.Int64(conn.Do("SINTERSTORE", sinterKey, "FILES", filesKey))
 
 	if err != nil {
 		return err
@@ -218,8 +217,11 @@ func (s *scan) setLastSync(conn redis.Conn, identifier string, successful bool) 
 	return err
 }
 
+type sourcescanner struct {
+}
+
 // Walk inside the source/reference repository
-func (s *scan) walkSource(conn redis.Conn, path string, f os.FileInfo, rehash bool, err error) (*filedata, error) {
+func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, rehash bool, err error) (*filedata, error) {
 	if f == nil || f.IsDir() || f.Mode()&os.ModeSymlink != 0 {
 		return nil, nil
 	}
@@ -277,11 +279,9 @@ func (s *scan) walkSource(conn redis.Conn, path string, f os.FileInfo, rehash bo
 }
 
 func ScanSource(r *database.Redis, forceRehash bool, stop chan bool) (err error) {
-	s := &scan{
-		redis: r,
-	}
+	s := &sourcescanner{}
 
-	conn := s.redis.Get()
+	conn := r.Get()
 	defer conn.Close()
 
 	if conn.Err() != nil {
@@ -316,7 +316,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop chan bool) (err error)
 	}
 	log.Info("[source] Indexing the files...")
 
-	lock := network.NewClusterLock(s.redis, "SOURCE_REPO_SYNC", "source repository")
+	lock := network.NewClusterLock(r, "SOURCE_REPO_SYNC", "source repository")
 
 	retry := 10
 	for {
