@@ -10,11 +10,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	. "github.com/etix/mirrorbits/config"
+	"hash"
 	"io"
 	"os"
 )
 
-// Generate a human readable sha1 hash of the given file path
+// Generate a human readable hash of the given file path
 func HashFile(path string) (hashes FileInfo, err error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -24,26 +25,51 @@ func HashFile(path string) (hashes FileInfo, err error) {
 
 	reader := bufio.NewReader(f)
 
+	var writers []io.Writer
+
 	if GetConfig().Hashes.SHA1 {
-		sha1Hash := sha1.New()
-		_, err = io.Copy(sha1Hash, reader)
-		if err == nil {
-			hashes.Sha1 = hex.EncodeToString(sha1Hash.Sum(nil))
-		}
+		hsha1 := newHasher(sha1.New(), &hashes.Sha1)
+		defer hsha1.Close()
+		writers = append(writers, hsha1)
 	}
 	if GetConfig().Hashes.SHA256 {
-		sha256Hash := sha256.New()
-		_, err = io.Copy(sha256Hash, reader)
-		if err == nil {
-			hashes.Sha256 = hex.EncodeToString(sha256Hash.Sum(nil))
-		}
+		hsha256 := newHasher(sha256.New(), &hashes.Sha256)
+		defer hsha256.Close()
+		writers = append(writers, hsha256)
 	}
 	if GetConfig().Hashes.MD5 {
-		md5Hash := md5.New()
-		_, err = io.Copy(md5Hash, reader)
-		if err == nil {
-			hashes.Md5 = hex.EncodeToString(md5Hash.Sum(nil))
-		}
+		hmd5 := newHasher(md5.New(), &hashes.Md5)
+		defer hmd5.Close()
+		writers = append(writers, hmd5)
 	}
+
+	if len(writers) == 0 {
+		return
+	}
+
+	w := io.MultiWriter(writers...)
+
+	_, err = io.Copy(w, reader)
+	if err != nil {
+		return
+	}
+
 	return
+}
+
+type hasher struct {
+	hash.Hash
+	output *string
+}
+
+func newHasher(hash hash.Hash, output *string) hasher {
+	return hasher{
+		Hash:   hash,
+		output: output,
+	}
+}
+
+func (h hasher) Close() error {
+	*h.output = hex.EncodeToString(h.Sum(nil))
+	return nil
 }
