@@ -54,13 +54,14 @@ func TestClusterLoop(t *testing.T) {
     n := time.Now()
 
     for {
-        if time.Now().Sub(n) > 1500*time.Millisecond {
+        if time.Since(n) > 1500*time.Millisecond {
             t.Fatalf("Announce not made")
         }
         if mock.Stats(cmd_publish) > 0 {
             // Success
             break
         }
+        time.Sleep(50 * time.Millisecond)
     }
 }
 
