@@ -572,6 +572,7 @@ func (c *cli) CmdScan(args ...string) error {
 
 func (c *cli) CmdRefresh(args ...string) error {
 	cmd := SubCmd("refresh", "", "Scan the local repository")
+	rehash := cmd.Bool("rehash", false, "Force a rehash of the files")
 
 	if err := cmd.Parse(args); err != nil {
 		return nil
@@ -581,7 +582,7 @@ func (c *cli) CmdRefresh(args ...string) error {
 		return nil
 	}
 
-	err := scan.ScanSource(database.NewRedis(), nil)
+	err := scan.ScanSource(database.NewRedis(), *rehash, nil)
 	return err
 }
 

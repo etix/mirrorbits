@@ -556,7 +556,7 @@ func (m *Monitor) getRandomFile(identifier string) (file string, size int64, err
 
 // Trigger a sync of the local repository
 func (m *Monitor) scanRepository() error {
-	err := scan.ScanSource(m.redis, m.stop)
+	err := scan.ScanSource(m.redis, false, m.stop)
 	if err != nil {
 		log.Errorf("Scanning source failed: %s", err.Error())
 	}

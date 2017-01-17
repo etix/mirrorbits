@@ -219,7 +219,7 @@ func (s *scan) setLastSync(conn redis.Conn, identifier string, successful bool) 
 }
 
 // Walk inside the source/reference repository
-func (s *scan) walkSource(conn redis.Conn, path string, f os.FileInfo, err error) (*filedata, error) {
+func (s *scan) walkSource(conn redis.Conn, path string, f os.FileInfo, rehash bool, err error) (*filedata, error) {
 	if f == nil || f.IsDir() || f.Mode()&os.ModeSymlink != 0 {
 		return nil, nil
 	}
@@ -244,7 +244,8 @@ func (s *scan) walkSource(conn redis.Conn, path string, f os.FileInfo, err error
 	sha256 := properties[3]
 	md5 := properties[4]
 
-	rehash := (GetConfig().Hashes.SHA1 && len(sha1) == 0) ||
+	rehash = rehash ||
+		(GetConfig().Hashes.SHA1 && len(sha1) == 0) ||
 		(GetConfig().Hashes.SHA256 && len(sha256) == 0) ||
 		(GetConfig().Hashes.MD5 && len(md5) == 0)
 
@@ -275,7 +276,7 @@ func (s *scan) walkSource(conn redis.Conn, path string, f os.FileInfo, err error
 	return d, nil
 }
 
-func ScanSource(r *database.Redis, stop chan bool) (err error) {
+func ScanSource(r *database.Redis, forceRehash bool, stop chan bool) (err error) {
 	s := &scan{
 		redis: r,
 	}
@@ -297,7 +298,7 @@ func ScanSource(r *database.Redis, stop chan bool) (err error) {
 
 	log.Info("[source] Scanning the filesystem...")
 	err = filepath.Walk(GetConfig().Repository, func(path string, f os.FileInfo, err error) error {
-		fd, err := s.walkSource(conn, path, f, err)
+		fd, err := s.walkSource(conn, path, f, forceRehash, err)
 		if err != nil {
 			return err
 		}
