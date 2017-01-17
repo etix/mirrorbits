@@ -77,7 +77,7 @@ func (s *Stats) CountDownload(m mirrors.Mirror, fileinfo filesystem.FileInfo) er
 		return emptyFileError
 	}
 
-	s.countChan <- CountItem{m.ID, fileinfo.Path, fileinfo.Size, time.Now()}
+	s.countChan <- CountItem{m.ID, fileinfo.Path, fileinfo.Size, time.Now().UTC()}
 	return nil
 }
 
