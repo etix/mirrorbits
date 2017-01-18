@@ -382,6 +382,7 @@ oops:
 
 func (c *cli) CmdRemove(args ...string) error {
 	cmd := SubCmd("remove", "IDENTIFIER", "Remove an existing mirror")
+	force := cmd.Bool("f", false, "Never prompt for confirmation")
 
 	if err := cmd.Parse(args); err != nil {
 		return nil
@@ -408,15 +409,17 @@ func (c *cli) CmdRemove(args ...string) error {
 
 	identifier := list[0]
 
-	fmt.Printf("Removing %s, are you sure? [y/N]", identifier)
-	reader := bufio.NewReader(os.Stdin)
-	s, _ := reader.ReadString('\n')
-	switch s[0] {
-	case 'y', 'Y':
-		break
-	default:
-		fmt.Println("Skipped")
-		return nil
+	if *force == false {
+		fmt.Printf("Removing %s, are you sure? [y/N]", identifier)
+		reader := bufio.NewReader(os.Stdin)
+		s, _ := reader.ReadString('\n')
+		switch s[0] {
+		case 'y', 'Y':
+			break
+		default:
+			fmt.Println("Skipped")
+			return nil
+		}
 	}
 
 	r := database.NewRedis()
