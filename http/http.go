@@ -255,6 +255,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		} else {
 			// No fallback in stock, there's nothing else we can do
 			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+			return
 		}
 	} else if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
