@@ -138,7 +138,7 @@ func ReloadDownloadLogs() {
 	logfile := GetConfig().LogDir + "/downloads.log"
 	f, createHeader, err := openLogFile(logfile)
 	if err != nil {
-		log.Critical("Cannot open log file %s", logfile)
+		log.Criticalf("Cannot open log file %s", logfile)
 		return
 	}
 
