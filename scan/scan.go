@@ -150,9 +150,11 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 
 	// Finally rename the temporary sets containing the list
 	// of files for this mirror to the production key
-	_, err = conn.Do("RENAME", s.filesTmpKey, filesKey)
-	if err != nil {
-		return err
+	if s.count > 0 {
+		_, err = conn.Do("RENAME", s.filesTmpKey, filesKey)
+		if err != nil {
+			return err
+		}
 	}
 
 	sinterKey := fmt.Sprintf("HANDLEDFILES_%s", identifier)
