@@ -89,8 +89,6 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 	}()
 	defer close(scanfinished)
 
-	count := 0
-
 	line, err := readln(reader)
 	for err == nil {
 		var size int64
@@ -127,7 +125,6 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 
 		r.scan.ScannerAddFile(f)
 
-		count++
 	cont:
 		line, err = readln(reader)
 	}
