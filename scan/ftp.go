@@ -13,6 +13,11 @@ import (
 	"time"
 )
 
+const (
+	FTPConnTimeout = 5 * time.Second
+	FTPRWTimeout   = 30 * time.Second
+)
+
 type FTPScanner struct {
 	scan *scan
 
@@ -39,7 +44,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 		return ScanAborted
 	}
 
-	c, err := ftp.DialTimeout(host, 5*time.Second)
+	c, err := ftp.DialTimeout(host, FTPConnTimeout, FTPRWTimeout)
 	if err != nil {
 		return err
 	}
