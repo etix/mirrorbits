@@ -497,7 +497,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 
 	// Get all mirrors stats
 	for _, id := range mirrorsIDs {
-		today := time.Now().Format("2006_01_02")
+		today := time.Now().UTC().Format("2006_01_02")
 		rconn.Send("HGET", "STATS_MIRROR_"+today, id)
 		rconn.Send("HGET", "STATS_MIRROR_BYTES_"+today, id)
 	}
