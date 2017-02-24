@@ -4,15 +4,16 @@
 package http
 
 import (
+	"math"
+	"math/rand"
+	"sort"
+	"strings"
+
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/mirrors"
 	"github.com/etix/mirrorbits/network"
 	"github.com/etix/mirrorbits/utils"
-	"math"
-	"math/rand"
-	"sort"
-	"strings"
 )
 
 type MirrorSelection interface {

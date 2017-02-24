@@ -9,10 +9,11 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/hex"
-	. "github.com/etix/mirrorbits/config"
 	"hash"
 	"io"
 	"os"
+
+	. "github.com/etix/mirrorbits/config"
 )
 
 // Generate a human readable hash of the given file path

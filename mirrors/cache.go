@@ -5,15 +5,16 @@ package mirrors
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+	"unsafe"
+
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/network"
 	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
-	"strconv"
-	"strings"
-	"time"
-	"unsafe"
 )
 
 // Cache implements a local caching mechanism of type LRU for content available in the

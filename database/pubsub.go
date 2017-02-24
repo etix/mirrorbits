@@ -4,10 +4,11 @@
 package database
 
 import (
-	"github.com/garyburd/redigo/redis"
-	"github.com/op/go-logging"
 	"sync"
 	"time"
+
+	"github.com/garyburd/redigo/redis"
+	"github.com/op/go-logging"
 )
 
 var (

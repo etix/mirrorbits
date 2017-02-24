@@ -5,10 +5,11 @@ package network
 
 import (
 	"errors"
-	"github.com/etix/mirrorbits/database"
-	"github.com/garyburd/redigo/redis"
 	"os"
 	"time"
+
+	"github.com/etix/mirrorbits/database"
+	"github.com/garyburd/redigo/redis"
 )
 
 const (

@@ -5,12 +5,13 @@ package utils
 
 import (
 	"fmt"
-	"github.com/etix/mirrorbits/core"
-	"github.com/etix/mirrorbits/network"
 	"math"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/etix/mirrorbits/core"
+	"github.com/etix/mirrorbits/network"
 )
 
 const (

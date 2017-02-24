@@ -5,14 +5,15 @@ package daemon
 
 import (
 	"fmt"
-	"github.com/etix/mirrorbits/database"
-	"github.com/etix/mirrorbits/mirrors"
-	"github.com/etix/mirrorbits/utils"
 	"math/rand"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/mirrors"
+	"github.com/etix/mirrorbits/utils"
 )
 
 const (

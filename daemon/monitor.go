@@ -7,6 +7,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
+	"net"
+	"net/http"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/etix/mirrorbits/cli"
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/core"
@@ -16,13 +24,6 @@ import (
 	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
 	"github.com/op/go-logging"
-	"math/rand"
-	"net"
-	"net/http"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
 
 var (

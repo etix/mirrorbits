@@ -6,10 +6,6 @@ package logs
 import (
 	"bytes"
 	"fmt"
-	. "github.com/etix/mirrorbits/config"
-	"github.com/etix/mirrorbits/core"
-	"github.com/etix/mirrorbits/mirrors"
-	"github.com/op/go-logging"
 	"io"
 	stdlog "log"
 	"os"
@@ -18,6 +14,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/core"
+	"github.com/etix/mirrorbits/mirrors"
+	"github.com/op/go-logging"
 )
 
 var (

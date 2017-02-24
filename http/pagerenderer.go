@@ -8,12 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/etix/mirrorbits/config"
-	"github.com/etix/mirrorbits/mirrors"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+
+	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/mirrors"
 )
 
 var (

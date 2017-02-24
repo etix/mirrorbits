@@ -6,12 +6,13 @@ package http
 import (
 	"errors"
 	"fmt"
-	"github.com/etix/mirrorbits/database"
-	"github.com/etix/mirrorbits/filesystem"
-	"github.com/etix/mirrorbits/mirrors"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/filesystem"
+	"github.com/etix/mirrorbits/mirrors"
 )
 
 /*

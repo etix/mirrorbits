@@ -5,18 +5,19 @@ package mirrors
 
 import (
 	"fmt"
-	"github.com/etix/geoip"
-	"github.com/etix/mirrorbits/filesystem"
-	"github.com/etix/mirrorbits/network"
-	. "github.com/etix/mirrorbits/testing"
-	"github.com/garyburd/redigo/redis"
-	_ "github.com/rafaeljusto/redigomock"
 	"reflect"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 	"unsafe"
+
+	"github.com/etix/geoip"
+	"github.com/etix/mirrorbits/filesystem"
+	"github.com/etix/mirrorbits/network"
+	. "github.com/etix/mirrorbits/testing"
+	"github.com/garyburd/redigo/redis"
+	_ "github.com/rafaeljusto/redigomock"
 )
 
 func TestNewCache(t *testing.T) {

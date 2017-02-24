@@ -6,17 +6,6 @@ package http
 import (
 	"encoding/json"
 	"fmt"
-	. "github.com/etix/mirrorbits/config"
-	"github.com/etix/mirrorbits/core"
-	"github.com/etix/mirrorbits/database"
-	"github.com/etix/mirrorbits/filesystem"
-	"github.com/etix/mirrorbits/logs"
-	"github.com/etix/mirrorbits/mirrors"
-	"github.com/etix/mirrorbits/network"
-	"github.com/etix/mirrorbits/utils"
-	"github.com/garyburd/redigo/redis"
-	"github.com/op/go-logging"
-	"gopkg.in/tylerb/graceful.v1"
 	"html/template"
 	"math/rand"
 	"net"
@@ -28,6 +17,18 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/core"
+	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/filesystem"
+	"github.com/etix/mirrorbits/logs"
+	"github.com/etix/mirrorbits/mirrors"
+	"github.com/etix/mirrorbits/network"
+	"github.com/etix/mirrorbits/utils"
+	"github.com/garyburd/redigo/redis"
+	"github.com/op/go-logging"
+	"gopkg.in/tylerb/graceful.v1"
 )
 
 var (

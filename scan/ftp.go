@@ -5,12 +5,13 @@ package scan
 
 import (
 	"fmt"
-	"github.com/etix/goftp"
-	"github.com/etix/mirrorbits/utils"
-	"github.com/garyburd/redigo/redis"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/etix/goftp"
+	"github.com/etix/mirrorbits/utils"
+	"github.com/garyburd/redigo/redis"
 )
 
 const (

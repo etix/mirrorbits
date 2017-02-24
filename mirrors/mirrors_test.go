@@ -5,6 +5,12 @@ package mirrors
 
 import (
 	"fmt"
+	"math/rand"
+	"sort"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/etix/geoip"
 	"github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/database"
@@ -12,11 +18,6 @@ import (
 	. "github.com/etix/mirrorbits/testing"
 	"github.com/garyburd/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
-	"math/rand"
-	"sort"
-	"strings"
-	"testing"
-	"time"
 )
 
 func generateSimpleMirrorList(number int) Mirrors {

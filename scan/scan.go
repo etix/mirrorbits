@@ -6,6 +6,11 @@ package scan
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"time"
+
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/filesystem"
@@ -13,10 +18,6 @@ import (
 	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
 	"github.com/op/go-logging"
-	"os"
-	"path/filepath"
-	"strconv"
-	"time"
 )
 
 var (

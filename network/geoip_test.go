@@ -4,9 +4,10 @@
 package network
 
 import (
-	"github.com/etix/geoip"
 	"testing"
 	"time"
+
+	"github.com/etix/geoip"
 )
 
 func TestNewGeoIP(t *testing.T) {

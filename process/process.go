@@ -6,8 +6,6 @@ package process
 import (
 	"errors"
 	"fmt"
-	"github.com/etix/mirrorbits/core"
-	"github.com/op/go-logging"
 	"io/ioutil"
 	"net"
 	"os"
@@ -15,6 +13,9 @@ import (
 	"reflect"
 	"strconv"
 	"syscall"
+
+	"github.com/etix/mirrorbits/core"
+	"github.com/op/go-logging"
 )
 
 var (

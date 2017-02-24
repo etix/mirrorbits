@@ -6,13 +6,14 @@ package database
 import (
 	"errors"
 	"fmt"
-	. "github.com/etix/mirrorbits/config"
-	"github.com/etix/mirrorbits/core"
-	"github.com/garyburd/redigo/redis"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/core"
+	"github.com/garyburd/redigo/redis"
 )
 
 const (

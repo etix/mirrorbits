@@ -8,15 +8,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"strconv"
+	"time"
+
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/mirrors"
 	"github.com/etix/mirrorbits/utils"
-	"net"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 var (

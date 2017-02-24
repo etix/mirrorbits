@@ -7,14 +7,15 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/etix/mirrorbits/utils"
-	"github.com/garyburd/redigo/redis"
 	"io"
 	"net/url"
 	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/etix/mirrorbits/utils"
+	"github.com/garyburd/redigo/redis"
 )
 
 var (

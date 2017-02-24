@@ -6,14 +6,15 @@ package mirrors
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
+	"time"
+
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/network"
 	"github.com/etix/mirrorbits/utils"
 	"github.com/garyburd/redigo/redis"
-	"math/rand"
-	"time"
 )
 
 // Mirror is the structure representing all the information about a mirror

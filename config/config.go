@@ -5,13 +5,14 @@ package config
 
 import (
 	"fmt"
-	"github.com/etix/mirrorbits/core"
-	"github.com/op/go-logging"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/etix/mirrorbits/core"
+	"github.com/op/go-logging"
+	"gopkg.in/yaml.v2"
 )
 
 var (

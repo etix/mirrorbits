@@ -5,6 +5,14 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"runtime"
+	"runtime/pprof"
+	"strings"
+	"syscall"
+	"time"
+
 	"github.com/etix/mirrorbits/cli"
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/core"
@@ -15,13 +23,6 @@ import (
 	"github.com/etix/mirrorbits/mirrors"
 	"github.com/etix/mirrorbits/process"
 	"github.com/op/go-logging"
-	"os"
-	"os/signal"
-	"runtime"
-	"runtime/pprof"
-	"strings"
-	"syscall"
-	"time"
 )
 
 var (

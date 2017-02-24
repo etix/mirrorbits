@@ -4,11 +4,12 @@
 package utils
 
 import (
+	"testing"
+	"time"
+
 	"github.com/etix/geoip"
 	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/network"
-	"testing"
-	"time"
 )
 
 func TestNormalizeURL(t *testing.T) {

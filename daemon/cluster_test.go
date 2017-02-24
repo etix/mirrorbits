@@ -5,13 +5,14 @@ package daemon
 
 import (
 	"fmt"
-	"github.com/etix/mirrorbits/database"
-	"github.com/etix/mirrorbits/mirrors"
-	. "github.com/etix/mirrorbits/testing"
 	"reflect"
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/etix/mirrorbits/database"
+	"github.com/etix/mirrorbits/mirrors"
+	. "github.com/etix/mirrorbits/testing"
 )
 
 func TestStart(t *testing.T) {

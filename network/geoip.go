@@ -5,14 +5,15 @@ package network
 
 import (
 	"errors"
-	"github.com/etix/geoip"
-	. "github.com/etix/mirrorbits/config"
-	"github.com/op/go-logging"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/etix/geoip"
+	. "github.com/etix/mirrorbits/config"
+	"github.com/op/go-logging"
 )
 
 var (
