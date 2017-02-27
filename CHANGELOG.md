@@ -3,6 +3,11 @@
 ### FEATURES
 
 - Allow negative scores to reduce the weight of a mirror
+- Follow symbolic links within a repository
+- Allow/Disallow per-mirror redirects configuration
+- Display the sync offset between each mirrors and the source on the mirrorstats page (requires a trace file on the repository)
+- New cli option to force a rehashing of all files during a refresh
+- Added a Dockerfile
 
 ### ENHANCEMENTS
 
@@ -16,12 +21,16 @@
 - Set cache-control to disable caching
 - Log unauthorized redirection from a mirror
 - New option to set the maximum number of backup mirrors to return in link headers
+- Support for Google Maps API keys
+- Mirrorlist and Mirrorstats UI refresh
+- Use UTC time on mirrorlist / mirrorstats page
 - Improved error reporting
 
 ### BUGFIXES
 
 - Fix a possible crash while Redis is loading the dataset
 - Fix a race condition when updating mirrors state
+- Fix a rare deadlock within the FTP client
 
 ## v0.3
 
