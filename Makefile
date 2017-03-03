@@ -24,7 +24,7 @@ install:
 
 clean:
 	@echo Cleaning workspace...
-	@rm -dRf bin
+	@rm -f bin/mirrorbits
 	@rm -dRf dist
 
 release: $(PACKAGE)
