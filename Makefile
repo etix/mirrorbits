@@ -1,25 +1,29 @@
-.PHONY: all build dev install clean release
+.PHONY: all build dev install clean release vendor
 
 VERSION := $(shell git describe --always --dirty --tags)
 SHA := $(shell git rev-parse --short HEAD)
 BRANCH := $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
 BUILD := $(SHA)-$(BRANCH)
-PACKAGE := dist/mirrorbits-$(VERSION).tar.gz
+TARBALL := dist/mirrorbits-$(VERSION).tar.gz
 
-SYMBOLSPREFIX = github.com/etix/mirrorbits/
+PACKAGE = github.com/etix/mirrorbits
 
-GOFLAGS := -ldflags "-X $(SYMBOLSPREFIX)core.VERSION=$(VERSION) -X $(SYMBOLSPREFIX)core.BUILD=$(BUILD)"
-GOFLAGSDEV := -race -ldflags "-X $(SYMBOLSPREFIX)core.VERSION=$(VERSION) -X $(SYMBOLSPREFIX)core.BUILD=$(BUILD) -X $(SYMBOLSPREFIX)core.DEV=-dev"
+GOFLAGS := -ldflags "-X $(PACKAGE)/core.VERSION=$(VERSION) -X $(PACKAGE)/core.BUILD=$(BUILD)"
+GOFLAGSDEV := -race -ldflags "-X $(PACKAGE)/core.VERSION=$(VERSION) -X $(PACKAGE)/core.BUILD=$(BUILD) -X $(PACKAGE)/core.DEV=-dev"
 
 all: build
 
-build:
+vendor:
+	go get github.com/kardianos/govendor
+	govendor sync ${PACKAGE}
+
+build: vendor
 	go build $(GOFLAGS) -o bin/mirrorbits .
 
-dev:
+dev: vendor
 	go build $(GOFLAGSDEV) -o bin/mirrorbits .
 
-install:
+install: vendor
 	go install -v $(GOFLAGS) .
 
 clean:
@@ -27,12 +31,12 @@ clean:
 	@rm -f bin/mirrorbits
 	@rm -dRf dist
 
-release: $(PACKAGE)
+release: $(TARBALL)
 
 test:
-	@go test $(GOFLAGS) -v -cover ./...
+	@govendor test $(GOFLAGS) -v -cover +local
 
-$(PACKAGE): build
+$(TARBALL): build
 	@echo Packaging release...
 	@mkdir -p tmp/mirrorbits
 	@cp -f bin/mirrorbits tmp/mirrorbits/

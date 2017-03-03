@@ -25,6 +25,7 @@
 - Mirrorlist and Mirrorstats UI refresh
 - Use UTC time on mirrorlist / mirrorstats page
 - Improved error reporting
+- Add dependency vendoring
 
 ### BUGFIXES
 

@@ -1,0 +1,55 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "eU7l2ETuo7aSjNQLkproRcQqI+M=",
+			"path": "github.com/etix/geoip",
+			"revision": "db8457352061099b2a1840c712b3223900216588",
+			"revisionTime": "2015-08-06T21:40:06Z"
+		},
+		{
+			"checksumSHA1": "Q7mGz8LZRezzZjrmBAL4wNJ6WrQ=",
+			"path": "github.com/etix/goftp",
+			"revision": "0c13163a1028e83f0f1cce113dddd3900e935bc7",
+			"revisionTime": "2017-02-17T14:02:26Z"
+		},
+		{
+			"checksumSHA1": "2UmMbNHc8FBr98mJFN1k8ISOIHk=",
+			"path": "github.com/garyburd/redigo/internal",
+			"revision": "8c052d82153967815d9093a7e9d3e7fd2e554861",
+			"revisionTime": "2017-01-01T00:10:20Z"
+		},
+		{
+			"checksumSHA1": "pofHSvosTrIPzQyddaLX5wy0ehI=",
+			"path": "github.com/garyburd/redigo/redis",
+			"revision": "8c052d82153967815d9093a7e9d3e7fd2e554861",
+			"revisionTime": "2017-01-01T00:10:20Z"
+		},
+		{
+			"checksumSHA1": "BoXdUBWB8UnSlFlbnuTQaPqfCGk=",
+			"path": "github.com/op/go-logging",
+			"revision": "970db520ece77730c7e4724c61121037378659d9",
+			"revisionTime": "2016-03-15T20:05:05Z"
+		},
+		{
+			"checksumSHA1": "Unxe1vo0iwesQlY5NkFCCknuVG0=",
+			"path": "github.com/rafaeljusto/redigomock",
+			"revision": "8a39246926d9f2a732f775c5b360d7078191cbbd",
+			"revisionTime": "2016-11-22T09:20:17Z"
+		},
+		{
+			"checksumSHA1": "hiOUviIMDKo7y918uBiEhfJyOkk=",
+			"path": "gopkg.in/tylerb/graceful.v1",
+			"revision": "50a48b6e73fcc75b45e22c05b79629a67c79e938",
+			"revisionTime": "2016-08-29T01:00:30Z"
+		},
+		{
+			"checksumSHA1": "0KwOlQV1dNUh9X8t+5s7nX5bqfk=",
+			"path": "gopkg.in/yaml.v2",
+			"revision": "a3f3340b5840cee44f372bddb5880fcbc419b46a",
+			"revisionTime": "2017-02-08T14:18:51Z"
+		}
+	],
+	"rootPath": "github.com/etix/mirrorbits"
+}
