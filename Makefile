@@ -11,6 +11,8 @@ PACKAGE = github.com/etix/mirrorbits
 GOFLAGS := -ldflags "-X $(PACKAGE)/core.VERSION=$(VERSION) -X $(PACKAGE)/core.BUILD=$(BUILD)"
 GOFLAGSDEV := -race -ldflags "-X $(PACKAGE)/core.VERSION=$(VERSION) -X $(PACKAGE)/core.BUILD=$(BUILD) -X $(PACKAGE)/core.DEV=-dev"
 
+export PATH := ${GOPATH}/bin:$(PATH)
+
 all: build
 
 vendor:
