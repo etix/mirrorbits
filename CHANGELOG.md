@@ -1,4 +1,4 @@
-## master
+## v0.4-rc1
 
 ### FEATURES
 
