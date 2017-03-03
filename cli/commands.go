@@ -17,6 +17,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"text/tabwriter"
 	"time"
@@ -534,6 +535,10 @@ func (c *cli) CmdScan(args ...string) error {
 		}
 	}
 
+	var wg sync.WaitGroup
+	stop := make(chan bool)
+	trace := scan.NewTraceHandler(r, stop)
+
 	for _, id := range list {
 
 		key := fmt.Sprintf("MIRROR_%s", id)
@@ -550,6 +555,22 @@ func (c *cli) CmdScan(args ...string) error {
 		}
 
 		log.Noticef("Scanning %s...", id)
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := trace.GetLastUpdate(mirror)
+			if err != nil && err != scan.ErrNoTrace {
+				if numError, ok := err.(*strconv.NumError); ok {
+					if numError.Err == strconv.ErrSyntax {
+						log.Warningf("[%s] parsing trace file failed: %s is not a valid timestamp", mirror.ID, strconv.Quote(numError.Num))
+						return
+					}
+				} else {
+					log.Warningf("[%s] fetching trace file failed: %s", mirror.ID, err)
+				}
+			}
+		}()
 
 		err = NoSyncMethod
 
@@ -582,6 +603,7 @@ func (c *cli) CmdScan(args ...string) error {
 			fmt.Println("Mirror enabled successfully")
 		}
 	}
+	wg.Wait()
 	return nil
 }
 
