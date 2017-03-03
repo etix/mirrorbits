@@ -239,7 +239,10 @@ single:
 }
 
 func (r *Redis) connectTo(address string) (redis.Conn, error) {
-	return redis.DialTimeout("tcp", address, redisConnectionTimeout, redisReadWriteTimeout, redisReadWriteTimeout)
+	return redis.Dial("tcp", address,
+		redis.DialConnectTimeout(redisConnectionTimeout),
+		redis.DialReadTimeout(redisReadWriteTimeout),
+		redis.DialWriteTimeout(redisReadWriteTimeout))
 }
 
 func (r *Redis) askRole(c redis.Conn) (string, error) {
