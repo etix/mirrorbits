@@ -415,7 +415,18 @@ func (h *HTTP) fileStatsHandler(w http.ResponseWriter, r *http.Request, ctx *Con
 
 func (h *HTTP) checksumHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 
-	fileInfo, err := h.cache.GetFileInfo(r.URL.Path)
+	// Sanitize path
+	urlPath, err := filesystem.EvaluateFilePath(GetConfig().Repository, r.URL.Path)
+	if err != nil {
+		if err == filesystem.ErrOutsideRepo {
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	fileInfo, err := h.cache.GetFileInfo(urlPath)
 	if err == redis.ErrNil {
 		http.NotFound(w, r)
 		return
