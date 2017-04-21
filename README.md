@@ -30,7 +30,7 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
 
 ## Is it production ready?
 
-**Almost!** Mirrorbits is already running in production at
+**Yes!** Mirrorbits is already running in production at
  * [VideoLAN](http://www.videolan.org) to distribute [VLC media player](http://www.videolan.org/vlc/) since April 2014
  * [Popcorn Time](https://popcorntime.io)
  * [SuperRepo](https://superrepo.org)
