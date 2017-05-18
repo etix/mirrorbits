@@ -22,6 +22,9 @@
             .marker-mixed {
                 background-color: orange;
             }
+            .marker-disabled {
+                background-color: black;
+            }
             .popup-content {
                 font-size: 0.8em;
             }
@@ -115,13 +118,16 @@
             MirrorMarker = L.Marker.extend({
                 options: {
                     operational: false,
+                    enabled: false,
                     mid: ''
                 }
             });
 
             function generateStatusRow(marker) {
                 var color = "red";
-                if (marker.options.operational == true) {
+                if (marker.options.enabled == false) {
+                    color = "black";
+                } else if (marker.options.operational == true) {
                     color = "green";
                 }
                 return '<tr><td style="background-color: ' + color + '"> &nbsp; </td><td>' + marker.options.mid + '</td></tr>';
@@ -140,15 +146,23 @@
 
                     var hasUp = false;
                     var hasDown = false;
+                    var hasDisabled = false;
                     for (var i = 0; i < cluster.getAllChildMarkers().length; i++) {
-                        if (cluster.getAllChildMarkers()[i].options.operational == true)
+                        if (cluster.getAllChildMarkers()[i].options.enabled == false) {
+                            hasDisabled = true;
+                            continue
+                        }
+                        if (cluster.getAllChildMarkers()[i].options.operational == true) {
                             hasUp = true;
-                        else
+                        } else {
                             hasDown = true;
+                        }
                     }
 
                     var cssClass;
-                    if (hasUp && !hasDown) {
+                    if (!hasUp && !hasDown && hasDisabled) {
+                        cssClass = "marker-disabled";
+                    } else if (hasUp && !hasDown) {
                         cssClass = "marker-good";
                     } else if (!hasUp && hasDown) {
                         cssClass = "marker-bad";
@@ -167,9 +181,12 @@
                 var area = (Math.PI * (radius * radius));
                 var size = Math.sqrt(area / Math.PI) * 2;
                 var operational = mirrors.rows[i].enabled & mirrors.rows[i].up;
+                var enabled = mirrors.rows[i].enabled;
 
                 var cssClass;
-                if (operational == true) {
+                if (!enabled) {
+                    cssClass = "marker-disabled";
+                } else if (operational == true) {
                     cssClass = "marker-good";
                 } else {
                     cssClass = "marker-bad";
@@ -180,6 +197,7 @@
                 var m = new MirrorMarker([mirrors.rows[i].lat, mirrors.rows[i].lon], {
                     icon: icon,
                     operational: operational,
+                    enabled: enabled,
                     mid: mirrors.rows[i].id
                 });
 
