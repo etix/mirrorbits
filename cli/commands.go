@@ -784,6 +784,7 @@ reopen:
 
 	// Reformat contry codes
 	mirror.CountryCodes = utils.SanitizeLocationCodes(mirror.CountryCodes)
+	mirror.ExcludedCountryCodes = utils.SanitizeLocationCodes(mirror.ExcludedCountryCodes)
 
 	// Reformat continent code
 	mirror.ContinentCode = utils.SanitizeLocationCodes(mirror.ContinentCode)
@@ -821,6 +822,7 @@ reopen:
 		"longitude", mirror.Longitude,
 		"continentCode", mirror.ContinentCode,
 		"countryCodes", mirror.CountryCodes,
+		"excludedCountryCodes", mirror.ExcludedCountryCodes,
 		"asnum", mirror.Asnum,
 		"comment", mirror.Comment,
 		"allowredirects", mirror.AllowRedirects,

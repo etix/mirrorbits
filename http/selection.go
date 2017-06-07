@@ -89,6 +89,11 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 				goto delete
 			}
 		}
+		// Is the user's country code allowed on this mirror?
+		if clientInfo.IsValid() && utils.IsInSlice(clientInfo.CountryCode, m.ExcludedCountryFields) {
+			m.ExcludeReason = "User's country restriction"
+			goto delete
+		}
 		if safeIndex == 0 {
 			closestMirror = m.Distance
 		} else if closestMirror > m.Distance {
