@@ -222,3 +222,13 @@ func FuzzyTimeStr(duration time.Duration) string {
 
 	return fmt.Sprintf("%d day%s ago", int(hours/24), Plural(int(hours/24)))
 }
+
+func SanitizeLocationCodes(input string) string {
+	input = strings.Replace(input, ",", " ", -1)
+	ccodes := strings.Fields(input)
+	output := ""
+	for _, c := range ccodes {
+		output += strings.ToUpper(c) + " "
+	}
+	return strings.TrimRight(output, " ")
+}

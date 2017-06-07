@@ -783,17 +783,10 @@ reopen:
 	}
 
 	// Reformat contry codes
-	mirror.CountryCodes = strings.Replace(mirror.CountryCodes, ",", " ", -1)
-	ccodes := strings.Fields(mirror.CountryCodes)
-	mirror.CountryCodes = ""
-	for _, c := range ccodes {
-		mirror.CountryCodes += strings.ToUpper(c) + " "
-	}
-	mirror.CountryCodes = strings.TrimRight(mirror.CountryCodes, " ")
+	mirror.CountryCodes = utils.SanitizeLocationCodes(mirror.CountryCodes)
 
 	// Reformat continent code
-	//FIXME sanitize
-	mirror.ContinentCode = strings.ToUpper(mirror.ContinentCode)
+	mirror.ContinentCode = utils.SanitizeLocationCodes(mirror.ContinentCode)
 
 	// Normalize URLs
 	if mirror.HttpURL != "" {
