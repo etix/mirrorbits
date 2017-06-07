@@ -754,7 +754,7 @@ reopen:
 	}
 
 	var (
-		yamlstr string = string(out)
+		yamlstr = string(out)
 		comment string
 	)
 
