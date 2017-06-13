@@ -5,15 +5,15 @@ package network
 
 import (
 	"errors"
+	"net"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/etix/geoip"
 	. "github.com/etix/mirrorbits/config"
 	"github.com/op/go-logging"
+	"github.com/oschwald/maxminddb-golang"
 )
 
 var (
@@ -30,24 +30,28 @@ const (
 type GeoIP struct {
 	sync.RWMutex
 
-	geo  *geoipDB
-	geo6 *geoipDB
+	city *geoipDB
 	asn  *geoipDB
-	asn6 *geoipDB
 }
 
 // GeoIPRecord defines a GeoIP record for a given IP address
 type GeoIPRecord struct {
-	*geoip.GeoIPRecord
-	ASName    string
-	ASNum     int
-	ASNetmask int
+	// City DB
+	CountryCode   string
+	ContinentCode string
+	City          string
+	Country       string
+	Latitude      float32
+	Longitude     float32
+
+	// ASN DB
+	ASName string
+	ASNum  uint
 }
 
 // Geolocalizer is an interface representing a GeoIP library
 type Geolocalizer interface {
-	GetRecord(ip string) *geoip.GeoIPRecord
-	GetName(ip string) (name string, netmask int)
+	Lookup(ipAddress net.IP, result interface{}) error
 }
 
 // NewGeoIP instanciates a new instance of GeoIP
@@ -56,7 +60,7 @@ func NewGeoIP() *GeoIP {
 }
 
 // Open the GeoIP database
-func (g *GeoIP) openDatabase(file string) (*geoip.GeoIP, time.Time, error) {
+func (g *GeoIP) openDatabase(file string) (*maxminddb.Reader, time.Time, error) {
 	dbpath := GetConfig().GeoipDatabasePath
 	if dbpath != "" && !strings.HasSuffix(dbpath, "/") {
 		dbpath += "/"
@@ -81,7 +85,7 @@ func (g *GeoIP) openDatabase(file string) (*geoip.GeoIP, time.Time, error) {
 		modTime = fi.ModTime()
 	}
 
-	db, err := geoip.Open(filename)
+	db, err := maxminddb.Open(filename)
 	return db, modTime, err
 }
 
@@ -137,10 +141,8 @@ func (g *GeoIP) LoadGeoIP() error {
 	var ret GeoIPError
 
 	g.Lock()
-	g.loadDB("GeoLiteCity.dat", &g.geo, &ret)
-	g.loadDB("GeoLiteCityv6.dat", &g.geo6, &ret)
-	g.loadDB("GeoIPASNum.dat", &g.asn, &ret)
-	g.loadDB("GeoIPASNumv6.dat", &g.asn6, &ret)
+	g.loadDB("GeoLite2-City.mmdb", &g.city, &ret)
+	g.loadDB("GeoLite2-ASN.mmdb", &g.asn, &ret)
 	g.Unlock()
 
 	if len(ret.Errors) > 0 {
@@ -152,31 +154,65 @@ func (g *GeoIP) LoadGeoIP() error {
 // GetRecord return informations about the given ip address
 // (works in IPv4 and v6)
 func (g *GeoIP) GetRecord(ip string) (ret GeoIPRecord) {
+	addr := net.ParseIP(ip)
+	if addr == nil {
+		return GeoIPRecord{}
+	}
+
+	type CityDb struct {
+		City struct {
+			Names struct {
+				English string `maxminddb:"en"`
+			} `maxminddb:"names"`
+		} `maxminddb:"city"`
+		Country struct {
+			IsoCode string `maxminddb:"iso_code"`
+			Names   struct {
+				English string `maxminddb:"en"`
+			} `maxminddb:"names"`
+		} `maxminddb:"country"`
+		Continent struct {
+			Code string `maxminddb:"code"`
+		} `maxminddb:"continent"`
+		Location struct {
+			Latitude  float64 `maxminddb:"latitude"`
+			Longitude float64 `maxminddb:"longitude"`
+		} `maxminddb:"location"`
+	}
+
+	type ASNDb struct {
+		AutonomousSystemNumber uint   `maxminddb:"autonomous_system_number"`
+		AutonomousSystemOrg    string `maxminddb:"autonomous_system_organization"`
+	}
+
+	var err error
+	var cityDb CityDb
+	var asnDb ASNDb
+
 	g.RLock()
-	if g.IsIPv6(ip) {
-		if g.geo6 != nil && g.geo6.db != nil {
-			ret.GeoIPRecord = g.geo6.db.GetRecord(ip)
+	defer g.RUnlock()
+
+	if g.city != nil && g.city.db != nil {
+		err = g.city.db.Lookup(addr, &cityDb)
+		if err != nil {
+			return GeoIPRecord{}
 		}
-		if g.asn6 != nil && g.asn6.db != nil {
-			ret.ASName, ret.ASNetmask = g.asn6.db.GetName(ip)
-		}
-	} else {
-		if g.geo != nil && g.geo.db != nil {
-			ret.GeoIPRecord = g.geo.db.GetRecord(ip)
-		}
-		if g.asn != nil && g.asn.db != nil {
-			ret.ASName, ret.ASNetmask = g.asn.db.GetName(ip)
-		}
+		ret.CountryCode = cityDb.Country.IsoCode
+		ret.ContinentCode = cityDb.Continent.Code
+		ret.City = cityDb.City.Names.English
+		ret.Country = cityDb.Country.Names.English
+		ret.Latitude = float32(cityDb.Location.Latitude)
+		ret.Longitude = float32(cityDb.Location.Longitude)
 	}
-	g.RUnlock()
-	if len(ret.ASName) > 0 {
-		// Split the ASNum (i.e "AS12322 Free SAS")
-		ss := strings.SplitN(ret.ASName, " ", 2)
-		if len(ss) == 2 {
-			ret.ASNum, _ = strconv.Atoi(strings.TrimPrefix(ss[0], "AS"))
-			ret.ASName = ss[1]
+	if g.asn != nil && g.asn.db != nil {
+		err = g.asn.db.Lookup(addr, &asnDb)
+		if err != nil {
+			return GeoIPRecord{}
 		}
+		ret.ASName = asnDb.AutonomousSystemOrg
+		ret.ASNum = asnDb.AutonomousSystemNumber
 	}
+
 	return ret
 }
 
@@ -187,5 +223,5 @@ func (g *GeoIP) IsIPv6(ip string) bool {
 
 // IsValid returns true if the given address is valid
 func (g *GeoIPRecord) IsValid() bool {
-	return g.GeoIPRecord != nil
+	return len(g.CountryCode) > 0
 }

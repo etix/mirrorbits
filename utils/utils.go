@@ -85,7 +85,7 @@ func IsInSlice(a string, list []string) bool {
 
 // IsAdditionalCountry returns true if the clientInfo country is in list
 func IsAdditionalCountry(clientInfo network.GeoIPRecord, list []string) bool {
-	if clientInfo.GeoIPRecord == nil {
+	if !clientInfo.IsValid() {
 		return false
 	}
 	for i, b := range list {
@@ -98,7 +98,7 @@ func IsAdditionalCountry(clientInfo network.GeoIPRecord, list []string) bool {
 
 // IsPrimaryCountry returns true if the clientInfo country is the primary country
 func IsPrimaryCountry(clientInfo network.GeoIPRecord, list []string) bool {
-	if clientInfo.GeoIPRecord == nil {
+	if !clientInfo.IsValid() {
 		return false
 	}
 	if len(list) > 0 && list[0] == clientInfo.CountryCode {
