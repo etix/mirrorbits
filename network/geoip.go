@@ -28,7 +28,6 @@ const (
 // GeoIP contains methods to query the GeoIP database
 type GeoIP struct {
 	sync.RWMutex
-	once sync.Once
 
 	geo  *geoipDB
 	geo6 *geoipDB
