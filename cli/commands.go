@@ -331,11 +331,11 @@ func (c *cli) CmdAdd(args ...string) error {
 	var latitude, longitude float32
 	var continentCode, countryCode string
 
-	if geoRec.GeoIPRecord != nil {
-		latitude = geoRec.GeoIPRecord.Latitude
-		longitude = geoRec.GeoIPRecord.Longitude
-		continentCode = geoRec.GeoIPRecord.ContinentCode
-		countryCode = geoRec.GeoIPRecord.CountryCode
+	if geoRec.IsValid() {
+		latitude = geoRec.Latitude
+		longitude = geoRec.Longitude
+		continentCode = geoRec.ContinentCode
+		countryCode = geoRec.CountryCode
 	} else {
 		fmt.Fprintf(os.Stderr, "Warning: unable to guess the geographic location of %s\n", cmd.Arg(0))
 	}
