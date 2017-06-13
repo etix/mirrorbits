@@ -69,6 +69,11 @@ func (g *GeoIP) openDatabase(file string) (*geoip.GeoIP, time.Time, error) {
 
 	if fi, err = os.Stat(filename + geoipUpdatedExt); !os.IsNotExist(err) {
 		filename += geoipUpdatedExt
+	} else {
+		fi, err = os.Stat(filename)
+		if err != nil {
+			return nil, time.Time{}, err
+		}
 	}
 
 	if fi != nil {
