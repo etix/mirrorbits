@@ -3,12 +3,6 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "eU7l2ETuo7aSjNQLkproRcQqI+M=",
-			"path": "github.com/etix/geoip",
-			"revision": "db8457352061099b2a1840c712b3223900216588",
-			"revisionTime": "2015-08-06T21:40:06Z"
-		},
-		{
 			"checksumSHA1": "Q7mGz8LZRezzZjrmBAL4wNJ6WrQ=",
 			"path": "github.com/etix/goftp",
 			"revision": "0c13163a1028e83f0f1cce113dddd3900e935bc7",
