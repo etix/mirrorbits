@@ -96,7 +96,8 @@ func (m ByRank) Less(i, j int) bool {
 			} else if utils.IsInSlice(m.ClientInfo.CountryCode, m.Mirrors[j].CountryFields) {
 				return false
 			}
-		} else if m.ClientInfo.ContinentCode != "" {
+		}
+		if m.ClientInfo.ContinentCode != "" {
 			if m.ClientInfo.ContinentCode == m.Mirrors[i].ContinentCode {
 				if m.ClientInfo.ContinentCode != m.Mirrors[j].ContinentCode {
 					return true
