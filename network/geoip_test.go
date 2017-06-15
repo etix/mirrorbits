@@ -4,11 +4,38 @@
 package network
 
 import (
+	"net"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
-
-	"github.com/etix/geoip"
 )
+
+type CityDb struct {
+	City struct {
+		Names struct {
+			En string
+		}
+	}
+	Country struct {
+		Iso_Code string
+		Names    struct {
+			En string
+		}
+	}
+	Continent struct {
+		Code string
+	}
+	Location struct {
+		Latitude  float64
+		Longitude float64
+	}
+}
+
+type ASNDb struct {
+	Autonomous_system_number       uint
+	Autonomous_system_organization string
+}
 
 func TestNewGeoIP(t *testing.T) {
 	g := NewGeoIP()
@@ -20,51 +47,46 @@ func TestNewGeoIP(t *testing.T) {
 func TestGeoIP_GetRecord(t *testing.T) {
 	g := NewGeoIP()
 
-	mockv4 := &geoipDB{
-		filename: "testv4.dat",
+	mockcity := &geoipDB{
+		filename: "city.mmdb",
 		modTime:  time.Now(),
-		db:       &GeoIPMockV4{},
+		db:       &GeoIPMockCity{},
 	}
 
-	mockv6 := &geoipDB{
-		filename: "testv4.dat",
+	mockasn := &geoipDB{
+		filename: "asn.mmdb",
 		modTime:  time.Now(),
-		db:       &GeoIPMockV6{},
+		db:       &GeoIPMockASN{},
 	}
 
-	g.geo = mockv4
-	g.geo6 = mockv6
-	g.asn = mockv4
-	g.asn6 = mockv6
+	g.city = mockcity
+	g.asn = mockasn
 
-	/* ipv4 */
+	/* city */
 	r := g.GetRecord("127.0.0.1")
-	if r.CountryName != "IPV4" {
-		t.Fatalf("Expected IPV4 got %s", r.CountryName)
+	if r.City != "test1" {
+		t.Fatalf("Invalid response got %s, expected test1", r.City)
 	}
-	if r.ASNum != 4444 {
-		t.Fatalf("Expected 4 got %d", r.ASNum)
+	if r.CountryCode != "test2" {
+		t.Fatalf("Invalid response got %s, expected test2", r.CountryCode)
 	}
-	if r.ASName != "IPV4" {
-		t.Fatalf("Expected IPV4 got %s", r.ASName)
+	if r.Country != "test3" {
+		t.Fatalf("Invalid response got %s, expected test3", r.Country)
 	}
-	if r.IsValid() == false {
-		t.Fatalf("Expected valid got invalid")
+	if r.ContinentCode != "test4" {
+		t.Fatalf("Invalid response got %s, expected test4", r.ContinentCode)
 	}
-
-	/* ipv6 */
-	r = g.GetRecord("::1")
-	if r.CountryName != "IPV6" {
-		t.Fatalf("Expected IPV6 got %s", r.CountryName)
+	if r.Latitude != 24 {
+		t.Fatalf("Invalid response got %f, expected 24", r.Latitude)
 	}
-	if r.ASNum != 6666 {
-		t.Fatalf("Expected 6 got %d", r.ASNum)
+	if r.Longitude != 42 {
+		t.Fatalf("Invalid response got %f, expected 42", r.Longitude)
 	}
-	if r.ASName != "IPV6" {
-		t.Fatalf("Expected IPV6 got %s", r.ASName)
+	if r.ASNum != 42 {
+		t.Fatalf("Invalid response got %d, expected 42", r.ASNum)
 	}
-	if r.IsValid() == false {
-		t.Fatalf("Expected valid got invalid")
+	if r.ASName != "forty two" {
+		t.Fatalf("Invalid response got %s, expected forty two", r.ASName)
 	}
 }
 
@@ -88,37 +110,82 @@ func TestGeoIPRecord_IsValid(t *testing.T) {
 		t.Fatalf("Expected false, got true")
 	}
 
-	r.GeoIPRecord = &geoip.GeoIPRecord{}
+	r = GeoIPRecord{
+		CountryCode: "FR",
+	}
 
 	if r.IsValid() == false {
 		t.Fatalf("Expected true, got false")
 	}
 }
 
-/* MOCK: github.com/etix/geoip */
+/* MOCK */
 
-type GeoIPMockV4 struct {
+type GeoIPMockCity struct {
 }
 
-func (g *GeoIPMockV4) GetRecord(ip string) *geoip.GeoIPRecord {
-	return &geoip.GeoIPRecord{
-		CountryName: "IPV4", // fake
+func (g *GeoIPMockCity) Lookup(ipAddress net.IP, result interface{}) error {
+	var citydb CityDb
+	citydb.City.Names.En = "test1"
+	citydb.Country.Iso_Code = "test2"
+	citydb.Country.Names.En = "test3"
+	citydb.Continent.Code = "test4"
+	citydb.Location.Latitude = 24
+	citydb.Location.Longitude = 42
+
+	CopyStruct(&citydb, result)
+
+	return nil
+}
+
+type GeoIPMockASN struct {
+}
+
+func (g *GeoIPMockASN) Lookup(ipAddress net.IP, result interface{}) error {
+	var asnDb ASNDb
+	asnDb.Autonomous_system_number = 42
+	asnDb.Autonomous_system_organization = "forty two"
+
+	CopyStruct(&asnDb, result)
+
+	return nil
+}
+
+func CopyStruct(src interface{}, dst interface{}) {
+	s := reflect.Indirect(reflect.ValueOf(src))
+	d := reflect.Indirect(reflect.ValueOf(dst))
+	CopyStructRec(s, d)
+}
+
+func CopyStructRec(s, d reflect.Value) {
+	st := s.Type()
+	dt := d.Type()
+
+	typeOft1 := s.Type()
+	typeOft2 := d.Type()
+
+	for i := 0; i < s.NumField(); i++ {
+		sf := s.Field(i)
+
+		if st.Field(i).Type.Kind() == reflect.Struct {
+			for j := 0; j < d.NumField(); j++ {
+				if typeOft1.Field(i).Name == typeOft2.Field(j).Name {
+					CopyStructRec(s.Field(i), d.Field(j))
+					goto cont
+				}
+			}
+		}
+
+		for j := 0; j < d.NumField(); j++ {
+			df := d.Field(j)
+			dtf := dt.Field(j)
+			dsttag := dtf.Tag.Get("maxminddb")
+
+			if strings.ToLower(typeOft1.Field(i).Name) == strings.ToLower(dsttag) {
+				df.Set(reflect.Value(sf))
+				break
+			}
+		}
+	cont:
 	}
-}
-
-func (g *GeoIPMockV4) GetName(ip string) (name string, netmask int) {
-	return "AS4444 IPV4", 4
-}
-
-type GeoIPMockV6 struct {
-}
-
-func (g *GeoIPMockV6) GetRecord(ip string) *geoip.GeoIPRecord {
-	return &geoip.GeoIPRecord{
-		CountryName: "IPV6", // fake
-	}
-}
-
-func (g *GeoIPMockV6) GetName(ip string) (name string, netmask int) {
-	return "AS6666 IPV6", 6
 }

@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/etix/geoip"
 	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/network"
 )
@@ -92,9 +91,7 @@ func TestIsAdditionalCountry(t *testing.T) {
 	list := []string{"FR", "DE", "GR"}
 
 	clientInfo := network.GeoIPRecord{
-		GeoIPRecord: &geoip.GeoIPRecord{
-			CountryCode: "FR",
-		},
+		CountryCode: "FR",
 	}
 
 	b = IsAdditionalCountry(clientInfo, list)
@@ -103,9 +100,7 @@ func TestIsAdditionalCountry(t *testing.T) {
 	}
 
 	clientInfo = network.GeoIPRecord{
-		GeoIPRecord: &geoip.GeoIPRecord{
-			CountryCode: "GR",
-		},
+		CountryCode: "GR",
 	}
 
 	b = IsAdditionalCountry(clientInfo, list)
@@ -119,9 +114,7 @@ func TestIsPrimaryCountry(t *testing.T) {
 	list := []string{"FR", "DE", "GR"}
 
 	clientInfo := network.GeoIPRecord{
-		GeoIPRecord: &geoip.GeoIPRecord{
-			CountryCode: "FR",
-		},
+		CountryCode: "FR",
 	}
 
 	b = IsPrimaryCountry(clientInfo, list)
@@ -130,9 +123,7 @@ func TestIsPrimaryCountry(t *testing.T) {
 	}
 
 	clientInfo = network.GeoIPRecord{
-		GeoIPRecord: &geoip.GeoIPRecord{
-			CountryCode: "GR",
-		},
+		CountryCode: "GR",
 	}
 
 	b = IsPrimaryCountry(clientInfo, list)
