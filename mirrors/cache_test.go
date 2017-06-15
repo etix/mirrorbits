@@ -292,6 +292,7 @@ func TestCache_fetchMirror(t *testing.T) {
 
 	// This is required to reach DeepEqual(ity)
 	testmirror.CountryFields = strings.Fields(testmirror.CountryCodes)
+	testmirror.ExcludedCountryFields = strings.Fields(testmirror.ExcludedCountryCodes)
 
 	if !reflect.DeepEqual(testmirror, m) {
 		t.Fatalf("Result is different")
