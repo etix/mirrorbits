@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/etix/geoip"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/network"
 	. "github.com/etix/mirrorbits/testing"
@@ -137,11 +136,9 @@ func TestByRank_Less(t *testing.T) {
 	/* */
 
 	c = network.GeoIPRecord{
-		GeoIPRecord: &geoip.GeoIPRecord{
-			CountryCode:   "FR",
-			ContinentCode: "EU",
-		},
-		ASNum: 4444,
+		CountryCode:   "FR",
+		ContinentCode: "EU",
+		ASNum:         4444,
 	}
 	if !c.IsValid() {
 		t.Fatalf("GeoIPRecord is supposed to be valid")
@@ -231,10 +228,9 @@ func TestByRank_Less(t *testing.T) {
 	/* continentcode */
 
 	c = network.GeoIPRecord{
-		GeoIPRecord: &geoip.GeoIPRecord{
-			ContinentCode: "EU",
-		},
-		ASNum: 4444,
+		ContinentCode: "EU",
+		ASNum:         4444,
+		CountryCode:   "XX",
 	}
 
 	m = Mirrors{
@@ -265,11 +261,9 @@ func TestByRank_Less(t *testing.T) {
 	/* */
 
 	c = network.GeoIPRecord{
-		GeoIPRecord: &geoip.GeoIPRecord{
-			CountryCode:   "FR",
-			ContinentCode: "EU",
-		},
-		ASNum: 4444,
+		CountryCode:   "FR",
+		ContinentCode: "EU",
+		ASNum:         4444,
 	}
 
 	m = Mirrors{
@@ -518,4 +512,3 @@ func TestSetMirrorState(t *testing.T) {
 		t.Fatalf("Event MIRROR_UPDATE not published")
 	}
 }
-

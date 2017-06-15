@@ -11,7 +11,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/etix/geoip"
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/network"
 	. "github.com/etix/mirrorbits/testing"
@@ -392,11 +391,9 @@ func TestCache_GetMirrors(t *testing.T) {
 	filename := "/test/file.tgz"
 
 	clientInfo := network.GeoIPRecord{
-		GeoIPRecord: &geoip.GeoIPRecord{
-			CountryCode: "FR",
-			Latitude:    48.8567,
-			Longitude:   2.3508,
-		},
+		CountryCode: "FR",
+		Latitude:    48.8567,
+		Longitude:   2.3508,
 	}
 
 	_, err := c.GetMirrors(filename, clientInfo)
