@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	. "github.com/etix/mirrorbits/config"
@@ -56,6 +57,11 @@ type Mirror struct {
 	LastModTime           int64     `redis:"lastModTime" yaml:"-"`
 
 	FileInfo *filesystem.FileInfo `redis:"-" json:"-" yaml:"-"` // Details of the requested file on this specific mirror
+}
+
+func (m *Mirror) Prepare() {
+	m.CountryFields = strings.Fields(m.CountryCodes)
+	m.ExcludedCountryFields = strings.Fields(m.ExcludedCountryCodes)
 }
 
 // Mirrors represents a slice of Mirror

@@ -242,8 +242,7 @@ func (c *Cache) fetchMirror(mirrorID string) (mirror Mirror, err error) {
 	if err != nil {
 		return
 	}
-	mirror.CountryFields = strings.Fields(mirror.CountryCodes)
-	mirror.ExcludedCountryFields = strings.Fields(mirror.ExcludedCountryCodes)
+	mirror.Prepare()
 	c.mCache.Set(mirrorID, &mirrorValue{value: mirror})
 	return
 }
