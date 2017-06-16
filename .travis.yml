@@ -1,0 +1,26 @@
+language: go
+sudo: required
+
+go:
+  - 1.7.6
+  - 1.8.3
+  - tip
+
+os:
+  - linux
+
+matrix:
+  allow_failures:
+    - go: tip
+
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y libgeoip-dev
+
+install:
+  - go version
+  - export GOBIN="$GOPATH/bin"
+  - export PATH="$PATH:$GOBIN"
+  - go env
+
+after_script: make test
