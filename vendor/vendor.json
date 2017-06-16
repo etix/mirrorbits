@@ -17,14 +17,14 @@
 		{
 			"checksumSHA1": "2UmMbNHc8FBr98mJFN1k8ISOIHk=",
 			"path": "github.com/garyburd/redigo/internal",
-			"revision": "8c052d82153967815d9093a7e9d3e7fd2e554861",
-			"revisionTime": "2017-01-01T00:10:20Z"
+			"revision": "57f1cd7de6175c96b423e7ac2534ff2b39e2ef79",
+			"revisionTime": "2017-06-15T18:53:09Z"
 		},
 		{
-			"checksumSHA1": "pofHSvosTrIPzQyddaLX5wy0ehI=",
+			"checksumSHA1": "dGCqjUjHaREgF/BM+u0UdebD4fk=",
 			"path": "github.com/garyburd/redigo/redis",
-			"revision": "8c052d82153967815d9093a7e9d3e7fd2e554861",
-			"revisionTime": "2017-01-01T00:10:20Z"
+			"revision": "57f1cd7de6175c96b423e7ac2534ff2b39e2ef79",
+			"revisionTime": "2017-06-15T18:53:09Z"
 		},
 		{
 			"checksumSHA1": "BoXdUBWB8UnSlFlbnuTQaPqfCGk=",
@@ -33,22 +33,40 @@
 			"revisionTime": "2016-03-15T20:05:05Z"
 		},
 		{
-			"checksumSHA1": "Unxe1vo0iwesQlY5NkFCCknuVG0=",
+			"checksumSHA1": "N6I3i0LIjQckurgTeH3b2A5YTec=",
+			"path": "github.com/oschwald/maxminddb-golang",
+			"revision": "d19f6d453e836d12ee8fe895d0494421e93ef8c1",
+			"revisionTime": "2017-05-03T13:30:35Z"
+		},
+		{
+			"checksumSHA1": "NhcZhmYU2Br4v+iAh9vA9NB+Ihw=",
 			"path": "github.com/rafaeljusto/redigomock",
-			"revision": "8a39246926d9f2a732f775c5b360d7078191cbbd",
-			"revisionTime": "2016-11-22T09:20:17Z"
+			"revision": "dafd969785a5948b7a263843f53b3f90544772d0",
+			"revisionTime": "2017-04-07T13:29:14Z"
 		},
 		{
-			"checksumSHA1": "hiOUviIMDKo7y918uBiEhfJyOkk=",
+			"checksumSHA1": "Tkb1hBdBWeO7SGjixS2Hm48F6+s=",
+			"path": "golang.org/x/sys/unix",
+			"revision": "fb4cac33e3196ff7f507ab9b2d2a44b0142f5b5a",
+			"revisionTime": "2017-06-14T06:48:48Z"
+		},
+		{
+			"checksumSHA1": "GUzvy5+6gTwjQ2PaXxjHfbqjOVw=",
+			"path": "golang.org/x/sys/windows",
+			"revision": "fb4cac33e3196ff7f507ab9b2d2a44b0142f5b5a",
+			"revisionTime": "2017-06-14T06:48:48Z"
+		},
+		{
+			"checksumSHA1": "O9E8G234qCcPA7f7srGpnawDmMs=",
 			"path": "gopkg.in/tylerb/graceful.v1",
-			"revision": "50a48b6e73fcc75b45e22c05b79629a67c79e938",
-			"revisionTime": "2016-08-29T01:00:30Z"
+			"revision": "4654dfbb6ad53cb5e27f37d99b02e16c1872fbbb",
+			"revisionTime": "2017-02-01T19:58:55Z"
 		},
 		{
-			"checksumSHA1": "0KwOlQV1dNUh9X8t+5s7nX5bqfk=",
+			"checksumSHA1": "fALlQNY1fM99NesfLJ50KguWsio=",
 			"path": "gopkg.in/yaml.v2",
-			"revision": "a3f3340b5840cee44f372bddb5880fcbc419b46a",
-			"revisionTime": "2017-02-08T14:18:51Z"
+			"revision": "cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b",
+			"revisionTime": "2017-04-07T17:21:22Z"
 		}
 	],
 	"rootPath": "github.com/etix/mirrorbits"
