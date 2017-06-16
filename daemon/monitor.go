@@ -59,15 +59,15 @@ type Mirror struct {
 	mirrors.Mirror
 	checking  bool
 	scanning  bool
-	lastCheck int64
+	lastCheck time.Time
 }
 
 func (m *Mirror) NeedHealthCheck() bool {
-	return utils.ElapsedSec(m.lastCheck, int64(60*GetConfig().CheckInterval))
+	return time.Since(m.lastCheck) > time.Duration(GetConfig().CheckInterval)*time.Minute
 }
 
 func (m *Mirror) NeedSync() bool {
-	return utils.ElapsedSec(m.LastSync, int64(60*GetConfig().ScanInterval))
+	return time.Since(m.LastSync.Time) > time.Duration(GetConfig().ScanInterval)*time.Minute
 }
 
 func (m *Mirror) IsScanning() bool {
@@ -337,7 +337,7 @@ func (m *Monitor) healthCheckLoop() {
 			m.mapLock.Lock()
 			if mirror, ok := m.mirrors[k]; ok {
 				if !database.RedisIsLoading(err) {
-					mirror.lastCheck = time.Now().UTC().Unix()
+					mirror.lastCheck = time.Now().UTC()
 				}
 				mirror.checking = false
 			}

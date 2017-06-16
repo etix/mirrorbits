@@ -550,11 +550,11 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 
 		var lastModTime time.Time
 
-		if mirror.LastModTime > 0 {
-			lastModTime = time.Unix(mirror.LastModTime, 0)
+		if !mirror.LastModTime.IsZero() {
+			lastModTime = mirror.LastModTime.Time
 		}
 
-		elapsed := time.Now().UTC().Sub(lastModTime)
+		elapsed := time.Since(lastModTime)
 
 		s := MirrorStats{
 			ID:        id,

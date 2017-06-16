@@ -229,7 +229,7 @@ func (c *cli) CmdList(args ...string) error {
 				} else {
 					fmt.Fprintf(w, "\tdown")
 				}
-				fmt.Fprintf(w, " \t(%s)", time.Unix(mirror.StateSince, 0).Format(time.RFC1123))
+				fmt.Fprintf(w, " \t(%s)", mirror.StateSince.Format(time.RFC1123))
 			}
 			fmt.Fprint(w, "\n")
 		}

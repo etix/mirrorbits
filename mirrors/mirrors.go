@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,7 +45,7 @@ type Mirror struct {
 	Enabled               bool      `redis:"enabled" yaml:"Enabled"`
 	Up                    bool      `redis:"up" json:"-" yaml:"-"`
 	ExcludeReason         string    `redis:"excludeReason" json:",omitempty" yaml:"-"`
-	StateSince            int64     `redis:"stateSince" json:",omitempty" yaml:"-"`
+	StateSince            Time      `redis:"stateSince" json:",omitempty" yaml:"-"`
 	AllowRedirects        Redirects `redis:"allowredirects" json:",omitempty" yaml:"AllowRedirects"`
 	Distance              float32   `redis:"-" yaml:"-"`
 	CountryFields         []string  `redis:"-" json:"-" yaml:"-"`
@@ -52,9 +53,9 @@ type Mirror struct {
 	Filepath              string    `redis:"-" json:"-" yaml:"-"`
 	Weight                float32   `redis:"-" json:"-" yaml:"-"`
 	ComputedScore         int       `redis:"-" yaml:"-"`
-	LastSync              int64     `redis:"lastSync" yaml:"-"`
-	LastSuccessfulSync    int64     `redis:"lastSuccessfulSync" yaml:"-"`
-	LastModTime           int64     `redis:"lastModTime" yaml:"-"`
+	LastSync              Time      `redis:"lastSync" yaml:"-"`
+	LastSuccessfulSync    Time      `redis:"lastSuccessfulSync" yaml:"-"`
+	LastModTime           Time      `redis:"lastModTime" yaml:"-"`
 
 	FileInfo *filesystem.FileInfo `redis:"-" json:"-" yaml:"-"` // Details of the requested file on this specific mirror
 }
@@ -281,4 +282,26 @@ func (r *Redirects) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		*r = 2
 	}
 	return nil
+}
+
+type Time struct {
+	time.Time
+}
+
+func (t Time) RedisArg() interface{} {
+	return t.UTC().Unix()
+}
+
+func (t *Time) RedisScan(src interface{}) (err error) {
+	switch src := src.(type) {
+	case int64:
+		t.Time = time.Unix(src, 0)
+	case []byte:
+		var i int64
+		i, err = strconv.ParseInt(string(src), 10, 64)
+		t.Time = time.Unix(i, 0)
+	default:
+		err = fmt.Errorf("cannot convert from %T to %T", src, t)
+	}
+	return err
 }
