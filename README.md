@@ -45,7 +45,7 @@ Yet some things might change before the 1.0 release. If you intend to deploy Mir
 
 ## Prerequisites
 
-* Go 1.6 or later (for vendoring support)
+* Go 1.7 or later
 * Redis 2.8.12 (or later)
 * libgeoip
 * a recent GeoIP version 1 database from [Maxmind](http://www.maxmind.com/app/c) (see [contrib/geoip/](contrib/geoip/))
