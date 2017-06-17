@@ -28,6 +28,7 @@ func init() {
 	flag.Parse()
 }
 
+// Args returns the list of arguments passed to the command line
 func Args() []string {
 	return flag.Args()
 }

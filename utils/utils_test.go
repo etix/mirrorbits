@@ -224,73 +224,73 @@ func TestConcatURL(t *testing.T) {
 }
 
 func TestTimeKeyCoverage(t *testing.T) {
-	date_1_start := time.Date(2015, 10, 30, 12, 42, 11, 0, time.UTC)
-	date_1_end := time.Date(2015, 12, 2, 13, 42, 11, 0, time.UTC)
-	result_1 := []string{"2015_10_30", "2015_10_31", "2015_11", "2015_12_01"}
+	date1Start := time.Date(2015, 10, 30, 12, 42, 11, 0, time.UTC)
+	date1End := time.Date(2015, 12, 2, 13, 42, 11, 0, time.UTC)
+	result1 := []string{"2015_10_30", "2015_10_31", "2015_11", "2015_12_01"}
 
-	result := TimeKeyCoverage(date_1_start, date_1_end)
+	result := TimeKeyCoverage(date1Start, date1End)
 
-	if len(result) != len(result_1) {
-		t.Fatalf("Expect %d elements, got %d", len(result_1), len(result))
+	if len(result) != len(result1) {
+		t.Fatalf("Expect %d elements, got %d", len(result1), len(result))
 	}
 
 	for i, r := range result {
-		if r != result_1[i] {
-			t.Fatalf("Expect %#v, got %#v", result_1, result)
+		if r != result1[i] {
+			t.Fatalf("Expect %#v, got %#v", result1, result)
 		}
 	}
 
 	/* */
 
-	date_2_start := time.Date(2015, 12, 2, 12, 42, 11, 0, time.UTC)
-	date_2_end := time.Date(2015, 12, 2, 13, 42, 11, 0, time.UTC)
-	result_2 := []string{"2015_12_02"}
+	date2Start := time.Date(2015, 12, 2, 12, 42, 11, 0, time.UTC)
+	date2End := time.Date(2015, 12, 2, 13, 42, 11, 0, time.UTC)
+	result2 := []string{"2015_12_02"}
 
-	result = TimeKeyCoverage(date_2_start, date_2_end)
+	result = TimeKeyCoverage(date2Start, date2End)
 
-	if len(result) != len(result_2) {
-		t.Fatalf("Expect %d elements, got %d", len(result_2), len(result))
+	if len(result) != len(result2) {
+		t.Fatalf("Expect %d elements, got %d", len(result2), len(result))
 	}
 
 	for i, r := range result {
-		if r != result_2[i] {
-			t.Fatalf("Expect %#v, got %#v", result_2, result)
+		if r != result2[i] {
+			t.Fatalf("Expect %#v, got %#v", result2, result)
 		}
 	}
 
 	/* */
 
-	date_3_start := time.Date(2015, 1, 1, 12, 42, 11, 0, time.UTC)
-	date_3_end := time.Date(2017, 1, 1, 13, 42, 11, 0, time.UTC)
-	result_3 := []string{"2015", "2016"}
+	date3Start := time.Date(2015, 1, 1, 12, 42, 11, 0, time.UTC)
+	date3End := time.Date(2017, 1, 1, 13, 42, 11, 0, time.UTC)
+	result3 := []string{"2015", "2016"}
 
-	result = TimeKeyCoverage(date_3_start, date_3_end)
+	result = TimeKeyCoverage(date3Start, date3End)
 
-	if len(result) != len(result_3) {
-		t.Fatalf("Expect %d elements, got %d", len(result_3), len(result))
+	if len(result) != len(result3) {
+		t.Fatalf("Expect %d elements, got %d", len(result3), len(result))
 	}
 
 	for i, r := range result {
-		if r != result_3[i] {
-			t.Fatalf("Expect %#v, got %#v", result_3, result)
+		if r != result3[i] {
+			t.Fatalf("Expect %#v, got %#v", result3, result)
 		}
 	}
 
 	/* */
 
-	date_4_start := time.Date(2015, 12, 31, 12, 42, 11, 0, time.UTC)
-	date_4_end := time.Date(2016, 1, 2, 13, 42, 11, 0, time.UTC)
-	result_4 := []string{"2015_12_31", "2016_01_01"}
+	date4Start := time.Date(2015, 12, 31, 12, 42, 11, 0, time.UTC)
+	date4End := time.Date(2016, 1, 2, 13, 42, 11, 0, time.UTC)
+	result4 := []string{"2015_12_31", "2016_01_01"}
 
-	result = TimeKeyCoverage(date_4_start, date_4_end)
+	result = TimeKeyCoverage(date4Start, date4End)
 
-	if len(result) != len(result_4) {
-		t.Fatalf("Expect %d elements, got %d", len(result_4), len(result))
+	if len(result) != len(result4) {
+		t.Fatalf("Expect %d elements, got %d", len(result4), len(result))
 	}
 
 	for i, r := range result {
-		if r != result_4[i] {
-			t.Fatalf("Expect %#v, got %#v", result_4, result)
+		if r != result4[i] {
+			t.Fatalf("Expect %#v, got %#v", result4, result)
 		}
 	}
 }

@@ -47,7 +47,7 @@ func TestClusterLoop(t *testing.T) {
 
 	c := NewCluster(conn)
 
-	cmd_publish := mock.Command("PUBLISH", string(database.CLUSTER), fmt.Sprintf("%s %s", clusterAnnounce, c.nodeID)).Expect("1")
+	cmdPublish := mock.Command("PUBLISH", string(database.CLUSTER), fmt.Sprintf("%s %s", clusterAnnounce, c.nodeID)).Expect("1")
 
 	c.Start()
 	defer c.Stop()
@@ -58,7 +58,7 @@ func TestClusterLoop(t *testing.T) {
 		if time.Since(n) > 1500*time.Millisecond {
 			t.Fatalf("Announce not made")
 		}
-		if mock.Stats(cmd_publish) > 0 {
+		if mock.Stats(cmdPublish) > 0 {
 			// Success
 			break
 		}
@@ -72,19 +72,19 @@ func TestRefreshNodeList(t *testing.T) {
 
 	c := NewCluster(conn)
 
-	n := Node{
+	n := node{
 		ID:           "test-4242",
 		LastAnnounce: time.Now().UTC().Unix(),
 	}
 	c.nodes = append(c.nodes, n)
-	sort.Sort(ByNodeID(c.nodes))
+	sort.Sort(byNodeID(c.nodes))
 
-	n = Node{
+	n = node{
 		ID:           "meh-4242",
 		LastAnnounce: time.Now().UTC().Add(time.Second * -6).Unix(),
 	}
 	c.nodes = append(c.nodes, n)
-	sort.Sort(ByNodeID(c.nodes))
+	sort.Sort(byNodeID(c.nodes))
 
 	c.Start()
 	defer c.Stop()
@@ -199,16 +199,16 @@ func TestIsHandled(t *testing.T) {
 	handled := 0
 
 	if c.IsHandled("aaa") {
-		handled += 1
+		handled++
 	}
 	if c.IsHandled("bbb") {
-		handled += 1
+		handled++
 	}
 	if c.IsHandled("ccc") {
-		handled += 1
+		handled++
 	}
 	if c.IsHandled("ddd") {
-		handled += 1
+		handled++
 	}
 
 	if handled != 2 {

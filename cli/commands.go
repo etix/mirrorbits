@@ -42,8 +42,8 @@ const (
 var (
 	log = logging.MustGetLogger("main")
 
-	// NoSyncMethod is returned when no sync protocol is available
-	NoSyncMethod = errors.New("no suitable URL for the scan")
+	// ErrNoSyncMethod is returned when no sync protocol is available
+	ErrNoSyncMethod = errors.New("no suitable URL for the scan")
 )
 
 type cli struct{}
@@ -572,7 +572,7 @@ func (c *cli) CmdScan(args ...string) error {
 			}
 		}()
 
-		err = NoSyncMethod
+		err = ErrNoSyncMethod
 
 		if *rsync == true || *ftp == true {
 			// Use the requested protocol

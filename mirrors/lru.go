@@ -40,6 +40,7 @@ import (
 	"time"
 )
 
+// LRUCache is the internal structure of the cache
 type LRUCache struct {
 	mu sync.Mutex
 
@@ -55,23 +56,25 @@ type LRUCache struct {
 	capacity uint64
 }
 
-// Values that go into LRUCache need to satisfy this interface.
+// Value that go into LRUCache need to satisfy this interface.
 type Value interface {
 	Size() int
 }
 
+// Item contains the key and value that goes into the cache
 type Item struct {
 	Key   string
 	Value Value
 }
 
 type entry struct {
-	key           string
-	value         Value
-	size          int
-	time_accessed time.Time
+	key          string
+	value        Value
+	size         int
+	timeAccessed time.Time
 }
 
+// NewLRUCache return a new instance of the cache
 func NewLRUCache(capacity uint64) *LRUCache {
 	return &LRUCache{
 		list:     list.New(),
@@ -80,6 +83,7 @@ func NewLRUCache(capacity uint64) *LRUCache {
 	}
 }
 
+// Get a value from cache
 func (lru *LRUCache) Get(key string) (v Value, ok bool) {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
@@ -92,6 +96,7 @@ func (lru *LRUCache) Get(key string) (v Value, ok bool) {
 	return element.Value.(*entry).value, true
 }
 
+// Set a key and associated value into the cache
 func (lru *LRUCache) Set(key string, value Value) {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
@@ -103,6 +108,7 @@ func (lru *LRUCache) Set(key string, value Value) {
 	}
 }
 
+// SetIfAbsent sets a key into the cache only if it doesn't exist yet
 func (lru *LRUCache) SetIfAbsent(key string, value Value) {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
@@ -114,6 +120,7 @@ func (lru *LRUCache) SetIfAbsent(key string, value Value) {
 	}
 }
 
+// Delete the key and associated value from the cache
 func (lru *LRUCache) Delete(key string) bool {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
@@ -129,6 +136,7 @@ func (lru *LRUCache) Delete(key string) bool {
 	return true
 }
 
+// Clear the cache
 func (lru *LRUCache) Clear() {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
@@ -138,6 +146,7 @@ func (lru *LRUCache) Clear() {
 	lru.size = 0
 }
 
+// SetCapacity sets the capacity of the cache
 func (lru *LRUCache) SetCapacity(capacity uint64) {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
@@ -146,15 +155,17 @@ func (lru *LRUCache) SetCapacity(capacity uint64) {
 	lru.checkCapacity()
 }
 
+// Stats return stats about the caching structure
 func (lru *LRUCache) Stats() (length, size, capacity uint64, oldest time.Time) {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
 	if lastElem := lru.list.Back(); lastElem != nil {
-		oldest = lastElem.Value.(*entry).time_accessed
+		oldest = lastElem.Value.(*entry).timeAccessed
 	}
 	return uint64(lru.list.Len()), lru.size, lru.capacity, oldest
 }
 
+// StatsJSON returns the stats as JSON
 func (lru *LRUCache) StatsJSON() string {
 	if lru == nil {
 		return "{}"
@@ -163,6 +174,7 @@ func (lru *LRUCache) StatsJSON() string {
 	return fmt.Sprintf("{\"Length\": %v, \"Size\": %v, \"Capacity\": %v, \"OldestAccess\": \"%v\"}", l, s, c, o)
 }
 
+// Keys returns all the keys available in the cache
 func (lru *LRUCache) Keys() []string {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
@@ -174,6 +186,7 @@ func (lru *LRUCache) Keys() []string {
 	return keys
 }
 
+// Items returns all the items available in the cache
 func (lru *LRUCache) Items() []Item {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
@@ -198,7 +211,7 @@ func (lru *LRUCache) updateInplace(element *list.Element, value Value) {
 
 func (lru *LRUCache) moveToFront(element *list.Element) {
 	lru.list.MoveToFront(element)
-	element.Value.(*entry).time_accessed = time.Now()
+	element.Value.(*entry).timeAccessed = time.Now()
 }
 
 func (lru *LRUCache) addNew(key string, value Value) {

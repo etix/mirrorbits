@@ -52,6 +52,7 @@ var (
 	subscribersLock sync.RWMutex
 )
 
+// Configuration contains all the option available in the yaml file
 type Configuration struct {
 	Repository              string     `yaml:"Repository"`
 	Templates               string     `yaml:"Templates"`
@@ -82,7 +83,7 @@ type Configuration struct {
 }
 
 type fallback struct {
-	Url           string `yaml:"URL"`
+	URL           string `yaml:"URL"`
 	CountryCode   string `yaml:"CountryCode"`
 	ContinentCode string `yaml:"ContinentCode"`
 }
@@ -188,6 +189,8 @@ func SetConfiguration(c *Configuration) {
 	config = c
 }
 
+// SubscribeConfig allows subscribers to get notified when
+// the configuration is updated.
 func SubscribeConfig(subscriber chan bool) {
 	subscribersLock.Lock()
 	defer subscribersLock.Unlock()

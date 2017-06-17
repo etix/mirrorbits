@@ -61,6 +61,7 @@ func isTerminal(f *os.File) bool {
 	return false
 }
 
+// ReloadRuntimeLogs reopens the runtime logs for writing
 func ReloadRuntimeLogs() {
 	if rlogger.f == os.Stderr && core.RunLog == "" {
 		// Logger already set up and connected to the console.
@@ -126,6 +127,7 @@ func setDownloadLogWriter(writer io.Writer, createHeader bool) {
 	}
 }
 
+// ReloadDownloadLogs reopens the download logs for writing
 func ReloadDownloadLogs() {
 	dlogger.Lock()
 	defer dlogger.Unlock()
@@ -146,7 +148,7 @@ func ReloadDownloadLogs() {
 	setDownloadLogWriter(f, createHeader)
 }
 
-// This function will write a download result in the logs.
+// LogDownload writes a download result to the logs
 func LogDownload(typ string, statuscode int, p *mirrors.Results, err error) {
 	dlogger.RLock()
 	defer dlogger.RUnlock()

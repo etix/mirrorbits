@@ -19,21 +19,25 @@ import (
 const (
 	redisConnectionTimeout = 200 * time.Millisecond
 	redisReadWriteTimeout  = 300 * time.Second
-	RedisMinimumVersion    = "2.8.12"
+	// RedisMinimumVersion contains the minimum redis version required to run the application
+	RedisMinimumVersion = "2.8.12"
 )
 
 var (
-	ErrUnreachable     = errors.New("redis endpoint unreachable")
+	// ErrUnreachable is returned when the endpoint is not reachable
+	ErrUnreachable = errors.New("redis endpoint unreachable")
+	// ErrUpgradeRequired is returned when the redis server is running an unsupported version
 	ErrUpgradeRequired = errors.New("unsupported Redis version")
 )
 
-type RedisPool interface {
+type redisPool interface {
 	Get() redis.Conn
 	Close() error
 }
 
+// Redis is the instance object of the redis database
 type Redis struct {
-	pool         RedisPool
+	pool         redisPool
 	Pubsub       *Pubsub
 	failure      bool
 	failureState sync.RWMutex
@@ -41,11 +45,14 @@ type Redis struct {
 	stop         chan bool
 }
 
+// NewRedis returns a new instance of the redis database
 func NewRedis() *Redis {
 	return NewRedisCustomPool(nil)
 }
 
-func NewRedisCustomPool(pool RedisPool) *Redis {
+// NewRedisCustomPool returns a new instance of the redis database
+// using a custom pool
+func NewRedisCustomPool(pool redisPool) *Redis {
 	r := &Redis{}
 
 	r.stop = make(chan bool)
@@ -83,10 +90,12 @@ func NewRedisCustomPool(pool RedisPool) *Redis {
 	return r
 }
 
+// Get returns a redis connection from the pool
 func (r *Redis) Get() redis.Conn {
 	return r.pool.Get()
 }
 
+// Close closes all connections to the redis database
 func (r *Redis) Close() {
 	select {
 	case _, _ = <-r.stop:
@@ -99,12 +108,14 @@ func (r *Redis) Close() {
 	}
 }
 
+// ConnectPubsub initiates the connection to the pubsub
 func (r *Redis) ConnectPubsub() {
 	if r.Pubsub == nil {
 		r.Pubsub = NewPubsub(r)
 	}
 }
 
+// CheckVersion checks if the redis server version is supported
 func (r *Redis) CheckVersion() error {
 	c := r.Get()
 	defer c.Close()
@@ -117,6 +128,7 @@ func (r *Redis) CheckVersion() error {
 	return err
 }
 
+// Connect initiates a new connection to the redis server
 func (r *Redis) Connect() (redis.Conn, error) {
 	sentinels := GetConfig().RedisSentinels
 
@@ -289,6 +301,7 @@ func (r *Redis) setFailureState(failure bool) {
 	r.failureState.Unlock()
 }
 
+// Failure returns true if the connection is in a failure state
 func (r *Redis) Failure() bool {
 	r.failureState.RLock()
 	defer r.failureState.RUnlock()

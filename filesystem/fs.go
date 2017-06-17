@@ -10,6 +10,7 @@ import (
 )
 
 var (
+	// ErrOutsideRepo is returned when the target file is outside of the repository
 	ErrOutsideRepo = errors.New("target file outside repository")
 )
 

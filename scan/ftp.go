@@ -15,10 +15,11 @@ import (
 )
 
 const (
-	FTPConnTimeout = 5 * time.Second
-	FTPRWTimeout   = 30 * time.Second
+	ftpConnTimeout = 5 * time.Second
+	ftpRWTimeout   = 30 * time.Second
 )
 
+// FTPScanner is the implementation of an ftp scanner
 type FTPScanner struct {
 	scan *scan
 
@@ -26,6 +27,7 @@ type FTPScanner struct {
 	featMDTM bool
 }
 
+// Scan starts an ftp scan of the given mirror
 func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan bool) error {
 	if !strings.HasPrefix(scanurl, "ftp://") {
 		return fmt.Errorf("%s does not start with ftp://", scanurl)
@@ -42,10 +44,10 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 	}
 
 	if utils.IsStopped(stop) {
-		return ScanAborted
+		return ErrScanAborted
 	}
 
-	c, err := ftp.DialTimeout(host, FTPConnTimeout, FTPRWTimeout)
+	c, err := ftp.DialTimeout(host, ftpConnTimeout, ftpRWTimeout)
 	if err != nil {
 		return err
 	}
@@ -75,7 +77,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 
 	log.Infof("[%s] Requesting file list via ftp...", identifier)
 
-	var files []*filedata = make([]*filedata, 0, 1000)
+	files := make([]*filedata, 0, 1000)
 
 	err = c.ChangeDir(ftpurl.Path)
 	if err != nil {
@@ -108,7 +110,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 // Walk inside an FTP repository
 func (f *FTPScanner) walkFtp(c *ftp.ServerConn, files []*filedata, path string, stop chan bool) ([]*filedata, error) {
 	if utils.IsStopped(stop) {
-		return nil, ScanAborted
+		return nil, ErrScanAborted
 	}
 
 	flist, err := c.List(path)

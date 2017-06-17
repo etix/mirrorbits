@@ -8,17 +8,17 @@ import (
 )
 
 func TestRemoteIpFromAddr(t *testing.T) {
-	r := RemoteIpFromAddr("127.0.0.1:8080")
+	r := RemoteIPFromAddr("127.0.0.1:8080")
 	if r != "127.0.0.1" {
 		t.Fatalf("Expected '127.0.0.1', got %s", r)
 	}
 
-	r = RemoteIpFromAddr("[::1]:8080")
+	r = RemoteIPFromAddr("[::1]:8080")
 	if r != "[::1]" {
 		t.Fatalf("Expected '[::1]', got %s", r)
 	}
 
-	r = RemoteIpFromAddr(":8080")
+	r = RemoteIPFromAddr(":8080")
 	if r != "" {
 		t.Fatalf("Expected '', got %s", r)
 	}

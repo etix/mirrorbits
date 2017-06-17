@@ -18,22 +18,26 @@ import (
 )
 
 var (
-	TemplatesNotFound = errors.New("Please set a valid path to the templates directory.")
+	// ErrTemplatesNotFound is returned cannot be loaded
+	ErrTemplatesNotFound = errors.New("please set a valid path to the templates directory")
 )
 
-type ResultsRenderer interface {
+// resultsRenderer is the interface for all result renderers
+type resultsRenderer interface {
 	Write(ctx *Context, results *mirrors.Results) (int, error)
 	Type() string
 }
 
-// JsonRenderer is used to render JSON formatted details about the current request
-type JsonRenderer struct{}
+// JSONRenderer is used to render JSON formatted details about the current request
+type JSONRenderer struct{}
 
-func (w *JsonRenderer) Type() string {
+// Type returns the type of renderer
+func (w *JSONRenderer) Type() string {
 	return "JSON"
 }
 
-func (w *JsonRenderer) Write(ctx *Context, results *mirrors.Results) (statusCode int, err error) {
+// Write is used to write the result to the ResponseWriter
+func (w *JSONRenderer) Write(ctx *Context, results *mirrors.Results) (statusCode int, err error) {
 
 	if ctx.IsPretty() {
 		output, err := json.MarshalIndent(results, "", "    ")
@@ -58,10 +62,12 @@ func (w *JsonRenderer) Write(ctx *Context, results *mirrors.Results) (statusCode
 // RedirectRenderer is a basic renderer that redirects the user to the first mirror in the list
 type RedirectRenderer struct{}
 
+// Type returns the type of renderer
 func (w *RedirectRenderer) Type() string {
 	return "REDIRECT"
 }
 
+// Write is used to write the result to the ResponseWriter
 func (w *RedirectRenderer) Write(ctx *Context, results *mirrors.Results) (statusCode int, err error) {
 	if len(results.MirrorList) > 0 {
 		ctx.ResponseWriter().Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -97,14 +103,16 @@ func (w *RedirectRenderer) Write(ctx *Context, results *mirrors.Results) (status
 // MirrorListRenderer is used to render the mirrorlist page using the HTML templates
 type MirrorListRenderer struct{}
 
+// Type returns the type of renderer
 func (w *MirrorListRenderer) Type() string {
 	return "MIRRORLIST"
 }
 
+// Write is used to write the result to the ResponseWriter
 func (w *MirrorListRenderer) Write(ctx *Context, results *mirrors.Results) (statusCode int, err error) {
 	if ctx.Templates().mirrorlist == nil {
 		// No templates found for the mirrorlist
-		return http.StatusInternalServerError, TemplatesNotFound
+		return http.StatusInternalServerError, ErrTemplatesNotFound
 	}
 	// Sort the exclude reasons by message so they appear grouped
 	sort.Sort(mirrors.ByExcludeReason{results.ExcludedList})
@@ -113,7 +121,7 @@ func (w *MirrorListRenderer) Write(ctx *Context, results *mirrors.Results) (stat
 	var buf bytes.Buffer
 
 	// Generate the URL for the map
-	results.MapURL = mirrors.GetMirrorMapUrl(results.MirrorList, results.ClientInfo)
+	results.MapURL = mirrors.GetMirrorMapURL(results.MirrorList, results.ClientInfo)
 	ctx.ResponseWriter().Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// Render the page into the buffer

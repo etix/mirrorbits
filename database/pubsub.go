@@ -15,17 +15,18 @@ var (
 	log = logging.MustGetLogger("main")
 )
 
-type PubsubEvent string
+type pubsubEvent string
 
 const (
-	CLUSTER            PubsubEvent = "_mirrorbits_cluster"
-	FILE_UPDATE        PubsubEvent = "_mirrorbits_file_update"
-	MIRROR_UPDATE      PubsubEvent = "_mirrorbits_mirror_update"
-	MIRROR_FILE_UPDATE PubsubEvent = "_mirrorbits_mirror_file_update"
+	CLUSTER            pubsubEvent = "_mirrorbits_cluster"
+	FILE_UPDATE        pubsubEvent = "_mirrorbits_file_update"
+	MIRROR_UPDATE      pubsubEvent = "_mirrorbits_mirror_update"
+	MIRROR_FILE_UPDATE pubsubEvent = "_mirrorbits_mirror_file_update"
 
-	PUBSUB_RECONNECTED PubsubEvent = "_mirrorbits_pubsub_reconnected"
+	PUBSUB_RECONNECTED pubsubEvent = "_mirrorbits_pubsub_reconnected"
 )
 
+// Pubsub is the internal structure of the publish/subscribe handler
 type Pubsub struct {
 	r                  *Redis
 	rconn              redis.Conn
@@ -36,6 +37,7 @@ type Pubsub struct {
 	wg                 sync.WaitGroup
 }
 
+// NewPubsub returns a new instance of the publish/subscribe handler
 func NewPubsub(r *Redis) *Pubsub {
 	pubsub := new(Pubsub)
 	pubsub.r = r
@@ -45,6 +47,7 @@ func NewPubsub(r *Redis) *Pubsub {
 	return pubsub
 }
 
+// Close all the connections to the pubsub server
 func (p *Pubsub) Close() {
 	close(p.stop)
 	p.connlock.Lock()
@@ -60,7 +63,7 @@ func (p *Pubsub) Close() {
 
 // SubscribeEvent allows subscription to a particular kind of events and receive a
 // notification when an event is dispatched on the given channel.
-func (p *Pubsub) SubscribeEvent(event PubsubEvent, channel chan string) {
+func (p *Pubsub) SubscribeEvent(event pubsubEvent, channel chan string) {
 	p.extSubscribersLock.Lock()
 	defer p.extSubscribersLock.Unlock()
 
@@ -72,7 +75,7 @@ func (p *Pubsub) SubscribeEvent(event PubsubEvent, channel chan string) {
 func (p *Pubsub) updateEvents() {
 	p.wg.Add(1)
 	defer p.wg.Done()
-	var disconnected bool = false
+	disconnected := false
 connect:
 	for {
 		select {
@@ -151,12 +154,14 @@ func (p *Pubsub) handleMessage(channel string, data []byte) {
 	}
 }
 
-func Publish(r redis.Conn, event PubsubEvent, message string) error {
+// Publish a message on the pubsub server
+func Publish(r redis.Conn, event pubsubEvent, message string) error {
 	_, err := r.Do("PUBLISH", string(event), message)
 	return err
 }
 
-func SendPublish(r redis.Conn, event PubsubEvent, message string) error {
+// SendPublish add the message to a transaction
+func SendPublish(r redis.Conn, event pubsubEvent, message string) error {
 	err := r.Send("PUBLISH", string(event), message)
 	return err
 }

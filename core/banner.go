@@ -3,6 +3,7 @@
 
 package core
 
+// Banner is a piece of (ascii) art shown during startup
 var Banner = ` _______ __                        __     __ __
 |   |   |__|.----.----.-----.----.|  |--.|__|  |_.-----.
 |       |  ||   _|   _|  _  |   _||  _  ||  |   _|__ --|

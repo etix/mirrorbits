@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// Return the IP address of a mirror and return an error
-// if the DNS returns more than one address
+// LookupMirrorIP returns the IP address of a mirror and returns an error
+// if the DNS has more than one address
 func LookupMirrorIP(host string) (string, error) {
 	addrs, err := net.LookupIP(host)
 	if err != nil {
@@ -25,12 +25,12 @@ func LookupMirrorIP(host string) (string, error) {
 	return addrs[0].String(), err
 }
 
-// Remove the port from a remote address (x.x.x.x:yyyy)
-func RemoteIpFromAddr(remoteAddr string) string {
+// RemoteIPFromAddr removes the port from a remote address (x.x.x.x:yyyy)
+func RemoteIPFromAddr(remoteAddr string) string {
 	return remoteAddr[:strings.LastIndex(remoteAddr, ":")]
 }
 
-// Extract the remote IP from an X-Forwarded-For header
+// ExtractRemoteIP extracts the remote IP from an X-Forwarded-For header
 func ExtractRemoteIP(XForwardedFor string) string {
 	addresses := strings.Split(XForwardedFor, ",")
 	if len(addresses) > 0 {

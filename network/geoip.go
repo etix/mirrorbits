@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	ErrMultipleAddresses = errors.New("The mirror has more than one IP address")
+	// ErrMultipleAddresses is returned when the mirror has more than one address
+	ErrMultipleAddresses = errors.New("the mirror has more than one IP address")
 	log                  = logging.MustGetLogger("main")
 )
 
@@ -35,7 +36,7 @@ type GeoIP struct {
 	asn6 *geoipDB
 }
 
-// GeoIPRec defines a GeoIP record for a given IP address
+// GeoIPRecord defines a GeoIP record for a given IP address
 type GeoIPRecord struct {
 	*geoip.GeoIPRecord
 	ASName    string
@@ -116,6 +117,7 @@ func (g *GeoIP) loadDB(filename string, geodb **geoipDB, geoiperror *GeoIPError)
 	return nil
 }
 
+// GeoIPError holds errors while loading the different databases
 type GeoIPError struct {
 	Errors []error
 	loaded int
@@ -125,11 +127,12 @@ func (e GeoIPError) Error() string {
 	return "One or more GeoIP database could not be loaded"
 }
 
+// IsFatal returns true if the error is fatal
 func (e GeoIPError) IsFatal() bool {
 	return e.loaded == len(e.Errors)
 }
 
-// Try to load the GeoIP databases into memory
+// LoadGeoIP loads the GeoIP databases into memory
 func (g *GeoIP) LoadGeoIP() error {
 	var ret GeoIPError
 
@@ -146,7 +149,8 @@ func (g *GeoIP) LoadGeoIP() error {
 	return nil
 }
 
-// Get details about a given ip address (might be v4 or v6)
+// GetRecord return informations about the given ip address
+// (works in IPv4 and v6)
 func (g *GeoIP) GetRecord(ip string) (ret GeoIPRecord) {
 	g.RLock()
 	if g.IsIPv6(ip) {
@@ -176,12 +180,12 @@ func (g *GeoIP) GetRecord(ip string) (ret GeoIPRecord) {
 	return ret
 }
 
-// Return true if the given address is of version 6
+// IsIPv6 returns true if the given address is of version 6
 func (g *GeoIP) IsIPv6(ip string) bool {
 	return strings.Contains(ip, ":")
 }
 
-// Return true if the given address is valid
+// IsValid returns true if the given address is valid
 func (g *GeoIPRecord) IsValid() bool {
 	return g.GeoIPRecord != nil
 }

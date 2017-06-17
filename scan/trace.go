@@ -25,9 +25,11 @@ var (
 	clientTimeout  = time.Duration(20 * time.Second)
 	clientDeadline = time.Duration(40 * time.Second)
 
+	// ErrNoTrace is returned when no trace file is found
 	ErrNoTrace = errors.New("No trace file")
 )
 
+// Trace is the internal trace handler
 type Trace struct {
 	redis      *database.Redis
 	transport  http.Transport
@@ -35,6 +37,9 @@ type Trace struct {
 	stop       chan bool
 }
 
+// NewTraceHandler returns a new instance of the trace file handler.
+// Trace files are used to compute the time offset between a mirror
+// and the local repository.
 func NewTraceHandler(redis *database.Redis, stop chan bool) *Trace {
 	t := &Trace{
 		redis: redis,
@@ -62,6 +67,8 @@ func NewTraceHandler(redis *database.Redis, stop chan bool) *Trace {
 	return t
 }
 
+// GetLastUpdate connects in HTTP to the mirror to get the latest
+// trace file and computes the offset of the mirror.
 func (t *Trace) GetLastUpdate(mirror mirrors.Mirror) error {
 	traceFile := GetConfig().TraceFileLocation
 
@@ -78,7 +85,7 @@ func (t *Trace) GetLastUpdate(mirror mirrors.Mirror) error {
 
 	// Prepare contexts
 	ctx, cancel := context.WithTimeout(req.Context(), clientDeadline)
-	ctx = context.WithValue(ctx, "mid", mirror.ID)
+	ctx = context.WithValue(ctx, core.ContextMirrorID, mirror.ID)
 	req = req.WithContext(ctx)
 	defer cancel()
 

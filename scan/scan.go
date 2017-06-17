@@ -21,19 +21,25 @@ import (
 )
 
 var (
-	ScanAborted    = errors.New("scan aborted")
-	ScanInProgress = errors.New("scan already in progress")
+	// ErrScanAborted is returned when a scan is aborted by the user
+	ErrScanAborted = errors.New("scan aborted")
+	// ErrScanInProgress is returned when a scan is started while another is already in progress
+	ErrScanInProgress = errors.New("scan already in progress")
 
 	log = logging.MustGetLogger("main")
 )
 
+// ScannerType holds the type of scanner in use
 type ScannerType int8
 
 const (
+	// RSYNC represents an rsync scanner
 	RSYNC ScannerType = iota
+	// FTP represents an ftp scanner
 	FTP
 )
 
+// Scanner is the interface that all scanners must implement
 type Scanner interface {
 	Scan(url, identifier string, conn redis.Conn, stop chan bool) error
 }
@@ -56,10 +62,12 @@ type scan struct {
 	count       uint
 }
 
+// IsScanning returns true is a scan is already in progress for the given mirror
 func IsScanning(conn redis.Conn, identifier string) (bool, error) {
 	return redis.Bool(conn.Do("EXISTS", fmt.Sprintf("SCANNING_%s", identifier)))
 }
 
+// Scan starts a scan of the given mirror
 func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan bool) error {
 	s := &scan{
 		redis:      r,
@@ -96,7 +104,7 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 	if err != nil {
 		return err
 	} else if done == nil {
-		return ScanInProgress
+		return ErrScanInProgress
 	}
 
 	defer lock.Release()
@@ -281,6 +289,7 @@ func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, 
 	return d, nil
 }
 
+// ScanSource starts a scan of the local repository
 func ScanSource(r *database.Redis, forceRehash bool, stop chan bool) (err error) {
 	s := &sourcescanner{}
 
@@ -312,7 +321,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop chan bool) (err error)
 	})
 
 	if utils.IsStopped(stop) {
-		return ScanAborted
+		return ErrScanAborted
 	}
 	if err != nil {
 		return err
@@ -324,7 +333,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop chan bool) (err error)
 	retry := 10
 	for {
 		if retry == 0 {
-			return ScanInProgress
+			return ErrScanInProgress
 		}
 		done, err := lock.Get()
 		if err != nil {

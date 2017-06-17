@@ -60,6 +60,7 @@ type Mirror struct {
 	FileInfo *filesystem.FileInfo `redis:"-" json:"-" yaml:"-"` // Details of the requested file on this specific mirror
 }
 
+// Prepare must be called after retrieval from the database to reformat some values
 func (m *Mirror) Prepare() {
 	m.CountryFields = strings.Fields(m.CountryCodes)
 	m.ExcludedCountryFields = strings.Fields(m.ExcludedCountryCodes)
@@ -68,7 +69,10 @@ func (m *Mirror) Prepare() {
 // Mirrors represents a slice of Mirror
 type Mirrors []Mirror
 
-func (s Mirrors) Len() int      { return len(s) }
+// Len return the number of Mirror in the slice
+func (s Mirrors) Len() int { return len(s) }
+
+// Swap swaps mirrors at index i and j
 func (s Mirrors) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 // ByRank is used to sort a slice of Mirror by their rank
@@ -77,6 +81,7 @@ type ByRank struct {
 	ClientInfo network.GeoIPRecord
 }
 
+// Less compares two mirrors based on their rank
 func (m ByRank) Less(i, j int) bool {
 	if m.ClientInfo.IsValid() {
 		if m.ClientInfo.ASNum == m.Mirrors[i].Asnum {
@@ -108,17 +113,17 @@ func (m ByRank) Less(i, j int) bool {
 		}
 
 		return m.Mirrors[i].Distance < m.Mirrors[j].Distance
-	} else {
-		// Randomize the output if we miss client info
-		return rand.Intn(2) == 0
 	}
+	// Randomize the output if we miss client info
+	return rand.Intn(2) == 0
 }
 
-// ByComputedScore is used to sort a slice of Mirror by their rank
+// ByComputedScore is used to sort a slice of Mirror by their score
 type ByComputedScore struct {
 	Mirrors
 }
 
+// Less compares two mirrors based on their score
 func (b ByComputedScore) Less(i, j int) bool {
 	return b.Mirrors[i].ComputedScore > b.Mirrors[j].ComputedScore
 }
@@ -128,6 +133,7 @@ type ByExcludeReason struct {
 	Mirrors
 }
 
+// Less compares two mirrors based on their exclude reason
 func (b ByExcludeReason) Less(i, j int) bool {
 	if b.Mirrors[i].ExcludeReason < b.Mirrors[j].ExcludeReason {
 		return true
@@ -135,14 +141,17 @@ func (b ByExcludeReason) Less(i, j int) bool {
 	return false
 }
 
+// EnableMirror enables the given mirror
 func EnableMirror(r *database.Redis, id string) error {
 	return SetMirrorEnabled(r, id, true)
 }
 
+// DisableMirror disables the given mirror
 func DisableMirror(r *database.Redis, id string) error {
 	return SetMirrorEnabled(r, id, false)
 }
 
+// SetMirrorEnabled marks a mirror as enabled or disabled
 func SetMirrorEnabled(r *database.Redis, id string, state bool) error {
 	conn := r.Get()
 	defer conn.Close()
@@ -158,14 +167,17 @@ func SetMirrorEnabled(r *database.Redis, id string, state bool) error {
 	return err
 }
 
+// MarkMirrorUp marks the given mirror as up
 func MarkMirrorUp(r *database.Redis, id string) error {
 	return SetMirrorState(r, id, true, "")
 }
 
+// MarkMirrorDown marks the given mirror as down
 func MarkMirrorDown(r *database.Redis, id string, reason string) error {
 	return SetMirrorState(r, id, false, reason)
 }
 
+// SetMirrorState sets the state of a mirror to up or down with an optional reason
 func SetMirrorState(r *database.Redis, id string, state bool, reason string) error {
 	conn := r.Get()
 	defer conn.Close()
@@ -194,7 +206,9 @@ func SetMirrorState(r *database.Redis, id string, state bool, reason string) err
 	return err
 }
 
-func GetMirrorMapUrl(mirrors Mirrors, clientInfo network.GeoIPRecord) string {
+// GetMirrorMapURL returns the URL of a map containing the location of the closest mirrors
+// as well as the client's guessed location.
+func GetMirrorMapURL(mirrors Mirrors, clientInfo network.GeoIPRecord) string {
 	var buffer bytes.Buffer
 	buffer.WriteString("//maps.googleapis.com/maps/api/staticmap?size=600x320&sensor=false&visual_refresh=true")
 
@@ -285,14 +299,19 @@ func (r *Redirects) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	return nil
 }
 
+// Time is a structure holding a time.Time object.
+// It is used to serialize and deserialize a time
+// held in a redis database.
 type Time struct {
 	time.Time
 }
 
+// RedisArg serialize the time.Time object
 func (t Time) RedisArg() interface{} {
 	return t.UTC().Unix()
 }
 
+// RedisScan deserialize the time.Time object
 func (t *Time) RedisScan(src interface{}) (err error) {
 	switch src := src.(type) {
 	case int64:

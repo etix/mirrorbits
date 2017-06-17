@@ -45,7 +45,7 @@ type HTTP struct {
 	serverStopChan <-chan struct{}
 	stats          *Stats
 	cache          *mirrors.Cache
-	engine         MirrorSelection
+	engine         mirrorSelection
 	Restarting     bool
 	stopped        bool
 	stoppedMutex   sync.Mutex
@@ -100,6 +100,8 @@ func (h *HTTP) SetListener(l net.Listener) {
 	h.Listener = &l
 }
 
+// Stop gracefuly stops the HTTP server with a timeout to let
+// the remaining connections finish
 func (h *HTTP) Stop(timeout time.Duration) {
 	/* Close the server and process remaining connections */
 	h.stoppedMutex.Lock()
@@ -121,6 +123,7 @@ func (h *HTTP) Terminate() {
 	h.stats.Terminate()
 }
 
+// StopChan returns a channel that notifies when the server is stopped
 func (h *HTTP) StopChan() <-chan struct{} {
 	return h.serverStopChan
 }
@@ -223,7 +226,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 
 	remoteIP := network.ExtractRemoteIP(r.Header.Get("X-Forwarded-For"))
 	if len(remoteIP) == 0 {
-		remoteIP = network.RemoteIpFromAddr(r.RemoteAddr)
+		remoteIP = network.RemoteIPFromAddr(r.RemoteAddr)
 	}
 
 	if ctx.IsMirrorlist() {
@@ -247,7 +250,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 			for i, f := range fallbacks {
 				mlist = append(mlist, mirrors.Mirror{
 					ID:            fmt.Sprintf("fallback%d", i),
-					HttpURL:       f.Url,
+					HttpURL:       f.URL,
 					CountryCodes:  strings.ToUpper(f.CountryCode),
 					CountryFields: []string{strings.ToUpper(f.CountryCode)},
 					ContinentCode: strings.ToUpper(f.ContinentCode)})
@@ -272,20 +275,20 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		Fallback:     fallback,
 	}
 
-	var resultRenderer ResultsRenderer
+	var resultRenderer resultsRenderer
 
 	if ctx.IsMirrorlist() {
 		resultRenderer = &MirrorListRenderer{}
 	} else {
 		switch GetConfig().OutputMode {
 		case "json":
-			resultRenderer = &JsonRenderer{}
+			resultRenderer = &JSONRenderer{}
 		case "redirect":
 			resultRenderer = &RedirectRenderer{}
 		case "auto":
 			accept := r.Header.Get("Accept")
 			if strings.Index(accept, "application/json") >= 0 {
-				resultRenderer = &JsonRenderer{}
+				resultRenderer = &JSONRenderer{}
 			} else {
 				resultRenderer = &RedirectRenderer{}
 			}
@@ -336,6 +339,7 @@ func (h *HTTP) LoadTemplates(name string) (t *template.Template, err error) {
 	return t, err
 }
 
+// StatsFileNow is the structure containing the latest stats of a file
 type StatsFileNow struct {
 	Today int64
 	Month int64
@@ -343,6 +347,7 @@ type StatsFileNow struct {
 	Total int64
 }
 
+// StatsFilePeriod is the structure containing the stats for the given period
 type StatsFilePeriod struct {
 	Period    string
 	Downloads int64
@@ -457,6 +462,7 @@ func (h *HTTP) checksumHandler(w http.ResponseWriter, r *http.Request, ctx *Cont
 	return
 }
 
+// MirrorStats contains the stats of a given mirror
 type MirrorStats struct {
 	ID         string
 	Downloads  int64
@@ -466,32 +472,36 @@ type MirrorStats struct {
 	SyncOffset SyncOffset
 }
 
+// SyncOffset contains the time offset between the mirror and the local repository
 type SyncOffset struct {
 	Valid         bool
 	Value         int // in hours
 	HumanReadable string
 }
 
+// MirrorStatsPage contains the values needed to generate the mirrorstats page
 type MirrorStatsPage struct {
 	List       []MirrorStats
 	MirrorList []mirrors.Mirror
 }
 
-type ByDownloadNumbers struct {
-	MirrorStatsSlice
+// byDownloadNumbers is a sorting function
+type byDownloadNumbers struct {
+	mirrorStatsSlice
 }
 
-func (b ByDownloadNumbers) Less(i, j int) bool {
-	if b.MirrorStatsSlice[i].Downloads > b.MirrorStatsSlice[j].Downloads {
+func (b byDownloadNumbers) Less(i, j int) bool {
+	if b.mirrorStatsSlice[i].Downloads > b.mirrorStatsSlice[j].Downloads {
 		return true
 	}
 	return false
 }
 
-type MirrorStatsSlice []MirrorStats
+// mirrorStatsSlice is a slice of MirrorStats
+type mirrorStatsSlice []MirrorStats
 
-func (s MirrorStatsSlice) Len() int      { return len(s) }
-func (s MirrorStatsSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s mirrorStatsSlice) Len() int      { return len(s) }
+func (s mirrorStatsSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 
 func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 
@@ -570,7 +580,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 		index += 2
 	}
 
-	sort.Sort(ByDownloadNumbers{results})
+	sort.Sort(byDownloadNumbers{results})
 
 	for i := 0; i < len(results); i++ {
 		results[i].PercentD = float32(results[i].Downloads) * 100 / float32(maxdownloads)

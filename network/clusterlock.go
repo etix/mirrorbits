@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	LockTTL     = 10 // in seconds
-	LockRefresh = 5  // in seconds
+	lockTTL     = 10 // in seconds
+	lockRefresh = 5  // in seconds
 )
 
+// ClusterLock holds the internal structure of a ClusterLock
 type ClusterLock struct {
 	redis      *database.Redis
 	key        string
@@ -24,6 +25,11 @@ type ClusterLock struct {
 	done       chan struct{}
 }
 
+// NewClusterLock returns a new instance of a ClusterLock.
+// A ClucterLock is used to maitain a lock on a mirror that is being
+// scanned. The lock is renewed every lockRefresh seconds and is
+// automatically released by the redis database every lockTTL seconds
+// allowing the lock to be released even if the application is killed.
 func NewClusterLock(redis *database.Redis, key, identifier string) *ClusterLock {
 	return &ClusterLock{
 		redis:      redis,
@@ -32,6 +38,7 @@ func NewClusterLock(redis *database.Redis, key, identifier string) *ClusterLock 
 	}
 }
 
+// Get tries to obtain an exclusive lock, cluster wide, for the given mirror
 func (n *ClusterLock) Get() (<-chan struct{}, error) {
 	if n.done != nil {
 		return nil, errors.New("lock already in use")
@@ -44,7 +51,7 @@ func (n *ClusterLock) Get() (<-chan struct{}, error) {
 		return nil, conn.Err()
 	}
 
-	_, err := redis.String(conn.Do("SET", n.key, 1, "NX", "EX", LockTTL))
+	_, err := redis.String(conn.Do("SET", n.key, 1, "NX", "EX", lockTTL))
 	if err == redis.ErrNil {
 		return nil, nil
 	} else if err != nil {
@@ -64,8 +71,8 @@ func (n *ClusterLock) Get() (<-chan struct{}, error) {
 				n.done = nil
 				conn.Do("DEL", n.key)
 				return
-			case <-time.After(LockRefresh * time.Second):
-				result, err := redis.Int(conn.Do("EXPIRE", n.key, LockTTL))
+			case <-time.After(lockRefresh * time.Second):
+				result, err := redis.Int(conn.Do("EXPIRE", n.key, lockTTL))
 				if err != nil {
 					log.Errorf("Renewing lock for %s failed: %s", n.identifier, err)
 					return
@@ -83,6 +90,7 @@ func (n *ClusterLock) Get() (<-chan struct{}, error) {
 	return n.done, nil
 }
 
+// Release releases the exclusive lock on the mirror
 func (n *ClusterLock) Release() {
 	close(n.done)
 }

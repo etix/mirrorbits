@@ -9,22 +9,23 @@ import (
 	"github.com/rafaeljusto/redigomock"
 )
 
-type RedisPoolMock struct {
+type redisPoolMock struct {
 	Conn *redigomock.Conn
 }
 
-func (r *RedisPoolMock) Get() redis.Conn {
+func (r *redisPoolMock) Get() redis.Conn {
 	return r.Conn
 }
 
-func (r *RedisPoolMock) Close() error {
+func (r *redisPoolMock) Close() error {
 	return nil
 }
 
+// PrepareRedisTest initialize redis tests
 func PrepareRedisTest() (*redigomock.Conn, *database.Redis) {
 	mock := redigomock.NewConn()
 
-	pool := &RedisPoolMock{
+	pool := &redisPoolMock{
 		Conn: mock,
 	}
 

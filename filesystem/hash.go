@@ -16,7 +16,7 @@ import (
 	. "github.com/etix/mirrorbits/config"
 )
 
-// Generate a human readable hash of the given file path
+// HashFile generates a human readable hash of the given file path
 func HashFile(path string) (hashes FileInfo, err error) {
 	f, err := os.Open(path)
 	if err != nil {

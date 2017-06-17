@@ -24,12 +24,13 @@ var (
 )
 
 var (
-	Invalidfd = errors.New("Invalid file descriptor")
+	// ErrInvalidfd is returned when the given file descriptor is invalid
+	ErrInvalidfd = errors.New("invalid file descriptor")
 
 	log = logging.MustGetLogger("main")
 )
 
-// Launch {self} as a child process passing listener details
+// Relaunch launches {self} as a child process passing listener details
 // to provide a seamless binary upgrade.
 func Relaunch(l net.Listener) error {
 	argv0, err := exec.LookPath(os.Args[0])
@@ -47,7 +48,7 @@ func Relaunch(l net.Listener) error {
 	fd := uintptr(v.FieldByName("sysfd").Int())
 
 	if fd < uintptr(syscall.Stderr) {
-		return Invalidfd
+		return ErrInvalidfd
 	}
 
 	if err := os.Setenv("OLD_FD", fmt.Sprint(fd)); err != nil {
@@ -97,8 +98,7 @@ func Recover() (l net.Listener, ppid int, err error) {
 	case *net.UnixListener:
 		l = i.(*net.UnixListener)
 	default:
-		err = errors.New(fmt.Sprintf(
-			"file descriptor is %T not *net.TCPListener or *net.UnixListener", i))
+		err = fmt.Errorf("file descriptor is %T not *net.TCPListener or *net.UnixListener", i)
 		return
 	}
 	if err = syscall.Close(int(fd)); err != nil {
@@ -111,12 +111,12 @@ func Recover() (l net.Listener, ppid int, err error) {
 	return
 }
 
-// Make the parent exit gracefully with SIGQUIT
+// KillParent sends a signal to make the parent exit gracefully with SIGQUIT
 func KillParent(ppid int) error {
 	return syscall.Kill(ppid, syscall.SIGQUIT)
 }
 
-// Get the proper location to store our pid file
+// GetPidLocation finds the location to store our pid file
 // and fallback to /var/run if none found
 func GetPidLocation() string {
 	if core.PidFile == "" { // Runtime
@@ -128,7 +128,7 @@ func GetPidLocation() string {
 	return core.PidFile
 }
 
-// Write the current pid file
+// WritePidFile writes the current pid file to disk
 func WritePidFile() {
 	pid := fmt.Sprintf("%d", os.Getpid())
 	if err := ioutil.WriteFile(GetPidLocation(), []byte(pid), 0644); err != nil {
@@ -136,7 +136,7 @@ func WritePidFile() {
 	}
 }
 
-// Remove the current pid file
+// RemovePidFile removes the current pid file
 func RemovePidFile() {
 	pidFile := GetPidLocation()
 	if _, err := os.Stat(pidFile); !os.IsNotExist(err) {
@@ -150,7 +150,7 @@ func RemovePidFile() {
 	}
 }
 
-// Get the pid as it appears in the pid file (maybe not ours)
+// GetRemoteProcPid gets the pid as it appears in the pid file (maybe not ours)
 func GetRemoteProcPid() int {
 	b, err := ioutil.ReadFile(GetPidLocation())
 	if err != nil {

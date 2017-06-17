@@ -33,29 +33,31 @@ import (
 */
 
 var (
-	emptyFileError = errors.New("stats: file parameter is empty")
-	unknownMirror  = errors.New("stats: unknown mirror")
+	errEmptyFileError = errors.New("stats: file parameter is empty")
+	errUnknownMirror  = errors.New("stats: unknown mirror")
 )
 
+// Stats is the internal structure for the download stats
 type Stats struct {
 	r         *database.Redis
-	countChan chan CountItem
+	countChan chan countItem
 	mapStats  map[string]int64
 	stop      chan bool
 	wg        sync.WaitGroup
 }
 
-type CountItem struct {
+type countItem struct {
 	mirrorID string
 	filepath string
 	size     int64
 	time     time.Time
 }
 
+// NewStats returns an instance of the stats counter
 func NewStats(redis *database.Redis) *Stats {
 	s := &Stats{
 		r:         redis,
-		countChan: make(chan CountItem, 1000),
+		countChan: make(chan countItem, 1000),
 		mapStats:  make(map[string]int64),
 		stop:      make(chan bool),
 	}
@@ -63,22 +65,23 @@ func NewStats(redis *database.Redis) *Stats {
 	return s
 }
 
+// Terminate stops the stats handler and commit results to the database
 func (s *Stats) Terminate() {
 	close(s.stop)
 	log.Notice("Saving stats")
 	s.wg.Wait()
 }
 
-// Lightweight method used to count a new download for a specific file and mirror
+// CountDownload is a lightweight method used to count a new download for a specific file and mirror
 func (s *Stats) CountDownload(m mirrors.Mirror, fileinfo filesystem.FileInfo) error {
 	if m.ID == "" {
-		return unknownMirror
+		return errUnknownMirror
 	}
 	if fileinfo.Path == "" {
-		return emptyFileError
+		return errEmptyFileError
 	}
 
-	s.countChan <- CountItem{m.ID, fileinfo.Path, fileinfo.Size, time.Now().UTC()}
+	s.countChan <- countItem{m.ID, fileinfo.Path, fileinfo.Size, time.Now().UTC()}
 	return nil
 }
 
@@ -95,8 +98,8 @@ func (s *Stats) processCountDownload() {
 			return
 		case c := <-s.countChan:
 			date := c.time.Format("2006_01_02|") // Includes separator
-			s.mapStats["f"+date+c.filepath] += 1
-			s.mapStats["m"+date+c.mirrorID] += 1
+			s.mapStats["f"+date+c.filepath]++
+			s.mapStats["m"+date+c.mirrorID]++
 			s.mapStats["s"+date+c.mirrorID] += c.size
 		case <-pushTicker.C:
 			s.pushStats()

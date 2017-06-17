@@ -24,7 +24,7 @@ type cluster struct {
 	redis *database.Redis
 
 	nodeID        string
-	nodes         []Node
+	nodes         []node
 	nodeIndex     int
 	nodeTotal     int
 	nodesLock     sync.RWMutex
@@ -35,21 +35,22 @@ type cluster struct {
 	StartStopLock sync.Mutex
 }
 
-type Node struct {
+type node struct {
 	ID           string
 	LastAnnounce int64
 }
 
-type ByNodeID []Node
+type byNodeID []node
 
-func (n ByNodeID) Len() int           { return len(n) }
-func (n ByNodeID) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
-func (n ByNodeID) Less(i, j int) bool { return n[i].ID < n[j].ID }
+func (n byNodeID) Len() int           { return len(n) }
+func (n byNodeID) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
+func (n byNodeID) Less(i, j int) bool { return n[i].ID < n[j].ID }
 
+// NewCluster creates a new instance of the cluster agent
 func NewCluster(r *database.Redis) *cluster {
 	c := &cluster{
 		redis: r,
-		nodes: make([]Node, 0),
+		nodes: make([]node, 0),
 		stop:  make(chan bool),
 	}
 
@@ -142,14 +143,14 @@ func (c *cluster) refreshNodeList(nodeID, self string) {
 		if nodeID != self {
 			log.Noticef("-> Node %s joined the cluster", nodeID)
 		}
-		n := Node{
+		n := node{
 			ID:           nodeID,
 			LastAnnounce: time.Now().UTC().Unix(),
 		}
 		// TODO use binary search here
 		// See https://golang.org/pkg/sort/#Search
 		c.nodes = append(c.nodes, n)
-		sort.Sort(ByNodeID(c.nodes))
+		sort.Sort(byNodeID(c.nodes))
 	}
 
 	c.nodeTotal = len(c.nodes)

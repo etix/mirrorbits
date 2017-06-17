@@ -362,10 +362,10 @@ func TestByExcludeReason_Less(t *testing.T) {
 func TestEnableMirror(t *testing.T) {
 	mock, conn := PrepareRedisTest()
 
-	cmd_enable := mock.Command("HMSET", "MIRROR_m1", "enabled", true).Expect("ok")
+	cmdEnable := mock.Command("HMSET", "MIRROR_m1", "enabled", true).Expect("ok")
 	EnableMirror(conn, "m1")
 
-	if mock.Stats(cmd_enable) != 1 {
+	if mock.Stats(cmdEnable) != 1 {
 		t.Fatalf("Mirror not enabled")
 	}
 
@@ -378,10 +378,10 @@ func TestEnableMirror(t *testing.T) {
 func TestDisableMirror(t *testing.T) {
 	mock, conn := PrepareRedisTest()
 
-	cmd_disable := mock.Command("HMSET", "MIRROR_m1", "enabled", false).Expect("ok")
+	cmdDisable := mock.Command("HMSET", "MIRROR_m1", "enabled", false).Expect("ok")
 	DisableMirror(conn, "m1")
 
-	if mock.Stats(cmd_disable) != 1 {
+	if mock.Stats(cmdDisable) != 1 {
 		t.Fatalf("Mirror not enabled")
 	}
 
@@ -394,18 +394,18 @@ func TestDisableMirror(t *testing.T) {
 func TestSetMirrorEnabled(t *testing.T) {
 	mock, conn := PrepareRedisTest()
 
-	cmd_publish := mock.Command("PUBLISH", string(database.MIRROR_UPDATE), redigomock.NewAnyData()).Expect("ok")
+	cmdPublish := mock.Command("PUBLISH", string(database.MIRROR_UPDATE), redigomock.NewAnyData()).Expect("ok")
 
-	cmd_enable := mock.Command("HMSET", "MIRROR_m1", "enabled", true).Expect("ok")
+	cmdEnable := mock.Command("HMSET", "MIRROR_m1", "enabled", true).Expect("ok")
 	SetMirrorEnabled(conn, "m1", true)
 
-	if mock.Stats(cmd_enable) < 1 {
+	if mock.Stats(cmdEnable) < 1 {
 		t.Fatalf("Mirror not enabled")
-	} else if mock.Stats(cmd_enable) > 1 {
+	} else if mock.Stats(cmdEnable) > 1 {
 		t.Fatalf("Mirror enabled more than once")
 	}
 
-	if mock.Stats(cmd_publish) < 1 {
+	if mock.Stats(cmdPublish) < 1 {
 		t.Fatalf("Event MIRROR_UPDATE not published")
 	}
 
@@ -414,16 +414,16 @@ func TestSetMirrorEnabled(t *testing.T) {
 		t.Fatalf("Error expected")
 	}
 
-	cmd_disable := mock.Command("HMSET", "MIRROR_m1", "enabled", false).Expect("ok")
+	cmdDisable := mock.Command("HMSET", "MIRROR_m1", "enabled", false).Expect("ok")
 	SetMirrorEnabled(conn, "m1", false)
 
-	if mock.Stats(cmd_disable) != 1 {
+	if mock.Stats(cmdDisable) != 1 {
 		t.Fatalf("Mirror not disabled")
-	} else if mock.Stats(cmd_disable) > 1 {
+	} else if mock.Stats(cmdDisable) > 1 {
 		t.Fatalf("Mirror disabled more than once")
 	}
 
-	if mock.Stats(cmd_publish) < 2 {
+	if mock.Stats(cmdPublish) < 2 {
 		t.Fatalf("Event MIRROR_UPDATE not published")
 	}
 
@@ -456,29 +456,29 @@ func TestSetMirrorState(t *testing.T) {
 		t.Fatalf("Error expected but nil returned")
 	}
 
-	cmd_publish := mock.Command("PUBLISH", string(database.MIRROR_UPDATE), redigomock.NewAnyData()).Expect("ok")
+	cmdPublish := mock.Command("PUBLISH", string(database.MIRROR_UPDATE), redigomock.NewAnyData()).Expect("ok")
 
 	/* */
 
-	cmd_previous_state := mock.Command("HGET", "MIRROR_m1", "up").Expect(int64(0)).Expect(int64(1))
-	cmd_state_since := mock.Command("HMSET", "MIRROR_m1", "up", true, "excludeReason", "test1", "stateSince", redigomock.NewAnyInt()).Expect("ok")
-	cmd_state := mock.Command("HMSET", "MIRROR_m1", "up", true, "excludeReason", "test2").Expect("ok")
+	cmdPreviousState := mock.Command("HGET", "MIRROR_m1", "up").Expect(int64(0)).Expect(int64(1))
+	cmdStateSince := mock.Command("HMSET", "MIRROR_m1", "up", true, "excludeReason", "test1", "stateSince", redigomock.NewAnyInt()).Expect("ok")
+	cmdState := mock.Command("HMSET", "MIRROR_m1", "up", true, "excludeReason", "test2").Expect("ok")
 
 	if err := SetMirrorState(conn, "m1", true, "test1"); err != nil {
 		t.Fatalf("Unexpected error: %s", err)
 	}
 
-	if mock.Stats(cmd_previous_state) < 1 {
+	if mock.Stats(cmdPreviousState) < 1 {
 		t.Fatalf("Previous state not tested")
 	}
 
-	if mock.Stats(cmd_state_since) < 1 {
+	if mock.Stats(cmdStateSince) < 1 {
 		t.Fatalf("New state not set")
-	} else if mock.Stats(cmd_state_since) > 1 {
+	} else if mock.Stats(cmdStateSince) > 1 {
 		t.Fatalf("State set more than once")
 	}
 
-	if mock.Stats(cmd_publish) < 1 {
+	if mock.Stats(cmdPublish) < 1 {
 		t.Fatalf("Event MIRROR_UPDATE not published")
 	}
 
@@ -488,34 +488,34 @@ func TestSetMirrorState(t *testing.T) {
 		t.Fatalf("Unexpected error: %s", err)
 	}
 
-	if mock.Stats(cmd_state_since) > 1 || mock.Stats(cmd_state) < 1 {
+	if mock.Stats(cmdStateSince) > 1 || mock.Stats(cmdState) < 1 {
 		t.Fatalf("The value stateSince isn't supposed to be set")
 	}
 
-	if mock.Stats(cmd_publish) != 1 {
+	if mock.Stats(cmdPublish) != 1 {
 		t.Fatalf("Event MIRROR_UPDATE should not be sent")
 	}
 
 	/* */
 
-	cmd_previous_state = mock.Command("HGET", "MIRROR_m1", "up").Expect(int64(1))
-	cmd_state_since = mock.Command("HMSET", "MIRROR_m1", "up", false, "excludeReason", "test3", "stateSince", redigomock.NewAnyInt()).Expect("ok")
+	cmdPreviousState = mock.Command("HGET", "MIRROR_m1", "up").Expect(int64(1))
+	cmdStateSince = mock.Command("HMSET", "MIRROR_m1", "up", false, "excludeReason", "test3", "stateSince", redigomock.NewAnyInt()).Expect("ok")
 
 	if err := SetMirrorState(conn, "m1", false, "test3"); err != nil {
 		t.Fatalf("Unexpected error: %s", err)
 	}
 
-	if mock.Stats(cmd_previous_state) < 1 {
+	if mock.Stats(cmdPreviousState) < 1 {
 		t.Fatalf("Previous state not tested")
 	}
 
-	if mock.Stats(cmd_state_since) < 1 {
+	if mock.Stats(cmdStateSince) < 1 {
 		t.Fatalf("New state not set")
-	} else if mock.Stats(cmd_state_since) > 1 {
+	} else if mock.Stats(cmdStateSince) > 1 {
 		t.Fatalf("State set more than once")
 	}
 
-	if mock.Stats(cmd_publish) < 2 {
+	if mock.Stats(cmdPublish) < 2 {
 		t.Fatalf("Event MIRROR_UPDATE not published")
 	}
 }
@@ -554,7 +554,7 @@ func TestGetMirrorMapUrl(t *testing.T) {
 		ASNum: 4444,
 	}
 
-	result := GetMirrorMapUrl(m, c)
+	result := GetMirrorMapURL(m, c)
 
 	if !strings.HasPrefix(result, "//maps.googleapis.com") {
 		t.Fatalf("Bad format")
@@ -576,7 +576,7 @@ func TestGetMirrorMapUrl(t *testing.T) {
 		GoogleMapsAPIKey: "qwerty",
 	})
 
-	result = GetMirrorMapUrl(m, c)
+	result = GetMirrorMapURL(m, c)
 
 	if !strings.Contains(result, "key=qwerty") {
 		t.Fatalf("Result must contain the api key")

@@ -89,7 +89,7 @@ func TestCache_fetchFileInfo(t *testing.T) {
 		t.Fatalf("Error expected, mock command not yet registered")
 	}
 
-	cmd_get_fileinfo := mock.Command("HMGET", "FILE_"+testfile.Path, "size", "modTime", "sha1", "sha256", "md5").Expect([]interface{}{
+	cmdGetFileinfo := mock.Command("HMGET", "FILE_"+testfile.Path, "size", "modTime", "sha1", "sha256", "md5").Expect([]interface{}{
 		[]byte(strconv.FormatInt(testfile.Size, 10)),
 		[]byte(testfile.ModTime.String()),
 		[]byte(testfile.Sha1),
@@ -102,7 +102,7 @@ func TestCache_fetchFileInfo(t *testing.T) {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}
 
-	if mock.Stats(cmd_get_fileinfo) < 1 {
+	if mock.Stats(cmdGetFileinfo) < 1 {
 		t.Fatalf("HMGET not executed")
 	}
 
@@ -151,7 +151,7 @@ func TestCache_GetFileInfo(t *testing.T) {
 		t.Fatalf("Error expected, mock command not yet registered")
 	}
 
-	cmd_get_fileinfo := mock.Command("HMGET", "FILE_"+testfile.Path, "size", "modTime", "sha1", "sha256", "md5").Expect([]interface{}{
+	cmdGetFileinfo := mock.Command("HMGET", "FILE_"+testfile.Path, "size", "modTime", "sha1", "sha256", "md5").Expect([]interface{}{
 		[]byte(strconv.FormatInt(testfile.Size, 10)),
 		[]byte(testfile.ModTime.String()),
 		[]byte(testfile.Sha1),
@@ -164,7 +164,7 @@ func TestCache_GetFileInfo(t *testing.T) {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}
 
-	if mock.Stats(cmd_get_fileinfo) < 1 {
+	if mock.Stats(cmdGetFileinfo) < 1 {
 		t.Fatalf("HMGET not executed")
 	}
 
@@ -194,7 +194,7 @@ func TestCache_fetchFileMirrors(t *testing.T) {
 		t.Fatalf("Error expected, mock command not yet registered")
 	}
 
-	cmd_get_filemirrors := mock.Command("SMEMBERS", "FILEMIRRORS_"+filename).Expect([]interface{}{
+	cmdGetFilemirrors := mock.Command("SMEMBERS", "FILEMIRRORS_"+filename).Expect([]interface{}{
 		[]byte("m9"),
 		[]byte("m2"),
 		[]byte("m5"),
@@ -205,7 +205,7 @@ func TestCache_fetchFileMirrors(t *testing.T) {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}
 
-	if mock.Stats(cmd_get_filemirrors) < 1 {
+	if mock.Stats(cmdGetFilemirrors) < 1 {
 		t.Fatalf("SMEMBERS not executed")
 	}
 
@@ -255,7 +255,7 @@ func TestCache_fetchMirror(t *testing.T) {
 		t.Fatalf("Error expected, mock command not yet registered")
 	}
 
-	cmd_get_mirror := mock.Command("HGETALL", "MIRROR_m1").ExpectMap(map[string]string{
+	cmdGetMirror := mock.Command("HGETALL", "MIRROR_m1").ExpectMap(map[string]string{
 		"ID":            testmirror.ID,
 		"http":          testmirror.HttpURL,
 		"rsync":         testmirror.RsyncURL,
@@ -285,7 +285,7 @@ func TestCache_fetchMirror(t *testing.T) {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}
 
-	if mock.Stats(cmd_get_mirror) < 1 {
+	if mock.Stats(cmdGetMirror) < 1 {
 		t.Fatalf("HGETALL not executed")
 	}
 
@@ -322,7 +322,7 @@ func TestCache_fetchFileInfoMirror(t *testing.T) {
 		t.Fatalf("Error expected, mock command not yet registered")
 	}
 
-	cmd_get_fileinfomirror := mock.Command("HMGET", "FILEINFO_m1_"+testfile.Path, "size", "modTime", "sha1", "sha256", "md5").ExpectMap(map[string]string{
+	cmdGetFileinfomirror := mock.Command("HMGET", "FILEINFO_m1_"+testfile.Path, "size", "modTime", "sha1", "sha256", "md5").ExpectMap(map[string]string{
 		"size":    strconv.FormatInt(testfile.Size, 10),
 		"modTime": testfile.ModTime.String(),
 		"sha1":    testfile.Sha1,
@@ -335,7 +335,7 @@ func TestCache_fetchFileInfoMirror(t *testing.T) {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}
 
-	if mock.Stats(cmd_get_fileinfomirror) < 1 {
+	if mock.Stats(cmdGetFileinfomirror) < 1 {
 		t.Fatalf("HGETALL not executed")
 	}
 
@@ -358,7 +358,7 @@ func TestCache_GetMirror(t *testing.T) {
 		t.Fatalf("Error expected, mock command not yet registered")
 	}
 
-	cmd_get_mirror := mock.Command("HGETALL", "MIRROR_m1").ExpectMap(map[string]string{
+	cmdGetMirror := mock.Command("HGETALL", "MIRROR_m1").ExpectMap(map[string]string{
 		"ID": testmirror,
 	})
 
@@ -367,7 +367,7 @@ func TestCache_GetMirror(t *testing.T) {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}
 
-	if mock.Stats(cmd_get_mirror) < 1 {
+	if mock.Stats(cmdGetMirror) < 1 {
 		t.Fatalf("HGETALL not executed")
 	}
 
@@ -404,24 +404,24 @@ func TestCache_GetMirrors(t *testing.T) {
 		t.Fatalf("Error expected, mock command not yet registered")
 	}
 
-	cmd_get_filemirrors := mock.Command("SMEMBERS", "FILEMIRRORS_"+filename).Expect([]interface{}{
+	cmdGetFilemirrors := mock.Command("SMEMBERS", "FILEMIRRORS_"+filename).Expect([]interface{}{
 		[]byte("m1"),
 		[]byte("m2"),
 	})
 
-	cmd_get_mirror_m1 := mock.Command("HGETALL", "MIRROR_m1").ExpectMap(map[string]string{
+	cmdGetMirrorM1 := mock.Command("HGETALL", "MIRROR_m1").ExpectMap(map[string]string{
 		"ID":        "m1",
 		"latitude":  "52.5167",
 		"longitude": "13.3833",
 	})
 
-	cmd_get_mirror_m2 := mock.Command("HGETALL", "MIRROR_m2").ExpectMap(map[string]string{
+	cmdGetMirrorM2 := mock.Command("HGETALL", "MIRROR_m2").ExpectMap(map[string]string{
 		"ID":        "m2",
 		"latitude":  "51.5072",
 		"longitude": "0.1275",
 	})
 
-	cmd_get_fileinfomirror_m1 := mock.Command("HMGET", "FILEINFO_m1_"+filename, "size", "modTime", "sha1", "sha256", "md5").ExpectMap(map[string]string{
+	cmdGetFileinfomirrorM1 := mock.Command("HMGET", "FILEINFO_m1_"+filename, "size", "modTime", "sha1", "sha256", "md5").ExpectMap(map[string]string{
 		"size":    "44000",
 		"modTime": "",
 		"sha1":    "",
@@ -429,7 +429,7 @@ func TestCache_GetMirrors(t *testing.T) {
 		"md5":     "",
 	})
 
-	cmd_get_fileinfomirror_m2 := mock.Command("HMGET", "FILEINFO_m2_"+filename, "size", "modTime", "sha1", "sha256", "md5").ExpectMap(map[string]string{
+	cmdGetFileinfomirrorM2 := mock.Command("HMGET", "FILEINFO_m2_"+filename, "size", "modTime", "sha1", "sha256", "md5").ExpectMap(map[string]string{
 		"size":    "44000",
 		"modTime": "",
 		"sha1":    "",
@@ -442,19 +442,19 @@ func TestCache_GetMirrors(t *testing.T) {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}
 
-	if mock.Stats(cmd_get_filemirrors) < 1 {
+	if mock.Stats(cmdGetFilemirrors) < 1 {
 		t.Fatalf("cmd_get_filemirrors not called")
 	}
-	if mock.Stats(cmd_get_mirror_m1) < 1 {
-		t.Fatalf("cmd_get_mirror_m1 not called")
+	if mock.Stats(cmdGetMirrorM1) < 1 {
+		t.Fatalf("cmdGetMirrorM1 not called")
 	}
-	if mock.Stats(cmd_get_mirror_m2) < 1 {
-		t.Fatalf("cmd_get_mirror_m2 not called")
+	if mock.Stats(cmdGetMirrorM2) < 1 {
+		t.Fatalf("cmdGetMirrorM2 not called")
 	}
-	if mock.Stats(cmd_get_fileinfomirror_m1) < 1 {
+	if mock.Stats(cmdGetFileinfomirrorM1) < 1 {
 		t.Fatalf("cmd_get_fileinfomirror_m1 not called")
 	}
-	if mock.Stats(cmd_get_fileinfomirror_m2) < 1 {
+	if mock.Stats(cmdGetFileinfomirrorM2) < 1 {
 		t.Fatalf("cmd_get_fileinfomirror_m2 not called")
 	}
 

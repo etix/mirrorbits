@@ -27,20 +27,20 @@ import (
 )
 
 var (
-	healthCheckThreads = 10
-	userAgent          = "Mirrorbits/" + core.VERSION + " PING CHECK"
-	clientTimeout      = time.Duration(20 * time.Second)
-	clientDeadline     = time.Duration(40 * time.Second)
-	redirectError      = errors.New("Redirect not allowed")
-	mirrorNotScanned   = errors.New("Mirror has not yet been scanned")
+	healthCheckThreads  = 10
+	userAgent           = "Mirrorbits/" + core.VERSION + " PING CHECK"
+	clientTimeout       = time.Duration(20 * time.Second)
+	clientDeadline      = time.Duration(40 * time.Second)
+	errRedirect         = errors.New("Redirect not allowed")
+	errMirrorNotScanned = errors.New("Mirror has not yet been scanned")
 
 	log = logging.MustGetLogger("main")
 )
 
-type Monitor struct {
+type monitor struct {
 	redis           *database.Redis
 	cache           *mirrors.Cache
-	mirrors         map[string]*Mirror
+	mirrors         map[string]*mirror
 	mapLock         sync.Mutex
 	httpClient      http.Client
 	httpTransport   http.Transport
@@ -55,46 +55,47 @@ type Monitor struct {
 	trace   *scan.Trace
 }
 
-type Mirror struct {
+type mirror struct {
 	mirrors.Mirror
 	checking  bool
 	scanning  bool
 	lastCheck time.Time
 }
 
-func (m *Mirror) NeedHealthCheck() bool {
+func (m *mirror) NeedHealthCheck() bool {
 	return time.Since(m.lastCheck) > time.Duration(GetConfig().CheckInterval)*time.Minute
 }
 
-func (m *Mirror) NeedSync() bool {
+func (m *mirror) NeedSync() bool {
 	return time.Since(m.LastSync.Time) > time.Duration(GetConfig().ScanInterval)*time.Minute
 }
 
-func (m *Mirror) IsScanning() bool {
+func (m *mirror) IsScanning() bool {
 	return m.scanning
 }
 
-func (m *Mirror) IsChecking() bool {
+func (m *mirror) IsChecking() bool {
 	return m.checking
 }
 
-func NewMonitor(r *database.Redis, c *mirrors.Cache) *Monitor {
-	monitor := new(Monitor)
-	monitor.redis = r
-	monitor.cache = c
-	monitor.cluster = NewCluster(r)
-	monitor.mirrors = make(map[string]*Mirror)
-	monitor.healthCheckChan = make(chan string, healthCheckThreads*5)
-	monitor.syncChan = make(chan string)
-	monitor.stop = make(chan bool)
-	monitor.configNotifier = make(chan bool, 1)
-	monitor.trace = scan.NewTraceHandler(monitor.redis, monitor.stop)
+// NewMonitor returns a new instance of monitor
+func NewMonitor(r *database.Redis, c *mirrors.Cache) *monitor {
+	m := new(monitor)
+	m.redis = r
+	m.cache = c
+	m.cluster = NewCluster(r)
+	m.mirrors = make(map[string]*mirror)
+	m.healthCheckChan = make(chan string, healthCheckThreads*5)
+	m.syncChan = make(chan string)
+	m.stop = make(chan bool)
+	m.configNotifier = make(chan bool, 1)
+	m.trace = scan.NewTraceHandler(m.redis, m.stop)
 
-	SubscribeConfig(monitor.configNotifier)
+	SubscribeConfig(m.configNotifier)
 
 	rand.Seed(time.Now().UnixNano())
 
-	monitor.httpTransport = http.Transport{
+	m.httpTransport = http.Transport{
 		DisableKeepAlives:   true,
 		MaxIdleConnsPerHost: 0,
 		Dial: func(network, addr string) (net.Conn, error) {
@@ -108,14 +109,14 @@ func NewMonitor(r *database.Redis, c *mirrors.Cache) *Monitor {
 		},
 	}
 
-	monitor.httpClient = http.Client{
+	m.httpClient = http.Client{
 		CheckRedirect: checkRedirect,
-		Transport:     &monitor.httpTransport,
+		Transport:     &m.httpTransport,
 	}
-	return monitor
+	return m
 }
 
-func (m *Monitor) Stop() {
+func (m *monitor) Stop() {
 	select {
 	case _, _ = <-m.stop:
 		return
@@ -125,29 +126,29 @@ func (m *Monitor) Stop() {
 	}
 }
 
-func (m *Monitor) Wait() {
+func (m *monitor) Wait() {
 	m.wg.Wait()
 }
 
 // Return an error if the endpoint is an unauthorized redirect
 func checkRedirect(req *http.Request, via []*http.Request) error {
-	redirects := req.Context().Value("allowredirects").(mirrors.Redirects)
+	redirects := req.Context().Value(core.ContextAllowRedirects).(mirrors.Redirects)
 
 	if redirects.Allowed() {
 		return nil
 	}
 
-	mid := req.Context().Value("mid")
+	mid := req.Context().Value(core.ContextMirrorID)
 	for _, r := range via {
 		if r.URL != nil {
 			log.Warningf("Unauthorized redirection for %s: %s => %s", mid, r.URL.String(), req.URL.String())
 		}
 	}
-	return redirectError
+	return errRedirect
 }
 
 // Main monitor loop
-func (m *Monitor) MonitorLoop() {
+func (m *monitor) MonitorLoop() {
 	m.wg.Add(1)
 	defer m.wg.Done()
 
@@ -255,7 +256,7 @@ func (m *Monitor) MonitorLoop() {
 }
 
 // Returns a list of all mirrors ID
-func (m *Monitor) mirrorsID() ([]string, error) {
+func (m *monitor) mirrorsID() ([]string, error) {
 	rconn := m.redis.Get()
 	defer rconn.Close()
 
@@ -263,13 +264,13 @@ func (m *Monitor) mirrorsID() ([]string, error) {
 }
 
 // Sync the remote mirror struct with the local dataset
-func (m *Monitor) syncMirrorList(mirrorsIDs ...string) error {
+func (m *monitor) syncMirrorList(mirrorsIDs ...string) error {
 
 	for _, id := range mirrorsIDs {
 		if len(id) > m.formatLongestID {
 			m.formatLongestID = len(id)
 		}
-		mirror, err := m.cache.GetMirror(id)
+		mir, err := m.cache.GetMirror(id)
 		if err != nil && err != redis.ErrNil {
 			log.Errorf("Fetching mirror %s failed: %s", id, err.Error())
 			continue
@@ -278,22 +279,22 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) error {
 			m.mapLock.Lock()
 			delete(m.mirrors, id)
 			m.mapLock.Unlock()
-			m.cluster.RemoveMirror(&mirror)
+			m.cluster.RemoveMirror(&mir)
 			continue
 		}
 
-		m.cluster.AddMirror(&mirror)
+		m.cluster.AddMirror(&mir)
 
 		m.mapLock.Lock()
-		if _, ok := m.mirrors[mirror.ID]; ok {
+		if _, ok := m.mirrors[mir.ID]; ok {
 			// Update existing mirror
-			tmp := m.mirrors[mirror.ID]
-			tmp.Mirror = mirror
-			m.mirrors[mirror.ID] = tmp
+			tmp := m.mirrors[mir.ID]
+			tmp.Mirror = mir
+			m.mirrors[mir.ID] = tmp
 		} else {
 			// Add new mirror
-			m.mirrors[mirror.ID] = &Mirror{
-				Mirror: mirror,
+			m.mirrors[mir.ID] = &mirror{
+				Mirror: mir,
 			}
 		}
 		m.mapLock.Unlock()
@@ -305,7 +306,7 @@ func (m *Monitor) syncMirrorList(mirrorsIDs ...string) error {
 
 // Main health check loop
 // TODO merge with the monitorLoop?
-func (m *Monitor) healthCheckLoop() {
+func (m *monitor) healthCheckLoop() {
 	defer m.wg.Done()
 	for {
 		select {
@@ -316,7 +317,7 @@ func (m *Monitor) healthCheckLoop() {
 				return
 			}
 
-			var mirror *Mirror
+			var mirror *mirror
 			var ok bool
 
 			m.mapLock.Lock()
@@ -328,7 +329,7 @@ func (m *Monitor) healthCheckLoop() {
 
 			err := m.healthCheck(mirror.Mirror)
 
-			if err == mirrorNotScanned {
+			if err == errMirrorNotScanned {
 				// Not removing the 'checking' lock is intended here so the mirror won't
 				// be checked again until the rsync/ftp scan is finished.
 				continue
@@ -348,7 +349,7 @@ func (m *Monitor) healthCheckLoop() {
 
 // Main sync loop
 // TODO merge with the monitorLoop?
-func (m *Monitor) syncLoop() {
+func (m *monitor) syncLoop() {
 	defer m.wg.Done()
 	for {
 		select {
@@ -356,8 +357,8 @@ func (m *Monitor) syncLoop() {
 			return
 		case k := <-m.syncChan:
 
-			var mirror Mirror
-			var mirrorPtr *Mirror
+			var mir mirror
+			var mirrorPtr *mirror
 			var ok bool
 
 			m.mapLock.Lock()
@@ -365,7 +366,7 @@ func (m *Monitor) syncLoop() {
 				m.mapLock.Unlock()
 				continue
 			}
-			mirror = *mirrorPtr
+			mir = *mirrorPtr
 			m.mapLock.Unlock()
 
 			conn := m.redis.Get()
@@ -387,37 +388,37 @@ func (m *Monitor) syncLoop() {
 
 			// Start fetching the latest trace
 			go func() {
-				err := m.trace.GetLastUpdate(mirror.Mirror)
+				err := m.trace.GetLastUpdate(mir.Mirror)
 				if err != nil && err != scan.ErrNoTrace {
 					if numError, ok := err.(*strconv.NumError); ok {
 						if numError.Err == strconv.ErrSyntax {
-							log.Warningf("[%s] parsing trace file failed: %s is not a valid timestamp", mirror.ID, strconv.Quote(numError.Num))
+							log.Warningf("[%s] parsing trace file failed: %s is not a valid timestamp", mir.ID, strconv.Quote(numError.Num))
 							return
 						}
 					} else {
-						log.Warningf("[%s] fetching trace file failed: %s", mirror.ID, err)
+						log.Warningf("[%s] fetching trace file failed: %s", mir.ID, err)
 					}
 				}
 			}()
 
-			err = cli.NoSyncMethod
+			err = cli.ErrNoSyncMethod
 
 			// First try to scan with rsync
-			if mirror.RsyncURL != "" {
-				err = scan.Scan(scan.RSYNC, m.redis, mirror.RsyncURL, k, m.stop)
+			if mir.RsyncURL != "" {
+				err = scan.Scan(scan.RSYNC, m.redis, mir.RsyncURL, k, m.stop)
 			}
 			// If it failed or rsync wasn't supported
 			// fallback to FTP
-			if err != nil && err != scan.ScanAborted && mirror.FtpURL != "" {
-				err = scan.Scan(scan.FTP, m.redis, mirror.FtpURL, k, m.stop)
+			if err != nil && err != scan.ErrScanAborted && mir.FtpURL != "" {
+				err = scan.Scan(scan.FTP, m.redis, mir.FtpURL, k, m.stop)
 			}
 
-			if err == scan.ScanInProgress {
+			if err == scan.ErrScanInProgress {
 				log.Warningf("%-30.30s Scan already in progress", k)
 				goto end
 			}
 
-			if err == nil && mirror.Enabled == true && mirror.Up == false {
+			if err == nil && mir.Enabled == true && mir.Up == false {
 				m.healthCheckChan <- k
 			}
 
@@ -432,7 +433,7 @@ func (m *Monitor) syncLoop() {
 }
 
 // Do an actual health check against a given mirror
-func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
+func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 	// Format log output
 	format := "%-" + fmt.Sprintf("%d.%ds", m.formatLongestID+4, m.formatLongestID+4)
 
@@ -440,7 +441,7 @@ func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 	file, size, err := m.getRandomFile(mirror.ID)
 	if err != nil {
 		if err == redis.ErrNil {
-			return mirrorNotScanned
+			return errMirrorNotScanned
 		} else if !database.RedisIsLoading(err) {
 			log.Warningf(format+"Error: Cannot obtain a random file: %s", mirror.ID, err)
 		}
@@ -453,8 +454,8 @@ func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 	req.Close = true
 
 	ctx, cancel := context.WithTimeout(req.Context(), clientDeadline)
-	ctx = context.WithValue(ctx, "mid", mirror.ID)
-	ctx = context.WithValue(ctx, "allowredirects", mirror.AllowRedirects)
+	ctx = context.WithValue(ctx, core.ContextMirrorID, mirror.ID)
+	ctx = context.WithValue(ctx, core.ContextAllowRedirects, mirror.AllowRedirects)
 	req = req.WithContext(ctx)
 	defer cancel()
 
@@ -514,7 +515,7 @@ func (m *Monitor) healthCheck(mirror mirrors.Mirror) error {
 	return nil
 }
 
-func (m *Monitor) httpDo(ctx context.Context, req *http.Request, f func(*http.Response, error) error) (time.Duration, error) {
+func (m *monitor) httpDo(ctx context.Context, req *http.Request, f func(*http.Response, error) error) (time.Duration, error) {
 	var elapsed time.Duration
 	c := make(chan error, 1)
 
@@ -536,7 +537,7 @@ func (m *Monitor) httpDo(ctx context.Context, req *http.Request, f func(*http.Re
 }
 
 // Get a random filename known to be served by the given mirror
-func (m *Monitor) getRandomFile(identifier string) (file string, size int64, err error) {
+func (m *monitor) getRandomFile(identifier string) (file string, size int64, err error) {
 	sinterKey := fmt.Sprintf("HANDLEDFILES_%s", identifier)
 
 	rconn := m.redis.Get()
@@ -556,7 +557,7 @@ func (m *Monitor) getRandomFile(identifier string) (file string, size int64, err
 }
 
 // Trigger a sync of the local repository
-func (m *Monitor) scanRepository() error {
+func (m *monitor) scanRepository() error {
 	err := scan.ScanSource(m.redis, false, m.stop)
 	if err != nil {
 		log.Errorf("Scanning source failed: %s", err.Error())
@@ -566,7 +567,7 @@ func (m *Monitor) scanRepository() error {
 
 // Retry a function until no errors is returned while still allowing
 // the process to be stopped.
-func (m *Monitor) retry(fn func() error, delay time.Duration) {
+func (m *monitor) retry(fn func() error, delay time.Duration) {
 	for {
 		err := fn()
 		if err == nil {

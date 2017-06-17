@@ -22,10 +22,12 @@ var (
 	rsyncOutputLine = regexp.MustCompile(`^.+\s+([0-9,]+)\s+([0-9/]+)\s+([0-9:]+)\s+(.*)$`)
 )
 
+// RsyncScanner is the implementation of an rsync scanner
 type RsyncScanner struct {
 	scan *scan
 }
 
+// Scan starts an rsync scan of the given mirror
 func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop chan bool) error {
 	var env []string
 
@@ -68,7 +70,7 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 	reader := bufio.NewReader(stdout)
 
 	if utils.IsStopped(stop) {
-		return ScanAborted
+		return ErrScanAborted
 	}
 
 	// Start the process
@@ -96,7 +98,7 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 		var f filedata
 
 		if utils.IsStopped(stop) {
-			return ScanAborted
+			return ErrScanAborted
 		}
 
 		// Parse one line returned by rsync
@@ -144,7 +146,7 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 			err1 = errors.New("Timeout waiting for daemon connection")
 		default:
 			if utils.IsStopped(stop) {
-				err1 = ScanAborted
+				err1 = ErrScanAborted
 			} else {
 				err1 = errors.New("rsync: " + err1.Error())
 			}
@@ -161,7 +163,7 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 
 func readln(r *bufio.Reader) (string, error) {
 	var (
-		isPrefix bool = true
+		isPrefix = true
 		err      error
 		line, ln []byte
 	)
