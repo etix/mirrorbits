@@ -100,7 +100,7 @@ func (h *HTTP) SetListener(l net.Listener) {
 	h.Listener = &l
 }
 
-// Stop gracefuly stops the HTTP server with a timeout to let
+// Stop gracefully stops the HTTP server with a timeout to let
 // the remaining connections finish
 func (h *HTTP) Stop(timeout time.Duration) {
 	/* Close the server and process remaining connections */
