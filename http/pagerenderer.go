@@ -115,7 +115,7 @@ func (w *MirrorListRenderer) Write(ctx *Context, results *mirrors.Results) (stat
 		return http.StatusInternalServerError, ErrTemplatesNotFound
 	}
 	// Sort the exclude reasons by message so they appear grouped
-	sort.Sort(mirrors.ByExcludeReason{results.ExcludedList})
+	sort.Sort(mirrors.ByExcludeReason{Mirrors: results.ExcludedList})
 
 	// Create a temporary output buffer to render the page
 	var buf bytes.Buffer

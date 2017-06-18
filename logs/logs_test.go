@@ -181,7 +181,7 @@ func TestOpenLogFile(t *testing.T) {
 	f.Close()
 
 	/* Open invalid file */
-	f, newfile, err = openLogFile("")
+	f, _, err = openLogFile("")
 	if err == nil {
 		t.Fatalf("Error expected while opening invalid file")
 	}

@@ -894,7 +894,7 @@ func (c *cli) CmdShow(args ...string) error {
 	out, err := yaml.Marshal(mirror)
 
 	fmt.Printf("Mirror: %s\n%s\nComment:\n%s\n", id, out, mirror.Comment)
-	return nil
+	return err
 }
 
 func (c *cli) CmdExport(args ...string) error {

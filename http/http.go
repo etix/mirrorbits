@@ -53,7 +53,7 @@ type HTTP struct {
 
 // Templates is a struct embedding instances of the precompiled templates
 type Templates struct {
-	sync.RWMutex
+	*sync.RWMutex
 
 	mirrorlist  *template.Template
 	mirrorstats *template.Template
@@ -255,7 +255,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 					CountryFields: []string{strings.ToUpper(f.CountryCode)},
 					ContinentCode: strings.ToUpper(f.ContinentCode)})
 			}
-			sort.Sort(mirrors.ByRank{mlist, clientInfo})
+			sort.Sort(mirrors.ByRank{Mirrors: mlist, ClientInfo: clientInfo})
 		} else {
 			// No fallback in stock, there's nothing else we can do
 			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)

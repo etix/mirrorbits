@@ -181,7 +181,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 	selected := len(weights)
 
 	// Sort mirrors by computed score
-	sort.Sort(mirrors.ByComputedScore{mlist})
+	sort.Sort(mirrors.ByComputedScore{Mirrors: mlist})
 
 	if selected > 1 {
 

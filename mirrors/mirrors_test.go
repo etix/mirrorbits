@@ -81,7 +81,7 @@ func TestMirrors_Swap(t *testing.T) {
 	m.Swap(2, 4)
 
 	if !matchingMirrorOrder(m, []string{"M1", "M0", "M4", "M3", "M2"}) {
-		t.Fatalf("Expected M4 at position 2 and M2 at position 4", m)
+		t.Fatal("Expected M4 at position 2 and M2 at position 4", m)
 	}
 }
 
