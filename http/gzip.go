@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	. "github.com/etix/mirrorbits/config"
-	"github.com/etix/mirrorbits/http/cgzip"
+	"github.com/youtube/vitess/go/cgzip"
 )
 
 type gzipResponseWriter struct {
