@@ -64,6 +64,7 @@ func HTTPServer(redis *database.Redis, cache *mirrors.Cache) *HTTP {
 	h := new(HTTP)
 	h.redis = redis
 	h.geoip = network.NewGeoIP()
+	h.templates.RWMutex = new(sync.RWMutex)
 	h.templates.mirrorlist = template.Must(h.LoadTemplates("mirrorlist"))
 	h.templates.mirrorstats = template.Must(h.LoadTemplates("mirrorstats"))
 	h.cache = cache
