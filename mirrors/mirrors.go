@@ -66,6 +66,11 @@ func (m *Mirror) Prepare() {
 	m.ExcludedCountryFields = strings.Fields(m.ExcludedCountryCodes)
 }
 
+// IsHTTPS returns true if the mirror has an HTTPS address
+func (m *Mirror) IsHTTPS() bool {
+	return strings.HasPrefix(m.HttpURL, "https://")
+}
+
 // Mirrors represents a slice of Mirror
 type Mirrors []Mirror
 

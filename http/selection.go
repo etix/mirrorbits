@@ -62,6 +62,14 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 			}
 			goto delete
 		}
+		if ctx.SecureOption() == WITHTLS && !m.IsHTTPS() {
+			m.ExcludeReason = "Not HTTPS"
+			goto delete
+		}
+		if ctx.SecureOption() == WITHOUTTLS && m.IsHTTPS() {
+			m.ExcludeReason = "Not HTTP"
+			goto delete
+		}
 		// Is it the same size as source?
 		if m.FileInfo != nil {
 			if m.FileInfo.Size != fileInfo.Size {

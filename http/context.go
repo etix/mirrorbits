@@ -11,12 +11,19 @@ import (
 // RequestType defines the type of the request
 type RequestType int
 
+// SecureOption is the type that defines TLS requirements
+type SecureOption int
+
 const (
 	STANDARD RequestType = iota
 	MIRRORLIST
 	FILESTATS
 	MIRRORSTATS
 	CHECKSUM
+
+	UNDEFINED SecureOption = iota
+	WITHTLS
+	WITHOUTTLS
 )
 
 // Context represents the context of a request
@@ -31,6 +38,7 @@ type Context struct {
 	isFileStats   bool
 	isChecksum    bool
 	isPretty      bool
+	secureOption  SecureOption
 }
 
 // NewContext returns a new instance of Context
@@ -55,6 +63,16 @@ func NewContext(w http.ResponseWriter, r *http.Request, t Templates) *Context {
 
 	if c.paramBool("pretty") {
 		c.isPretty = true
+	}
+
+	// Check for HTTPS requirements
+	v, ok := c.v["https"]
+	if ok {
+		if v[0] == "1" {
+			c.secureOption = WITHTLS
+		} else if v[0] == "0" {
+			c.secureOption = WITHOUTTLS
+		}
 	}
 
 	return c
@@ -108,6 +126,11 @@ func (c *Context) IsPretty() bool {
 // QueryParam returns the value associated with the given query parameter
 func (c *Context) QueryParam(key string) string {
 	return c.v.Get(key)
+}
+
+// SecureOption returns the selected secure option
+func (c *Context) SecureOption() SecureOption {
+	return c.secureOption
 }
 
 func (c *Context) paramBool(key string) bool {
