@@ -121,7 +121,11 @@ func KillParent(ppid int) error {
 func GetPidLocation() string {
 	if core.PidFile == "" { // Runtime
 		if defaultPidFile == "" { // Compile time
-			return "/var/run/mirrorbits.pid" // Fallback
+			rdir := os.Getenv("XDG_RUNTIME_DIR")
+			if rdir == "" {
+				return "/var/run/mirrorbits.pid" // Fallback
+			}
+			return rdir + "/mirrorbits.pid"
 		}
 		return defaultPidFile
 	}
