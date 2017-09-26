@@ -4,6 +4,7 @@
 package scan
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -60,6 +61,14 @@ type scan struct {
 	identifier  string
 	filesTmpKey string
 	count       uint
+}
+
+type DummyFile struct {
+	Size    int64  `json:"Size"`
+	ModTime string `json:"ModTime"`
+	Sha1    string `json:"Sha1"`
+	Sha256  string `json:"Sha256"`
+	Md5     string `json:"Md5"`
 }
 
 // IsScanning returns true is a scan is already in progress for the given mirror
@@ -229,6 +238,7 @@ func (s *scan) setLastSync(conn redis.Conn, identifier string, successful bool) 
 }
 
 type sourcescanner struct {
+	dummyFile bool
 }
 
 // Walk inside the source/reference repository
@@ -237,11 +247,45 @@ func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, 
 		return nil, nil
 	}
 
+	var dfData DummyFile
+	dummyFile := s.dummyFile
+
 	d := new(filedata)
 	d.path = path[len(GetConfig().Repository):]
-	d.size = f.Size()
-	d.modTime = f.ModTime()
 
+	if dummyFile {
+		file, err := os.Open(path)
+		if err != nil {
+			log.Errorf(err.Error())
+		}
+		dec := json.NewDecoder(file)
+		// read open bracket, when there is none, the file is not a json.
+		// Fallback to normal mode.
+		_, err = dec.Token()
+		if err != nil {
+			goto skipdec
+		}
+		err = dec.Decode(&dfData)
+	skipdec:
+		if err != nil {
+			log.Debugf("Failed to read file: %s", err.Error())
+			dummyFile = false
+			d.size = f.Size()
+			d.modTime = f.ModTime()
+			goto skip
+		}
+
+		d.size = dfData.Size
+		d.modTime, err = time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", dfData.ModTime)
+		if err != nil {
+			log.Errorf(err.Error())
+		}
+	} else {
+		d.size = f.Size()
+		d.modTime = f.ModTime()
+	}
+
+skip:
 	// Get the previous file properties
 	properties, err := redis.Strings(conn.Do("HMGET", fmt.Sprintf("FILE_%s", d.path), "size", "modTime", "sha1", "sha256", "md5"))
 	if err != nil && err != redis.ErrNil {
@@ -263,21 +307,27 @@ func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, 
 		(GetConfig().Hashes.MD5 && len(md5) == 0)
 
 	if rehash || size != d.size || !modTime.Equal(d.modTime) {
-		h, err := filesystem.HashFile(GetConfig().Repository + d.path)
-		if err != nil {
-			log.Warningf("%s: hashing failed: %s", d.path, err.Error())
+		if dummyFile {
+			d.sha1 = dfData.Sha1
+			d.sha256 = dfData.Sha256
+			d.md5 = dfData.Md5
 		} else {
-			d.sha1 = h.Sha1
-			d.sha256 = h.Sha256
-			d.md5 = h.Md5
-			if len(d.sha1) > 0 {
-				log.Infof("%s: SHA1 %s", d.path, d.sha1)
-			}
-			if len(d.sha256) > 0 {
-				log.Infof("%s: SHA256 %s", d.path, d.sha256)
-			}
-			if len(d.md5) > 0 {
-				log.Infof("%s: MD5 %s", d.path, d.md5)
+			h, err := filesystem.HashFile(GetConfig().Repository + d.path)
+			if err != nil {
+				log.Warningf("%s: hashing failed: %s", d.path, err.Error())
+			} else {
+				d.sha1 = h.Sha1
+				d.sha256 = h.Sha256
+				d.md5 = h.Md5
+				if len(d.sha1) > 0 {
+					log.Infof("%s: SHA1 %s", d.path, d.sha1)
+				}
+				if len(d.sha256) > 0 {
+					log.Infof("%s: SHA256 %s", d.path, d.sha256)
+				}
+				if len(d.md5) > 0 {
+					log.Infof("%s: MD5 %s", d.path, d.md5)
+				}
 			}
 		}
 	} else {
@@ -292,6 +342,7 @@ func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, 
 // ScanSource starts a scan of the local repository
 func ScanSource(r *database.Redis, forceRehash bool, stop chan bool) (err error) {
 	s := &sourcescanner{}
+	s.dummyFile = GetConfig().DummyFiles
 
 	conn := r.Get()
 	defer conn.Close()

@@ -102,6 +102,7 @@ DisallowRedirects | Disable any mirror trying to do an HTTP redirect
 WeightDistributionRange | Multiplier of the distance to the first mirror to find other possible mirrors in order to distribute the load
 DisableOnMissingFile | Disable a mirror if an advertised file on rsync/ftp appears to be missing on HTTP
 MaxLinkHeaders | Amount of backup mirror locations returned in HTTP headers
+DummyFiles | Allows reading file information from a dummy json file. This Allows saving storage on the host.
 Fallbacks | A list of possible mirrors to use as fallback if a request fails or if the database is unreachable. **These mirrors are not tracked by mirrorbits.** It is assumed they have all the files available in the local repository.
 
 ## Running
