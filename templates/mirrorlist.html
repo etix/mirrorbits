@@ -71,7 +71,7 @@
     <tbody>
     {{range $i, $v := .MirrorList}}
     <tr{{if not $v.Weight}} style="color: grey;"{{end}}>
-        <td>{{add $i 1}}.</td><td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.ID}}{{end}}</td><td style="text-align: right;"><a href="{{concaturl $v.HttpURL $.FileInfo.Path}}">{{$v.HttpURL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align: right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{if $v.Weight}}{{if ge $v.Weight 1.0}}{{printf "%.0f" $v.Weight}}{{else}}<1{{end}}%{{else}}n/a{{end}}</td>
+        <td style="text-align: right;">{{add $i 1}}.</td><td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.ID}}{{end}}</td><td style="text-align: right;"><a href="{{concaturl $v.HttpURL $.FileInfo.Path}}">{{$v.HttpURL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align: right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{if $v.Weight}}{{if ge $v.Weight 1.0}}{{printf "%.0f" $v.Weight}}{{else}}<1{{end}}%{{else}}n/a{{end}}</td>
     </tr>
     {{end}}
     </tbody>
