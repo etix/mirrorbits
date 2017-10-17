@@ -17,14 +17,14 @@
 		{
 			"checksumSHA1": "2UmMbNHc8FBr98mJFN1k8ISOIHk=",
 			"path": "github.com/garyburd/redigo/internal",
-			"revision": "57f1cd7de6175c96b423e7ac2534ff2b39e2ef79",
-			"revisionTime": "2017-06-15T18:53:09Z"
+			"revision": "34a326de1fea52965fa5ad664d3fc7163dd4b0a1",
+			"revisionTime": "2017-10-09T00:43:22Z"
 		},
 		{
-			"checksumSHA1": "dGCqjUjHaREgF/BM+u0UdebD4fk=",
+			"checksumSHA1": "oBN4RLzCF91Zehon4gALT+ZerKs=",
 			"path": "github.com/garyburd/redigo/redis",
-			"revision": "57f1cd7de6175c96b423e7ac2534ff2b39e2ef79",
-			"revisionTime": "2017-06-15T18:53:09Z"
+			"revision": "34a326de1fea52965fa5ad664d3fc7163dd4b0a1",
+			"revisionTime": "2017-10-09T00:43:22Z"
 		},
 		{
 			"checksumSHA1": "BoXdUBWB8UnSlFlbnuTQaPqfCGk=",
@@ -35,32 +35,32 @@
 		{
 			"checksumSHA1": "N6I3i0LIjQckurgTeH3b2A5YTec=",
 			"path": "github.com/oschwald/maxminddb-golang",
-			"revision": "d19f6d453e836d12ee8fe895d0494421e93ef8c1",
-			"revisionTime": "2017-05-03T13:30:35Z"
+			"revision": "26fe5ace1c706491c2936119e1dc69c1a9c04d7f",
+			"revisionTime": "2017-09-01T13:40:56Z"
 		},
 		{
-			"checksumSHA1": "NhcZhmYU2Br4v+iAh9vA9NB+Ihw=",
+			"checksumSHA1": "97d1x3kkzlOLFrtQ/NXL8j5sqz8=",
 			"path": "github.com/rafaeljusto/redigomock",
-			"revision": "dafd969785a5948b7a263843f53b3f90544772d0",
-			"revisionTime": "2017-04-07T13:29:14Z"
+			"revision": "7ae0511314e9946bb0c87d6d485169ab2467a290",
+			"revisionTime": "2017-07-20T13:15:24Z"
 		},
 		{
 			"checksumSHA1": "/rytDOF8Mt0tjywHY/h7vPf+99I=",
 			"path": "github.com/youtube/vitess/go/cgzip",
-			"revision": "ce0874b059f8e945703a1c19a29ee2fe1d626fce",
-			"revisionTime": "2017-06-17T22:10:44Z"
+			"revision": "2c17f47a66c1ad60c5ead9a17b92b610d6750ea3",
+			"revisionTime": "2017-10-17T00:29:02Z"
 		},
 		{
-			"checksumSHA1": "Tkb1hBdBWeO7SGjixS2Hm48F6+s=",
+			"checksumSHA1": "/vc89vae+AsvNTGofKHOmmGRUfU=",
 			"path": "golang.org/x/sys/unix",
-			"revision": "fb4cac33e3196ff7f507ab9b2d2a44b0142f5b5a",
-			"revisionTime": "2017-06-14T06:48:48Z"
+			"revision": "8dbc5d05d6edcc104950cc299a1ce6641235bc86",
+			"revisionTime": "2017-10-13T13:31:29Z"
 		},
 		{
-			"checksumSHA1": "GUzvy5+6gTwjQ2PaXxjHfbqjOVw=",
+			"checksumSHA1": "wGkVl9xZjgnLs/olurjDX2Yg8Xw=",
 			"path": "golang.org/x/sys/windows",
-			"revision": "fb4cac33e3196ff7f507ab9b2d2a44b0142f5b5a",
-			"revisionTime": "2017-06-14T06:48:48Z"
+			"revision": "8dbc5d05d6edcc104950cc299a1ce6641235bc86",
+			"revisionTime": "2017-10-13T13:31:29Z"
 		},
 		{
 			"checksumSHA1": "O9E8G234qCcPA7f7srGpnawDmMs=",
@@ -69,10 +69,10 @@
 			"revisionTime": "2017-02-01T19:58:55Z"
 		},
 		{
-			"checksumSHA1": "fALlQNY1fM99NesfLJ50KguWsio=",
+			"checksumSHA1": "RDJpJQwkF012L6m/2BJizyOksNw=",
 			"path": "gopkg.in/yaml.v2",
-			"revision": "cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b",
-			"revisionTime": "2017-04-07T17:21:22Z"
+			"revision": "eb3733d160e74a9c7e442f435eb3bea458e1d19f",
+			"revisionTime": "2017-08-12T16:00:11Z"
 		}
 	],
 	"rootPath": "github.com/etix/mirrorbits"
