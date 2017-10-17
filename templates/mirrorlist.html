@@ -30,34 +30,34 @@
 
 {{define "body"}}
 
-<div id="container">
-    <div id="left-col">
+<div style="display: flex; flex-wrap: wrap;">
+    <div style="flex-basis: 250px; flex-grow: 1; margin: 8px;">
         <h3>Client</h3>
         <div>You are connecting with IP address <i>{{.IP}}</i>, which belongs to autonomous system <i>{{.ClientInfo.ASName}} (ASN{{.ClientInfo.ASNum}})</i>.<br />
         {{if .ClientInfo.GeoIPRecord}}We believe you are {{if .ClientInfo.City}}near <i>{{.ClientInfo.City}}</i> in {{else}}somewhere in {{end}}<i>{{.ClientInfo.CountryName}}</i> and have selected mirrors based on this.{{else}}We were not able to use your IP to approximate your location, so have chosen the mirrors at random.{{end}}</div>
     </div>
 
-    <div id="right-col">
+    <div style="flex-basis: 325px; flex-grow: 1; margin: 8px;">
         <h3>File</h3>
         <div>The file <b>{{.FileInfo.Path}}</b> has a size of {{sizeof .FileInfo.Size}} ({{.FileInfo.Size}} bytes) and was last modified on {{dateutc .FileInfo.ModTime}}.</div>
         <div>
             <br/>Known hashes:
             <table class="alt">
-                <tr><td>MD5</td><td>{{if .FileInfo.Md5}}{{.FileInfo.Md5}}{{else}}N/A{{end}}</td></tr>
-                <tr><td>SHA1</td><td>{{if .FileInfo.Sha1}}{{.FileInfo.Sha1}}{{else}}N/A{{end}}</td></tr>
-                <tr><td>SHA256</td><td>{{if .FileInfo.Sha256}}{{.FileInfo.Sha256}}{{else}}N/A{{end}}</td></tr>
+                <tr><td>MD5</td><td style="font-family: monospace; word-break: break-all;">{{if .FileInfo.Md5}}{{.FileInfo.Md5}}{{else}}N/A{{end}}</td></tr>
+                <tr><td>SHA1</td><td style="font-family: monospace; word-break: break-all;">{{if .FileInfo.Sha1}}{{.FileInfo.Sha1}}{{else}}N/A{{end}}</td></tr>
+                <tr><td>SHA256</td><td style="font-family: monospace; word-break: break-all;">{{if .FileInfo.Sha256}}{{.FileInfo.Sha256}}{{else}}N/A{{end}}</td></tr>
             </table>
         </div>
         <br/>
     </div>
 </div>
 
-<div style="display: flex; justify-content: space-between;">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-around;">
     <div style=""><img style="border: 1px grey;"  width="600" height="320" src="{{.MapURL}}"/></div>
     <div id="chart_div" style="width:600; height:320;"></div>
 </div>
 
-<div style="clear:both;">
+<div>
     <br/>
     <h3>Mirrors</h3>
 
@@ -65,32 +65,32 @@
 
     {{if .MirrorList}}
     <table border="0" cellpadding="2" class="alt" style="width: 95%; text-align:left;">
-    <tr>
+    <thead><tr>
         <th style="width: 3%;">Rank</th><th style="width: 20%;">Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center; width: 10%;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center;">Selection</th>
-    </tr>
-    {{end}}
+    </tr></thead>
+    <tbody>
     {{range $i, $v := .MirrorList}}
     <tr{{if not $v.Weight}} style="color: grey;"{{end}}>
-        <td>{{add $i 1}}.</td><td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.ID}}{{end}}</td><td style="text-align: right;"><a href="{{concaturl $v.HttpURL $.FileInfo.Path}}">{{$v.HttpURL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align: right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{if $v.Weight}}{{if ge $v.Weight 1.0}}{{printf "%.0f" $v.Weight}}{{else}}<1{{end}}%{{else}}n/a{{end}}</td>
+        <td style="text-align: right;">{{add $i 1}}.</td><td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.ID}}{{end}}</td><td style="text-align: right;"><a href="{{concaturl $v.HttpURL $.FileInfo.Path}}">{{$v.HttpURL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align: right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{if $v.Weight}}{{if ge $v.Weight 1.0}}{{printf "%.0f" $v.Weight}}{{else}}<1{{end}}%{{else}}n/a{{end}}</td>
     </tr>
+    {{end}}
+    </tbody>
+    </table>
     {{else}}
     <i>No mirrors for this file</i>
-    {{end}}
-    {{if .MirrorList}}
-    </table>
     {{end}}
 
     {{if .ExcludedList}}
     <h3>Excluded Mirrors</h3>
     <table border="0" cellpadding="2" class="alt" style="width: 95%; text-align:left;">
-    <th style="width: 23%;">Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center; width: 10%;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center; width: 20%;">Exclude Reason</th>
-    {{end}}
+    <thead><tr><th style="width: 23%;">Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center; width: 10%;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center; width: 20%;">Exclude Reason</th></tr></thead>
+    <tbody>
     {{range $i, $v := .ExcludedList}}
         <tr>
             <td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.ID}}{{end}}<td style="text-align: right;"><a href="{{$v.HttpURL}}">{{$v.HttpURL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align:right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{$v.ExcludeReason}}</td>
         </tr>
     {{end}}
-    {{if .ExcludedList}}
+    </tbody>
     </table>
     {{end}}
 </div>
