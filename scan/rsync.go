@@ -66,8 +66,14 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 		return err
 	}
 
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	
 	// Pipe stdout
 	reader := bufio.NewReader(stdout)
+	readerErr := bufio.NewReader(stderr)
 
 	if utils.IsStopped(stop) {
 		return ErrScanAborted
@@ -132,6 +138,14 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 		line, err = readln(reader)
 	}
 
+	rsyncErrors := []string{}
+	for line, err = readln(readerErr); err == nil; line, err = readln(readerErr) {
+		if strings.Contains(line, ": opendir ") {
+			rsyncErrors = append(rsyncErrors, line)
+		}
+	}
+
+
 	if err1 := cmd.Wait(); err1 != nil {
 		switch err1.Error() {
 		case "exit status 5":
@@ -140,6 +154,12 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 			err1 = errors.New("rsync: Error in socket I/O")
 		case "exit status 11":
 			err1 = errors.New("rsync: Error in file I/O")
+		case "exit status 23":
+			for _, line := range rsyncErrors {
+				log.Warningf("[%s] %s", identifier, line)
+			}
+			log.Warningf("[%s] rsync: Partial transfer due to error", identifier)
+			err1 = nil
 		case "exit status 30":
 			err1 = errors.New("rsync: Timeout in data send/receive")
 		case "exit status 35":
