@@ -93,9 +93,10 @@ type sentinels struct {
 }
 
 type hashing struct {
-	SHA1   bool `yaml:"SHA1"`
-	SHA256 bool `yaml:"SHA256"`
-	MD5    bool `yaml:"MD5"`
+	SHA1     bool `yaml:"SHA1"`
+	SHA256   bool `yaml:"SHA256"`
+	SHA3_512 bool `yaml:"SHA3_512"`
+	MD5      bool `yaml:"MD5"`
 }
 
 // LoadConfig loads the configuration file if it has not yet been loaded

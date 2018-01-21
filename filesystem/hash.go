@@ -13,6 +13,8 @@ import (
 	"io"
 	"os"
 
+	"golang.org/x/crypto/sha3"
+
 	. "github.com/etix/mirrorbits/config"
 )
 
@@ -42,6 +44,11 @@ func HashFile(path string) (hashes FileInfo, err error) {
 		hmd5 := newHasher(md5.New(), &hashes.Md5)
 		defer hmd5.Close()
 		writers = append(writers, hmd5)
+	}
+	if GetConfig().Hashes.SHA3_512 {
+		hsha3_512 := newHasher(sha3.New512(), &hashes.Sha3_512)
+		defer hsha3_512.Close()
+		writers = append(writers, hsha3_512)
 	}
 
 	if len(writers) == 0 {

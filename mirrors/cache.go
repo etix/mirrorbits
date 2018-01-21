@@ -146,7 +146,7 @@ func (c *Cache) fetchFileInfo(path string) (f filesystem.FileInfo, err error) {
 	defer rconn.Close()
 	f.Path = path // Path is not stored in the object instance in redis
 
-	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILE_%s", path), "size", "modTime", "sha1", "sha256", "md5"))
+	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILE_%s", path), "size", "modTime", "sha1", "sha256", "md5", "sha3_512"))
 	if err != nil {
 		return
 	}
@@ -156,6 +156,7 @@ func (c *Cache) fetchFileInfo(path string) (f filesystem.FileInfo, err error) {
 	f.Sha1 = reply[2]
 	f.Sha256 = reply[3]
 	f.Md5 = reply[4]
+	f.Sha3_512 = reply[5]
 	c.fiCache.Set(path, &fileInfoValue{value: f})
 	return
 }
@@ -252,7 +253,7 @@ func (c *Cache) fetchFileInfoMirror(id, path string) (f filesystem.FileInfo, err
 	defer rconn.Close()
 	f.Path = path // Path is not stored in the object instance in redis
 
-	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILEINFO_%s_%s", id, path), "size", "modTime", "sha1", "sha256", "md5"))
+	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILEINFO_%s_%s", id, path), "size", "modTime", "sha1", "sha256", "md5", "sha3_512"))
 	if err != nil {
 		return
 	}
@@ -265,6 +266,7 @@ func (c *Cache) fetchFileInfoMirror(id, path string) (f filesystem.FileInfo, err
 	f.Sha1 = reply[2]
 	f.Sha256 = reply[3]
 	f.Md5 = reply[4]
+	f.Sha3_512 = reply[5]
 
 	c.fimCache.Set(fmt.Sprintf("%s|%s", id, path), &fileInfoValue{value: f})
 	return

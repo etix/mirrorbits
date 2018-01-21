@@ -54,7 +54,7 @@ func NewContext(w http.ResponseWriter, r *http.Request, t Templates) *Context {
 	} else if c.paramBool("mirrorstats") {
 		c.typ = MIRRORSTATS
 		c.isMirrorStats = true
-	} else if c.paramBool("md5") || c.paramBool("sha1") || c.paramBool("sha256") {
+	} else if c.paramBool("md5") || c.paramBool("sha1") || c.paramBool("sha256") || c.paramBool("sha3_512") {
 		c.typ = CHECKSUM
 		c.isChecksum = true
 	} else {

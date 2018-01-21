@@ -450,6 +450,8 @@ func (h *HTTP) checksumHandler(w http.ResponseWriter, r *http.Request, ctx *Cont
 		hash = fileInfo.Sha1
 	} else if ctx.paramBool("sha256") {
 		hash = fileInfo.Sha256
+	} else if ctx.paramBool("sha3_512") {
+		hash = fileInfo.Sha3_512
 	}
 
 	if len(hash) == 0 {

@@ -45,12 +45,13 @@ type Scanner interface {
 }
 
 type filedata struct {
-	path    string
-	sha1    string
-	sha256  string
-	md5     string
-	size    int64
-	modTime time.Time
+	path     string
+	sha1     string
+	sha256   string
+	sha3_512 string
+	md5      string
+	size     int64
+	modTime  time.Time
 }
 
 type scan struct {
@@ -243,7 +244,7 @@ func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, 
 	d.modTime = f.ModTime()
 
 	// Get the previous file properties
-	properties, err := redis.Strings(conn.Do("HMGET", fmt.Sprintf("FILE_%s", d.path), "size", "modTime", "sha1", "sha256", "md5"))
+	properties, err := redis.Strings(conn.Do("HMGET", fmt.Sprintf("FILE_%s", d.path), "size", "modTime", "sha1", "sha256", "md5", "sha3_512"))
 	if err != nil && err != redis.ErrNil {
 		return nil, err
 	} else if len(properties) < 5 {
@@ -256,11 +257,13 @@ func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, 
 	sha1 := properties[2]
 	sha256 := properties[3]
 	md5 := properties[4]
+	sha3_512 := properties[5]
 
 	rehash = rehash ||
 		(GetConfig().Hashes.SHA1 && len(sha1) == 0) ||
 		(GetConfig().Hashes.SHA256 && len(sha256) == 0) ||
-		(GetConfig().Hashes.MD5 && len(md5) == 0)
+		(GetConfig().Hashes.MD5 && len(md5) == 0) ||
+		(GetConfig().Hashes.SHA3_512 && len(sha3_512) == 0)
 
 	if rehash || size != d.size || !modTime.Equal(d.modTime) {
 		h, err := filesystem.HashFile(GetConfig().Repository + d.path)
@@ -270,6 +273,7 @@ func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, 
 			d.sha1 = h.Sha1
 			d.sha256 = h.Sha256
 			d.md5 = h.Md5
+			d.sha3_512 = h.Sha3_512
 			if len(d.sha1) > 0 {
 				log.Infof("%s: SHA1 %s", d.path, d.sha1)
 			}
@@ -279,11 +283,15 @@ func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, 
 			if len(d.md5) > 0 {
 				log.Infof("%s: MD5 %s", d.path, d.md5)
 			}
+			if len(d.sha3_512) > 0 {
+				log.Infof("%s: SHA3_512 %s", d.path, d.sha3_512)
+			}
 		}
 	} else {
 		d.sha1 = sha1
 		d.sha256 = sha256
 		d.md5 = md5
+		d.sha3_512 = sha3_512
 	}
 
 	return d, nil
@@ -375,6 +383,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop chan bool) (err error)
 			"modTime", e.modTime,
 			"sha1", e.sha1,
 			"sha256", e.sha256,
+			"sha3_512", e.sha3_512,
 			"md5", e.md5)
 
 		// Publish update
