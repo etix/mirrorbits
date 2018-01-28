@@ -749,7 +749,7 @@ reopen:
 	// Checksum the file back and compare
 	chk2, _ := filesystem.HashFile(f.Name())
 	if chk == chk2 {
-		fmt.Println("Aborted")
+		fmt.Println("Aborted - settings are unmodified, so there is nothing to change.")
 		return nil
 	}
 
