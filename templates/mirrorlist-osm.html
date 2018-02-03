@@ -128,6 +128,15 @@
         var nxtmarker = new L.marker([mapdata.clientpos.lat, mapdata.clientpos.lon]);
         latlngbounds.extend([mapdata.clientpos.lat, mapdata.clientpos.lon]);
         nxtmarker.addTo(map);
+        if (mapdata.mirrors.length > 0) {
+          var polyline = L.polyline( [
+                                       [ mapdata.clientpos.lat, mapdata.clientpos.lon ],
+                                       [ mapdata.mirrors[0].lat, mapdata.mirrors[0].lon ]
+                                     ],
+                                     {color: 'blue', opacity: 0.6});
+          polyline.addTo(map);
+          // No need to update the bounds - that happens when the mirrors dot is added below.
+        }
     }
     for (i in mapdata.mirrors) {
         var myIcon = L.divIcon({
