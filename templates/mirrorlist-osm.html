@@ -105,12 +105,14 @@
     var mapdata = {
         "mirrors" : [
         {{range $i, $v := .MirrorList}}
+        {{if lt $i 19 }}
         {
             "lat" : {{$v.Latitude}},
             "lon" : {{$v.Longitude}},
             "nr" : {{add $i 1}},
             "color" : {{if $v.Weight}}"green"{{else}}"blue"{{end}}
         },
+        {{end}}
         {{end}}
         ],
         "clientpos" : {
@@ -123,21 +125,22 @@
             {{end}}
         }
     };
-    var latlngbounds = new L.latLngBounds();
+    var latlngbounds = new L.latLngBounds(); // For calculating the boundaries we zoom to on map load
     if ((mapdata.clientpos.lat != 0.0) || (mapdata.clientpos.lon != 0.0)) {
         var nxtmarker = new L.marker([mapdata.clientpos.lat, mapdata.clientpos.lon]);
-        latlngbounds.extend([mapdata.clientpos.lat, mapdata.clientpos.lon]);
         nxtmarker.addTo(map);
+        latlngbounds.extend([mapdata.clientpos.lat, mapdata.clientpos.lon]);
         if (mapdata.mirrors.length > 0) {
-          var polyline = L.polyline( [
-                                       [ mapdata.clientpos.lat, mapdata.clientpos.lon ],
-                                       [ mapdata.mirrors[0].lat, mapdata.mirrors[0].lon ]
-                                     ],
-                                     {color: 'blue', opacity: 0.6});
-          polyline.addTo(map);
-          // No need to update the bounds - that happens when the mirrors dot is added below.
+            var polyline = L.polyline( [
+                                         [ mapdata.clientpos.lat, mapdata.clientpos.lon ],
+                                         [ mapdata.mirrors[0].lat, mapdata.mirrors[0].lon ]
+                                       ],
+                                       {color: 'blue', opacity: 0.6});
+            polyline.addTo(map);
+            // No need to update the bounds - that happens when the mirrors dot is added below.
         }
     }
+    var showaftercutoff = 3; // How many mirrors without weight to use for calculating bounds
     for (i in mapdata.mirrors) {
         var myIcon = L.divIcon({
             className: 'numberboxinmap' + mapdata.mirrors[i].color,
@@ -146,8 +149,13 @@
             iconAnchor: [8, 20]
         });
         var nxtmarker = new L.marker([mapdata.mirrors[i].lat, mapdata.mirrors[i].lon], {icon: myIcon});
-        latlngbounds.extend([mapdata.mirrors[i].lat, mapdata.mirrors[i].lon]);
         nxtmarker.addTo(map);
+        if (mapdata.mirrors[i].color != "green") {
+            showaftercutoff--;
+        }
+        if (showaftercutoff > 0) {
+            latlngbounds.extend([mapdata.mirrors[i].lat, mapdata.mirrors[i].lon]);
+        }
     }
     latlngbounds.pad(1);
     map.fitBounds(latlngbounds);
