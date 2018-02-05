@@ -112,7 +112,7 @@ To run the server:
 ```
 mirrorbits -D
 ```
-Additionnal options can be found with ```mirrobits -help```.
+Additional options can be found with ```mirrobits -help```.
 
 To run the cli:
 ```
