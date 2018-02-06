@@ -91,7 +91,7 @@ func TestCache_fetchFileInfo(t *testing.T) {
 
 	cmdGetFileinfo := mock.Command("HMGET", "FILE_"+testfile.Path, "size", "modTime", "sha1", "sha256", "md5").Expect([]interface{}{
 		[]byte(strconv.FormatInt(testfile.Size, 10)),
-		[]byte(testfile.ModTime.String()),
+		[]byte(testfile.ModTime.Format("2006-01-02 15:04:05.999999999 -0700 MST")),
 		[]byte(testfile.Sha1),
 		[]byte(testfile.Sha256),
 		[]byte(testfile.Md5),
@@ -112,8 +112,8 @@ func TestCache_fetchFileInfo(t *testing.T) {
 	if f.Size != testfile.Size {
 		t.Fatalf("Size doesn't match, expected %#v got %#v", testfile.Size, f.Size)
 	}
-	if f.ModTime != testfile.ModTime {
-		t.Fatalf("ModTime doesn't match, expected %#v got %#v", testfile.ModTime, f.ModTime)
+	if !f.ModTime.Equal(testfile.ModTime) {
+		t.Fatalf("ModTime doesn't match, expected %s got %s", testfile.ModTime.String(), f.ModTime.String())
 	}
 	if f.Sha1 != testfile.Sha1 {
 		t.Fatalf("Sha1 doesn't match, expected %#v got %#v", testfile.Sha1, f.Sha1)
@@ -153,7 +153,7 @@ func TestCache_GetFileInfo(t *testing.T) {
 
 	cmdGetFileinfo := mock.Command("HMGET", "FILE_"+testfile.Path, "size", "modTime", "sha1", "sha256", "md5").Expect([]interface{}{
 		[]byte(strconv.FormatInt(testfile.Size, 10)),
-		[]byte(testfile.ModTime.String()),
+		[]byte(testfile.ModTime.Format("2006-01-02 15:04:05.999999999 -0700 MST")),
 		[]byte(testfile.Sha1),
 		[]byte(testfile.Sha256),
 		[]byte(testfile.Md5),
@@ -170,7 +170,7 @@ func TestCache_GetFileInfo(t *testing.T) {
 
 	// Results are already checked by TestCache_fetchFileInfo
 	// We only need to check one of them
-	if f.ModTime != testfile.ModTime {
+	if !f.ModTime.Equal(testfile.ModTime) {
 		t.Fatalf("One or more values do not match")
 	}
 
