@@ -23,4 +23,6 @@ install:
   - export PATH="$PATH:$GOBIN"
   - go env
 
-after_script: make test
+script:
+  - make
+  - make test
