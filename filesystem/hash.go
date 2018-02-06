@@ -74,3 +74,19 @@ func (h hasher) Close() error {
 	*h.output = hex.EncodeToString(h.Sum(nil))
 	return nil
 }
+
+// Sha256sum generates a human readable sha256 hash of the given file path
+func Sha256sum(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return nil, err
+	}
+
+	return h.Sum(nil), nil
+}

@@ -5,6 +5,7 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -726,7 +727,7 @@ func (c *cli) CmdEdit(args ...string) error {
 	f.Close()
 
 	// Checksum the original file
-	chk, _ := filesystem.HashFile(f.Name())
+	chk, _ := filesystem.Sha256sum(f.Name())
 
 reopen:
 	// Launch the editor with the filename as first parameter
@@ -747,8 +748,8 @@ reopen:
 	}
 
 	// Checksum the file back and compare
-	chk2, _ := filesystem.HashFile(f.Name())
-	if chk == chk2 {
+	chk2, _ := filesystem.Sha256sum(f.Name())
+	if bytes.Compare(chk, chk2) == 0 {
 		fmt.Println("Aborted - settings are unmodified, so there is nothing to change.")
 		return nil
 	}
