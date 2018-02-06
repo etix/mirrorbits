@@ -4,7 +4,6 @@
 package mirrors
 
 import (
-	"bytes"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -211,46 +210,10 @@ func SetMirrorState(r *database.Redis, id string, state bool, reason string) err
 	return err
 }
 
-// GetMirrorMapURL returns the URL of a map containing the location of the closest mirrors
-// as well as the client's guessed location.
-func GetMirrorMapURL(mirrors Mirrors, clientInfo network.GeoIPRecord) string {
-	var buffer bytes.Buffer
-	buffer.WriteString("//maps.googleapis.com/maps/api/staticmap?size=600x320&sensor=false&visual_refresh=true")
-
-	if key := GetConfig().GoogleMapsAPIKey; key != "" {
-		buffer.WriteString(fmt.Sprintf("&key=%s", key))
-	}
-
-	if clientInfo.IsValid() {
-		buffer.WriteString(fmt.Sprintf("&markers=size:mid|color:red|%f,%f", clientInfo.Latitude, clientInfo.Longitude))
-	}
-
-	count := 1
-	for i, mirror := range mirrors {
-		if count > 9 {
-			break
-		}
-		if i == 0 && clientInfo.IsValid() {
-			// Draw a path between the client and the mirror
-			buffer.WriteString(fmt.Sprintf("&path=color:0x17ea0bdd|weight:5|%f,%f|%f,%f",
-				clientInfo.Latitude, clientInfo.Longitude,
-				mirror.Latitude, mirror.Longitude))
-		}
-		color := "blue"
-		if mirror.Weight > 0 {
-			color = "green"
-		}
-		buffer.WriteString(fmt.Sprintf("&markers=color:%s|label:%d|%f,%f", color, count, mirror.Latitude, mirror.Longitude))
-		count++
-	}
-	return buffer.String()
-}
-
 // Results is the resulting struct of a request and is
 // used by the renderers to generate the final page.
 type Results struct {
 	FileInfo     filesystem.FileInfo
-	MapURL       string `json:"-"`
 	IP           string
 	ClientInfo   network.GeoIPRecord
 	MirrorList   Mirrors

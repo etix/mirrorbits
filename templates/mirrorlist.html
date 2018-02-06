@@ -26,6 +26,45 @@
             chart.draw(data, options);
          }
     </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.2/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.0.0/MarkerCluster.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.2/leaflet.js"></script>
+    <style>
+    .numberboxinmapblue {
+      background:blue; color:white; border:none;
+      text-align:center;
+      font-size: 11px;
+      min-height: 16px; min-width: 16px;
+    }
+    .numberboxinmapblue:after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 0; height: 0;
+      border: 4px solid transparent;
+      border-top-color: blue;
+      border-bottom: 0;
+      margin-left: -4px; margin-bottom: -4px;
+    }
+    .numberboxinmapgreen {
+      background:green; color:white; border:none;
+      text-align:center;
+      font-size: 11px;
+      min-height: 16px; min-width: 16px;
+    }
+    .numberboxinmapgreen:after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 0; height: 0;
+      border: 4px solid transparent;
+      border-top-color: green;
+      border-bottom: 0;
+      margin-left: -4px; margin-bottom: -4px;
+    }
+    </style>
 {{end}}
 
 {{define "body"}}
@@ -53,9 +92,73 @@
 </div>
 
 <div style="display: flex; flex-wrap: wrap; justify-content: space-around;">
-    <div style=""><img style="border: 1px grey;"  width="600" height="320" src="{{.MapURL}}"/></div>
+    <div id="map" style="width:600; height:320;"></div>
     <div id="chart_div" style="width:600; height:320;"></div>
 </div>
+
+<script>
+    var map = L.map('map').setView([20,37], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: 'Data &copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>, map rendering <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'
+    }).addTo(map);
+
+    var mapdata = {
+        "mirrors" : [
+        {{range $i, $v := .MirrorList}}{{if lt $i 19 }}
+        {
+            "lat" : {{$v.Latitude}},
+            "lon" : {{$v.Longitude}},
+            "nr" : {{add $i 1}},
+            "color" : {{if $v.Weight}}"green"{{else}}"blue"{{end}}
+        },
+        {{end}}{{end}}
+        ],
+        "clientpos" : {
+            {{if .ClientInfo.GeoIPRecord}}
+            "lat" : {{.ClientInfo.Latitude}},
+            "lon" : {{.ClientInfo.Longitude}}
+            {{else}}
+            "lat" : 0.0,
+            "lon" : 0.0
+            {{end}}
+        }
+    };
+    var latlngbounds = new L.latLngBounds(); // For calculating the boundaries we zoom to on map load
+    if ((mapdata.clientpos.lat != 0.0) || (mapdata.clientpos.lon != 0.0)) {
+        var nxtmarker = new L.marker([mapdata.clientpos.lat, mapdata.clientpos.lon]);
+        nxtmarker.addTo(map);
+        latlngbounds.extend([mapdata.clientpos.lat, mapdata.clientpos.lon]);
+        if (mapdata.mirrors.length > 0) {
+            var polyline = L.polyline( [
+                                         [ mapdata.clientpos.lat, mapdata.clientpos.lon ],
+                                         [ mapdata.mirrors[0].lat, mapdata.mirrors[0].lon ]
+                                       ],
+                                       {color: 'blue', opacity: 0.6});
+            polyline.addTo(map);
+            // No need to update the bounds - that happens when the mirrors dot is added below.
+        }
+    }
+    var showaftercutoff = 3; // How many mirrors without weight to use for calculating bounds
+    for (i in mapdata.mirrors) {
+        var myIcon = L.divIcon({
+            className: 'numberboxinmap' + mapdata.mirrors[i].color,
+            html: "" + mapdata.mirrors[i].nr,
+            iconSize: null,
+            iconAnchor: [8, 20]
+        });
+        var nxtmarker = new L.marker([mapdata.mirrors[i].lat, mapdata.mirrors[i].lon], {icon: myIcon});
+        nxtmarker.addTo(map);
+        if (mapdata.mirrors[i].color != "green") {
+            showaftercutoff--;
+        }
+        if (showaftercutoff > 0) {
+            latlngbounds.extend([mapdata.mirrors[i].lat, mapdata.mirrors[i].lon]);
+        }
+    }
+    latlngbounds.pad(1);
+    map.fitBounds(latlngbounds);
+
+</script>
 
 <div>
     <br/>
