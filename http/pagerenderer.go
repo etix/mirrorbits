@@ -120,8 +120,6 @@ func (w *MirrorListRenderer) Write(ctx *Context, results *mirrors.Results) (stat
 	// Create a temporary output buffer to render the page
 	var buf bytes.Buffer
 
-	// Generate the URL for the map
-	results.MapURL = mirrors.GetMirrorMapURL(results.MirrorList, results.ClientInfo)
 	ctx.ResponseWriter().Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// Render the page into the buffer

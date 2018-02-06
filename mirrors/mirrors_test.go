@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/etix/geoip"
-	"github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/network"
 	. "github.com/etix/mirrorbits/testing"
@@ -520,65 +519,3 @@ func TestSetMirrorState(t *testing.T) {
 	}
 }
 
-func TestGetMirrorMapUrl(t *testing.T) {
-	config.SetConfiguration(&config.Configuration{})
-
-	m := Mirrors{
-		Mirror{
-			ID:        "M0",
-			Latitude:  -80.0,
-			Longitude: 80.0,
-		},
-		Mirror{
-			ID:        "M1",
-			Latitude:  -60.0,
-			Longitude: 60.0,
-		},
-		Mirror{
-			ID:        "M2",
-			Latitude:  -40.0,
-			Longitude: 40.0,
-		},
-		Mirror{
-			ID:        "M3",
-			Latitude:  -20.0,
-			Longitude: 20.0,
-		},
-	}
-
-	c := network.GeoIPRecord{
-		GeoIPRecord: &geoip.GeoIPRecord{
-			Latitude:  -10.0,
-			Longitude: 10.0,
-		},
-		ASNum: 4444,
-	}
-
-	result := GetMirrorMapURL(m, c)
-
-	if !strings.HasPrefix(result, "//maps.googleapis.com") {
-		t.Fatalf("Bad format")
-	}
-
-	if !strings.Contains(result, "color:red") {
-		t.Fatalf("Missing client marker?")
-	}
-
-	if strings.Count(result, "label:") != len(m) {
-		t.Fatalf("Missing some mirror markers?")
-	}
-
-	if strings.Contains(result, "key=") {
-		t.Fatalf("Result should not contain an api key")
-	}
-
-	config.SetConfiguration(&config.Configuration{
-		GoogleMapsAPIKey: "qwerty",
-	})
-
-	result = GetMirrorMapURL(m, c)
-
-	if !strings.Contains(result, "key=qwerty") {
-		t.Fatalf("Result must contain the api key")
-	}
-}
