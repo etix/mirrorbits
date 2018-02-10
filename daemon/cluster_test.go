@@ -5,15 +5,24 @@ package daemon
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"testing"
 	"time"
 
+	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/mirrors"
 	. "github.com/etix/mirrorbits/testing"
 )
+
+func TestMain(m *testing.M) {
+	SetConfiguration(&Configuration{
+		RedisDB: 42,
+	})
+	os.Exit(m.Run())
+}
 
 func TestStart(t *testing.T) {
 	_, conn := PrepareRedisTest()
@@ -47,7 +56,7 @@ func TestClusterLoop(t *testing.T) {
 
 	c := NewCluster(conn)
 
-	cmdPublish := mock.Command("PUBLISH", string(database.CLUSTER), fmt.Sprintf("%s %s", clusterAnnounce, c.nodeID)).Expect("1")
+	cmdPublish := mock.Command("PUBLISH", string(database.CLUSTER), fmt.Sprintf("%s %s", c.announceText, c.nodeID)).Expect("1")
 
 	c.Start()
 	defer c.Stop()

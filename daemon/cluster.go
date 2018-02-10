@@ -7,17 +7,19 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/mirrors"
 	"github.com/etix/mirrorbits/utils"
 )
 
 const (
-	clusterAnnounce = "HELLO"
+	clusterAnnouncePrefix = "HELLO"
 )
 
 type cluster struct {
@@ -33,6 +35,7 @@ type cluster struct {
 	wg            sync.WaitGroup
 	running       bool
 	StartStopLock sync.Mutex
+	announceText  string
 }
 
 type node struct {
@@ -59,6 +62,7 @@ func NewCluster(r *database.Redis) *cluster {
 		hostname = "unknown"
 	}
 	c.nodeID = fmt.Sprintf("%s-%05d", hostname, rand.Intn(32000))
+	c.announceText = clusterAnnouncePrefix + strconv.Itoa(GetConfig().RedisDB)
 	return c
 }
 
@@ -106,18 +110,18 @@ func (c *cluster) clusterLoop() {
 		case <-announceTicker.C:
 			c.announce()
 		case data := <-clusterChan:
-			if !strings.HasPrefix(data, clusterAnnounce+" ") {
+			if !strings.HasPrefix(data, c.announceText+" ") {
 				// Garbage
 				continue
 			}
-			c.refreshNodeList(data[len(clusterAnnounce)+1:], c.nodeID)
+			c.refreshNodeList(data[len(c.announceText)+1:], c.nodeID)
 		}
 	}
 }
 
 func (c *cluster) announce() {
 	r := c.redis.Get()
-	database.Publish(r, database.CLUSTER, fmt.Sprintf("%s %s", clusterAnnounce, c.nodeID))
+	database.Publish(r, database.CLUSTER, fmt.Sprintf("%s %s", c.announceText, c.nodeID))
 	r.Close()
 }
 
