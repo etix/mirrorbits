@@ -47,7 +47,7 @@ func TestClusterLoop(t *testing.T) {
 
 	c := NewCluster(conn)
 
-	cmdPublish := mock.Command("PUBLISH", string(database.CLUSTER), fmt.Sprintf("%s %s", clusterAnnounce, c.nodeID)).Expect("1")
+	cmdPublish := mock.Command("PUBLISH", string(database.CLUSTER), fmt.Sprintf("%s %s", c.announceText, c.nodeID)).Expect("1")
 
 	c.Start()
 	defer c.Stop()
