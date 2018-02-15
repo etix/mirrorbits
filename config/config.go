@@ -21,6 +21,7 @@ var (
 	defaultConfig = Configuration{
 		Repository:             "",
 		Templates:              "",
+		LocalJSPath:            "",
 		OutputMode:             "auto",
 		ListenAddress:          ":8080",
 		Gzip:                   false,
@@ -55,6 +56,7 @@ var (
 type Configuration struct {
 	Repository              string     `yaml:"Repository"`
 	Templates               string     `yaml:"Templates"`
+	LocalJSPath             string     `yaml:"LocalJSPath"`
 	OutputMode              string     `yaml:"OutputMode"`
 	ListenAddress           string     `yaml:"ListenAddress"`
 	Gzip                    bool       `yaml:"Gzip"`

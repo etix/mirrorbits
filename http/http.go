@@ -274,6 +274,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		ClientInfo:   clientInfo,
 		IP:           remoteIP,
 		Fallback:     fallback,
+		LocalJSPath:  GetConfig().LocalJSPath,
 	}
 
 	var resultRenderer resultsRenderer

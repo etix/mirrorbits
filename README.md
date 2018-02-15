@@ -102,6 +102,7 @@ WeightDistributionRange | Multiplier of the distance to the first mirror to find
 DisableOnMissingFile | Disable a mirror if an advertised file on rsync/ftp appears to be missing on HTTP
 MaxLinkHeaders | Amount of backup mirror locations returned in HTTP headers
 Fallbacks | A list of possible mirrors to use as fallback if a request fails or if the database is unreachable. **These mirrors are not tracked by mirrorbits.** It is assumed they have all the files available in the local repository.
+LocalJSPath | A local path or URL containing the JavaScript used by the templates. If this is not set (the default), the JavaScript will just be loaded from the usual CDNs. See also `contrib/FIXME.sh`.
 
 ## Running
 
