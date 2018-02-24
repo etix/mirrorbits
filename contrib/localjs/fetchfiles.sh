@@ -25,6 +25,11 @@ showhelp()
 	echo "Syntax: $0 directory"
 	echo "where directory is the directory in which you want to store the downloaded files."
 	echo ""
+	echo "This will download the Javascript- and Font-files used by the default"
+	echo "templates in mirrorbits. You can then self-host that directory tree on"
+	echo "your webserver instead of using external CDNs."
+	echo "You then need to set the LocalJSPath option in your mirrorbits config to"
+	echo "point at the web-accessible path to that directory."
 }
 
 getlocalfilename ()
