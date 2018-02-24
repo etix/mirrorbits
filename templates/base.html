@@ -3,8 +3,42 @@
 	<head>
 		<title>{{template "title" .}}</title>
 		<meta http-equiv="content-type" content="text/html;charset=utf-8" />
+{{if not .LocalJSPath}}
 		<link href='//fonts.googleapis.com/css?family=Lato:400,900' rel='stylesheet' type='text/css'>
-		<link href="//maxcdn.bootstrapcdn.com/font-awesome/4.1.0/css/font-awesome.min.css" rel="stylesheet">
+		<link href="//maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+{{else}}
+		<style type="text/css">
+			/* Generated with https://google-webfonts-helper.herokuapp.com */
+			/* lato-regular - latin */
+			@font-face {
+			  font-family: 'Lato';
+			  font-style: normal;
+			  font-weight: 400;
+			  src: url('{{.LocalJSPath}}/fonts/lato-v14-latin-regular.eot'); /* IE9 Compat Modes */
+			  src: local('Lato Regular'), local('Lato-Regular'),
+			       url('{{.LocalJSPath}}/fonts/lato-v14-latin-regular.eot?#iefix') format('embedded-opentype'), /* IE6-IE8 */
+			       url('{{.LocalJSPath}}/fonts/lato-v14-latin-regular.woff2') format('woff2'), /* Super Modern Browsers */
+			       url('{{.LocalJSPath}}/fonts/lato-v14-latin-regular.woff') format('woff'), /* Modern Browsers */
+			       url('{{.LocalJSPath}}/fonts/lato-v14-latin-regular.ttf') format('truetype'), /* Safari, Android, iOS */
+			       url('{{.LocalJSPath}}/fonts/lato-v14-latin-regular.svg#Lato') format('svg'); /* Legacy iOS */
+			}
+
+			/* lato-900 - latin */
+			@font-face {
+			  font-family: 'Lato';
+			  font-style: normal;
+			  font-weight: 900;
+			  src: url('{{.LocalJSPath}}/fonts/lato-v14-latin-900.eot'); /* IE9 Compat Modes */
+			  src: local('Lato Black'), local('Lato-Black'),
+			       url('{{.LocalJSPath}}/fonts/lato-v14-latin-900.eot?#iefix') format('embedded-opentype'), /* IE6-IE8 */
+			       url('{{.LocalJSPath}}/fonts/lato-v14-latin-900.woff2') format('woff2'), /* Super Modern Browsers */
+			       url('{{.LocalJSPath}}/fonts/lato-v14-latin-900.woff') format('woff'), /* Modern Browsers */
+			       url('{{.LocalJSPath}}/fonts/lato-v14-latin-900.ttf') format('truetype'), /* Safari, Android, iOS */
+			       url('{{.LocalJSPath}}/fonts/lato-v14-latin-900.svg#Lato') format('svg'); /* Legacy iOS */
+			}
+		</style>
+		<link href="{{.LocalJSPath}}/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+{{end}}
 		<style type="text/css">
 			body {
 				margin: 0px;
@@ -90,7 +124,7 @@
 		<div id="wrapper">
 			<div id="header">
 				<div class="title">
-					<a href="http://github.com/etix/mirrorbits" target="_blank" style="text-decoration: none; color: inherit;">Mirrorbits <i class="fa fa-globe" style="vertical-align: middle;"></i></a>
+					<a href="http://github.com/etix/mirrorbits" target="_blank" style="text-decoration: none; color: inherit;">Mirrorbits <i class="fa fa-globe" style="vertical-align: middle;" aria-hidden="true"></i></a>
 				</div>
 				<div class="headline">{{template "headline" .}}</div>
 			</div>
