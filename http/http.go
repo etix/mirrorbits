@@ -485,6 +485,7 @@ type SyncOffset struct {
 type MirrorStatsPage struct {
 	List       []MirrorStats
 	MirrorList []mirrors.Mirror
+	LocalJSPath string
 }
 
 // byDownloadNumbers is a sorting function
@@ -590,7 +591,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err = ctx.Templates().mirrorstats.ExecuteTemplate(w, "base", MirrorStatsPage{results, mlist})
+	err = ctx.Templates().mirrorstats.ExecuteTemplate(w, "base", MirrorStatsPage{results, mlist, GetConfig().LocalJSPath})
 	if err != nil {
 		log.Errorf("HTTP error: %s", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)

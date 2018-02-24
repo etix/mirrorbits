@@ -17,6 +17,7 @@ whattofetch=(
 	"https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.2/images/marker-icon.png"
 	"https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.2/images/marker-shadow.png"
 	"https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.0.0/MarkerCluster.css"
+	"https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.0.0/leaflet.markercluster.js"
 )
 
 showhelp()
