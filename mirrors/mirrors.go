@@ -219,6 +219,7 @@ type Results struct {
 	MirrorList   Mirrors
 	ExcludedList Mirrors `json:",omitempty"`
 	Fallback     bool    `json:",omitempty"`
+	LocalJSPath  string
 }
 
 // Redirects is handling the per-mirror authorization of HTTP redirects

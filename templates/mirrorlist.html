@@ -2,33 +2,68 @@
 {{define "headline"}}{{.FileInfo.Path}}{{end}}
 
 {{define "head"}}
-    <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['corechart']}]}"></script>
-    <script type="text/javascript">
-        google.setOnLoadCallback(drawChart);
-        function drawChart() {
-            var data = new google.visualization.arrayToDataTable([
-                ['mirror','probability'],
-                {{range $i, $v := .MirrorList}}{{if $v.Weight}}['{{$v.ID}}', {{$v.Weight}}],{{end}}{{end}}
-            ]);
-
-            // Set chart options
-            var options = {
-                title:                          'Load distribution',
-                width:                          600,
-                height:                         320,
-                chartArea:                      {'width': '90%', 'height': '90%'},
-                sliceVisibilityThreshold:       .01,
-                is3D: true
-            };
-
-            // Instantiate and draw our chart, passing in some options.
-            var chart = new google.visualization.PieChart(document.getElementById('chart_div'));
-            chart.draw(data, options);
-         }
-    </script>
+{{if not .LocalJSPath}}
+    <!--[if lte IE 8]><script language="javascript" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/excanvas.min.js"></script><![endif]-->
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.pie.min.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/flot.tooltip/0.9.0/jquery.flot.tooltip.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.2/leaflet.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.0.0/MarkerCluster.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.2/leaflet.js"></script>
+{{else}}
+    <!--[if lte IE 8]><script language="javascript" type="text/javascript" src="{{.LocalJSPath}}/flot/0.8.3/excanvas.min.js"></script><![endif]-->
+    <script type="text/javascript" src="{{.LocalJSPath}}/jquery/3.3.1/jquery.min.js"></script>
+    <script type="text/javascript" src="{{.LocalJSPath}}/flot/0.8.3/jquery.flot.min.js"></script>
+    <script type="text/javascript" src="{{.LocalJSPath}}/flot/0.8.3/jquery.flot.pie.min.js"></script>
+    <script type="text/javascript" src="{{.LocalJSPath}}/flot.tooltip/0.9.0/jquery.flot.tooltip.min.js"></script>
+    <link rel="stylesheet" href="{{.LocalJSPath}}/leaflet/1.0.2/leaflet.css" />
+    <script src="{{.LocalJSPath}}/leaflet/1.0.2/leaflet.js"></script>
+{{end}}
+    <script type="text/javascript">
+        $(function() {
+            {{$filledchart := false}}
+            var mirrordistchartdata = [
+                {{range $i, $v := .MirrorList -}}
+                    {{if $v.Weight}}{{$filledchart = "yes"}}{ label: '{{$v.ID}}', data: {{$v.Weight}}},{{end}}
+                {{- end -}}
+                {{if not $filledchart}}{ label: 'Random', data: 100 },{{end}}
+            ];
+            $.plot('#chart_div', mirrordistchartdata, {
+                series: {
+                    pie: {
+                        show: true,
+                        radius: 1,
+                        label: {
+                            show: true,
+                            radius: 0.75,
+                            formatter: labelFormatter,
+                            threshold: 0.02
+                        },
+                        combine: {
+                            threshold: 0.02 // 0.02 == 2%
+                        },
+                    }
+                },
+                legend: {
+                    show: true
+                },
+                grid: {
+                    hoverable: true
+                },
+                tooltip: {
+                    show: true,
+                    content: "%s: %p.2%",
+                    shifts: {
+                        x: 10, y: 0
+                    },
+                    defaultTheme: true
+                }
+            });
+        });
+        function labelFormatter(label, series) {
+            return "<div style='font-size:8pt; text-align:center; padding:2px; color:white;'>" + series.percent.toFixed(1) + "%</div>";
+        }
+    </script>
     <style>
     .numberboxinmapblue {
       background:blue; color:white; border:none;
