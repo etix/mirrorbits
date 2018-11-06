@@ -20,7 +20,7 @@ const (
 	redisConnectionTimeout = 200 * time.Millisecond
 	redisReadWriteTimeout  = 300 * time.Second
 	// RedisMinimumVersion contains the minimum redis version required to run the application
-	RedisMinimumVersion = "2.8.12"
+	RedisMinimumVersion = "3.2.0"
 )
 
 var (
