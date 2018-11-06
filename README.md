@@ -52,8 +52,9 @@ Yet some things might change before the 1.0 release. If you intend to deploy Mir
 
 * Go 1.7 or later
 * Redis 3.2 or later (with [persistence](https://redis.io/topics/persistence) enabled)
-* libgeoip
-* a recent GeoIP version 1 database from [Maxmind](http://www.maxmind.com/app/c) (see [contrib/geoip/](contrib/geoip/))
+* GeoIP2 databases from [Maxmind](https://dev.maxmind.com/geoip/geoip2/geolite2/) (preferably updated regularly)
+
+:warning: **GeoIP-legacy is not supported anymore, please use the new GeoIP2 mmdb databases!**
 
 **Optional:**
 
