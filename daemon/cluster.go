@@ -185,11 +185,11 @@ func (c *cluster) RemoveMirror(mirror *mirrors.Mirror) {
 
 func (c *cluster) IsHandled(mirrorID string) bool {
 	c.nodesLock.RLock()
+	defer c.nodesLock.RUnlock()
 	index := sort.SearchStrings(c.mirrorsIndex, mirrorID)
 
 	mRange := int(float32(len(c.mirrorsIndex))/float32(c.nodeTotal) + 0.5)
 	start := mRange * c.nodeIndex
-	c.nodesLock.RUnlock()
 
 	// Check bounding to see if this mirror must be handled by this node.
 	// The distribution of the nodes should be balanced except for the last node
