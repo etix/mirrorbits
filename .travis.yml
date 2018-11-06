@@ -1,17 +1,20 @@
 language: go
 sudo: required
 
+# https://docs.travis-ci.com/user/languages/go/#go-import-path
+go_import_path: github.com/etix/mirrorbits
+
 go:
-  - 1.7.6
-  - 1.8.3
-  - tip
+  - "1.10.x"
+  - "1.11.x"
+  - master
 
 os:
   - linux
 
 matrix:
   allow_failures:
-    - go: tip
+    - go: master
 
 before_install:
   - sudo apt-get -qq update
