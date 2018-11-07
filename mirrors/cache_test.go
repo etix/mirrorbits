@@ -14,7 +14,7 @@ import (
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/network"
 	. "github.com/etix/mirrorbits/testing"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 	_ "github.com/rafaeljusto/redigomock"
 )
 

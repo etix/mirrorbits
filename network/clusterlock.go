@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/etix/mirrorbits/database"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 )
 
 const (

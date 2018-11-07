@@ -13,7 +13,7 @@ import (
 
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/core"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 )
 
 const (

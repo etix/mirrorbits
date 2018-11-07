@@ -14,7 +14,7 @@ import (
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/network"
 	"github.com/etix/mirrorbits/utils"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 )
 
 // Cache implements a local caching mechanism of type LRU for content available in the

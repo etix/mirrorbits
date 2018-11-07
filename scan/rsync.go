@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/etix/mirrorbits/utils"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 )
 
 var (
@@ -70,7 +70,7 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 	if err != nil {
 		return err
 	}
-	
+
 	// Pipe stdout
 	reader := bufio.NewReader(stdout)
 	readerErr := bufio.NewReader(stderr)
@@ -144,7 +144,6 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop c
 			rsyncErrors = append(rsyncErrors, line)
 		}
 	}
-
 
 	if err1 := cmd.Wait(); err1 != nil {
 		switch err1.Error() {

@@ -16,7 +16,7 @@ import (
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/network"
 	"github.com/etix/mirrorbits/utils"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 	"github.com/op/go-logging"
 )
 

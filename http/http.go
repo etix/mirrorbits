@@ -26,7 +26,7 @@ import (
 	"github.com/etix/mirrorbits/mirrors"
 	"github.com/etix/mirrorbits/network"
 	"github.com/etix/mirrorbits/utils"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 	"github.com/op/go-logging"
 	"gopkg.in/tylerb/graceful.v1"
 )
@@ -483,8 +483,8 @@ type SyncOffset struct {
 
 // MirrorStatsPage contains the values needed to generate the mirrorstats page
 type MirrorStatsPage struct {
-	List       []MirrorStats
-	MirrorList []mirrors.Mirror
+	List        []MirrorStats
+	MirrorList  []mirrors.Mirror
 	LocalJSPath string
 }
 

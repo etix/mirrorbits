@@ -31,7 +31,7 @@ import (
 	"github.com/etix/mirrorbits/process"
 	"github.com/etix/mirrorbits/scan"
 	"github.com/etix/mirrorbits/utils"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 	"github.com/op/go-logging"
 	"gopkg.in/yaml.v2"
 )

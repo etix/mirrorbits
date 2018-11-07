@@ -11,7 +11,7 @@ import (
 
 	"github.com/etix/goftp"
 	"github.com/etix/mirrorbits/utils"
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 )
 
 const (
