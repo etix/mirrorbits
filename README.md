@@ -64,6 +64,10 @@ Yet some things might change before the 1.0 release. If you intend to deploy Mir
 
 You can either get a [prebuilt version](https://github.com/etix/mirrorbits/releases) or choose to build it yourself.
 
+### Docker
+
+A docker "quick start" can be found [on the wiki](https://github.com/etix/mirrorbits/wiki/Running-within-Docker).
+
 ### Manual build
 
 ```
