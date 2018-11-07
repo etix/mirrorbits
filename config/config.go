@@ -49,8 +49,8 @@ func defaultConfig() Configuration {
 		RepositoryScanInterval: 5,
 		MaxLinkHeaders:         10,
 		Hashes: hashing{
-			SHA1:   true,
-			SHA256: false,
+			SHA1:   false,
+			SHA256: true,
 			MD5:    false,
 		},
 		DisallowRedirects:       false,
