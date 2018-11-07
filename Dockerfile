@@ -18,6 +18,6 @@ RUN mkdir /srv/repo /var/log/mirrorbits && \
     make install PREFIX=/usr
 RUN cp /go/src/github.com/etix/mirrorbits/contrib/docker/mirrorbits.conf /etc/mirrorbits.conf
 
-ENTRYPOINT /bin/sh /go/src/github.com/etix/mirrorbits/contrib/docker/prepare.sh && /usr/bin/mirrorbits -config /etc/mirrorbits.conf -D
+ENTRYPOINT /usr/bin/mirrorbits -config /etc/mirrorbits.conf -D
 
 EXPOSE 8080
