@@ -143,6 +143,9 @@ func ReloadConfig() error {
 	if !isInSlice(c.OutputMode, []string{"auto", "json", "redirect"}) {
 		return fmt.Errorf("Config: outputMode can only be set to 'auto', 'json' or 'redirect'")
 	}
+	if c.Repository == "" {
+		return fmt.Errorf("Path to local repository not configured (see mirrorbits.conf)")
+	}
 	c.Repository, err = filepath.Abs(c.Repository)
 	if err != nil {
 		return fmt.Errorf("Invalid local repository path: %s", err)
