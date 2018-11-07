@@ -31,7 +31,7 @@ var (
 		LogDir:                 "",
 		TraceFileLocation:      "",
 		GeoipDatabasePath:      "/usr/share/GeoIP/",
-		ConcurrentSync:         2,
+		ConcurrentSync:         5,
 		ScanInterval:           30,
 		CheckInterval:          1,
 		RepositoryScanInterval: 5,
