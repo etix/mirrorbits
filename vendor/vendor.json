@@ -21,34 +21,34 @@
 			"revisionTime": "2016-03-15T20:05:05Z"
 		},
 		{
-			"checksumSHA1": "N6I3i0LIjQckurgTeH3b2A5YTec=",
+			"checksumSHA1": "a1WxG0wMDGFnjojQghwu1i1SDhk=",
 			"path": "github.com/oschwald/maxminddb-golang",
-			"revision": "26fe5ace1c706491c2936119e1dc69c1a9c04d7f",
-			"revisionTime": "2017-09-01T13:40:56Z"
+			"revision": "ed835b22606182ff576f244643e52b25b7d6c4e7",
+			"revisionTime": "2018-10-14T22:18:51Z"
 		},
 		{
-			"checksumSHA1": "97d1x3kkzlOLFrtQ/NXL8j5sqz8=",
+			"checksumSHA1": "BECijIdNdW5AxhNoA8j+RsvxNdY=",
 			"path": "github.com/rafaeljusto/redigomock",
-			"revision": "7ae0511314e9946bb0c87d6d485169ab2467a290",
-			"revisionTime": "2017-07-20T13:15:24Z"
+			"revision": "2c62053f77241ae3785d8bb0978d42a78e2550b5",
+			"revisionTime": "2018-10-20T08:57:50Z"
 		},
 		{
-			"checksumSHA1": "/rytDOF8Mt0tjywHY/h7vPf+99I=",
+			"checksumSHA1": "E36LMU+ptsbzK1rDYyg3ujGU1Q0=",
 			"path": "github.com/youtube/vitess/go/cgzip",
-			"revision": "2c17f47a66c1ad60c5ead9a17b92b610d6750ea3",
-			"revisionTime": "2017-10-17T00:29:02Z"
+			"revision": "54855ec7b36906b6d53aa5af0f0293a0a73ae928",
+			"revisionTime": "2018-11-05T03:16:12Z"
 		},
 		{
-			"checksumSHA1": "/vc89vae+AsvNTGofKHOmmGRUfU=",
+			"checksumSHA1": "9Lh37XjQyI4RcRhPq8X4SxXy1vQ=",
 			"path": "golang.org/x/sys/unix",
-			"revision": "8dbc5d05d6edcc104950cc299a1ce6641235bc86",
-			"revisionTime": "2017-10-13T13:31:29Z"
+			"revision": "3a76605856fddce5718553cbb8bd50ca492a7274",
+			"revisionTime": "2018-11-06T12:15:40Z"
 		},
 		{
-			"checksumSHA1": "wGkVl9xZjgnLs/olurjDX2Yg8Xw=",
+			"checksumSHA1": "Y7nctMxT58lRM78VtElPerhcnEs=",
 			"path": "golang.org/x/sys/windows",
-			"revision": "8dbc5d05d6edcc104950cc299a1ce6641235bc86",
-			"revisionTime": "2017-10-13T13:31:29Z"
+			"revision": "3a76605856fddce5718553cbb8bd50ca492a7274",
+			"revisionTime": "2018-11-06T12:15:40Z"
 		},
 		{
 			"checksumSHA1": "O9E8G234qCcPA7f7srGpnawDmMs=",
@@ -57,10 +57,10 @@
 			"revisionTime": "2017-02-01T19:58:55Z"
 		},
 		{
-			"checksumSHA1": "RDJpJQwkF012L6m/2BJizyOksNw=",
+			"checksumSHA1": "ZSWoOPUNRr5+3dhkLK3C4cZAQPk=",
 			"path": "gopkg.in/yaml.v2",
-			"revision": "eb3733d160e74a9c7e442f435eb3bea458e1d19f",
-			"revisionTime": "2017-08-12T16:00:11Z"
+			"revision": "5420a8b6744d3b0345ab293f6fcba19c978f1183",
+			"revisionTime": "2018-03-28T19:50:20Z"
 		}
 	],
 	"rootPath": "github.com/etix/mirrorbits"
