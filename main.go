@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime"
 	"runtime/pprof"
 	"strings"
 	"syscall"
@@ -30,9 +29,6 @@ var (
 )
 
 func init() {
-	// Improves perf in 1.1.2 linux/amd64
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
 	LoadConfig()
 	logs.ReloadLogs()
 }
