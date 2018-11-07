@@ -73,11 +73,10 @@ A docker "quick start" can be found [on the wiki](https://github.com/etix/mirror
 ```
 $ go get -u github.com/etix/mirrorbits
 $ cd $GOPATH/src/github.com/etix/mirrorbits
-$ make install
+$ sudo make install
 ```
-The resulting executable should now be in your *$GOPATH/bin* directory.
 
-If you plan to use the web UI be sure to copy the [templates](templates) into your system (usually in /usr/share/mirrorbits).
+The resulting executable should now live in your */usr/local/bin* directory. You can also specify a `PREFIX` or `DESTDIR` if necessary (`sudo make install PREFIX=/usr`).
 
 ## Configuration
 
