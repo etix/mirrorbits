@@ -16,11 +16,23 @@ import (
 )
 
 var (
-	log = logging.MustGetLogger("main")
+	// TEMPLATES_PATH is set at compile time
+	TEMPLATES_PATH = ""
+)
 
-	defaultConfig = Configuration{
+var (
+	log         = logging.MustGetLogger("main")
+	config      *Configuration
+	configMutex sync.RWMutex
+
+	subscribers     []chan bool
+	subscribersLock sync.RWMutex
+)
+
+func defaultConfig() Configuration {
+	return Configuration{
 		Repository:             "",
-		Templates:              "",
+		Templates:              TEMPLATES_PATH,
 		LocalJSPath:            "",
 		OutputMode:             "auto",
 		ListenAddress:          ":8080",
@@ -45,12 +57,7 @@ var (
 		WeightDistributionRange: 1.5,
 		DisableOnMissingFile:    false,
 	}
-	config      *Configuration
-	configMutex sync.RWMutex
-
-	subscribers     []chan bool
-	subscribersLock sync.RWMutex
-)
+}
 
 // Configuration contains all the option available in the yaml file
 type Configuration struct {
@@ -128,7 +135,7 @@ func ReloadConfig() error {
 		fmt.Println("Reading configuration from", core.ConfigFile)
 	}
 
-	c := defaultConfig
+	c := defaultConfig()
 
 	// Overload the default configuration with the user's one
 	err = yaml.Unmarshal(content, &c)
