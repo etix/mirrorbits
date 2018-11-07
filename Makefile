@@ -46,6 +46,8 @@ installdirs:
 	mkdir -p ${DESTDIR}${PREFIX}/{bin,share} ${TEMPLATES}
 
 install: build installdirs
+# For the 'make install' to work with sudo it might be necessary to add
+# the Go binary path to the 'secure_path' and add 'GOPATH' to 'env_keep'.
 	@cp -vf $(BINARY) ${DESTDIR}${PREFIX}/bin/
 	@cp -vf templates/* ${TEMPLATES}
 
