@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 PIDFile=/run/mirrorbits.pid
-ExecStart=/usr/bin/mirrorbits -D
+ExecStart=##PREFIX##/bin/mirrorbits -D
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStop=-/bin/kill -QUIT $MAINPID
 TimeoutStopSec=5
