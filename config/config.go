@@ -118,9 +118,7 @@ func LoadConfig() {
 // ReloadConfig reloads the configuration file and update it globally
 func ReloadConfig() error {
 	if core.ConfigFile == "" {
-		if fileExists("./mirrorbits.conf") {
-			core.ConfigFile = "./mirrorbits.conf"
-		} else if fileExists("/etc/mirrorbits.conf") {
+		if fileExists("/etc/mirrorbits.conf") {
 			core.ConfigFile = "/etc/mirrorbits.conf"
 		}
 	}
