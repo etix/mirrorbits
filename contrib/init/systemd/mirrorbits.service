@@ -9,6 +9,7 @@ ExecReload=/bin/kill -HUP $MAINPID
 ExecStop=-/bin/kill -QUIT $MAINPID
 TimeoutStopSec=5
 KillMode=mixed
+Restart=on-failure
 
 [Install]
 WantedBy=multi-user.target
