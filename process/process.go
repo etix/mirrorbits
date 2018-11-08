@@ -10,7 +10,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"reflect"
 	"strconv"
 	"syscall"
 
@@ -44,8 +43,33 @@ func Relaunch(l net.Listener) error {
 	if err != nil {
 		return err
 	}
-	v := reflect.ValueOf(l).Elem().FieldByName("fd").Elem()
-	fd := uintptr(v.FieldByName("sysfd").Int())
+
+	var file *os.File
+
+	switch t := l.(type) {
+	case *net.TCPListener:
+		file, err = t.File()
+	case *net.UnixListener:
+		file, err = t.File()
+	default:
+		return ErrInvalidfd
+	}
+	if err != nil {
+		return err
+	}
+
+	fd := file.Fd()
+	sysfile := file.Name()
+
+	listener, ok := l.(*net.TCPListener)
+	if ok {
+		listenerFile, err := listener.File()
+		if err != nil {
+			return err
+		}
+		fd = listenerFile.Fd()
+		sysfile = listenerFile.Name()
+	}
 
 	if fd < uintptr(syscall.Stderr) {
 		return ErrInvalidfd
@@ -65,7 +89,7 @@ func Relaunch(l net.Listener) error {
 	files[syscall.Stdin] = os.Stdin
 	files[syscall.Stdout] = os.Stdout
 	files[syscall.Stderr] = os.Stderr
-	files[fd] = os.NewFile(fd, string(v.FieldByName("sysfile").String()))
+	files[fd] = os.NewFile(fd, sysfile)
 	p, err := os.StartProcess(argv0, os.Args, &os.ProcAttr{
 		Dir:   wd,
 		Env:   os.Environ(),
@@ -113,6 +137,7 @@ func Recover() (l net.Listener, ppid int, err error) {
 
 // KillParent sends a signal to make the parent exit gracefully with SIGQUIT
 func KillParent(ppid int) error {
+	log.Info("Asking parent to quit")
 	return syscall.Kill(ppid, syscall.SIGQUIT)
 }
 

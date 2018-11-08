@@ -116,9 +116,6 @@ func main() {
 					err := process.Relaunch(*h.Listener)
 					if err != nil {
 						log.Errorf("Relaunch failed: %s\n", err)
-					} else {
-						m.Stop()
-						h.Stop(10 * time.Second)
 					}
 				}
 			}
@@ -128,7 +125,7 @@ func main() {
 		if l, ppid, err := process.Recover(); err == nil {
 			h.SetListener(l)
 			go func() {
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(100 * time.Millisecond)
 				process.KillParent(ppid)
 			}()
 		}
