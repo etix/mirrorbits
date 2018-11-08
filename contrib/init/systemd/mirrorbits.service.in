@@ -4,8 +4,11 @@ Documentation=https://github.com/etix/mirrorbits
 After=network.target
 
 [Service]
-PIDFile=/run/mirrorbits.pid
-ExecStart=##PREFIX##/bin/mirrorbits -D
+DynamicUser=yes
+LogsDirectory=mirrorbits
+RuntimeDirectory=mirrorbits
+PIDFile=/run/mirrorbits/mirrorbits.pid
+ExecStart=##PREFIX##/bin/mirrorbits -D -p /run/mirrorbits/mirrorbits.pid
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStop=-/bin/kill -QUIT $MAINPID
 TimeoutStopSec=5

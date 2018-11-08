@@ -21,7 +21,7 @@ GOFLAGSDEV := -race -ldflags "$(LDFLAGS) -X $(PACKAGE)/core.DEV=-dev"
 export PATH := ${GOPATH}/bin:$(PATH)
 
 PKG_CONFIG ?= /usr/bin/pkg-config
-SERVICEDIR_SYSTEMD ?= $(shell $(PKG_CONFIG) systemd --variable=systemduserunitdir)
+SERVICEDIR_SYSTEMD ?= $(shell $(PKG_CONFIG) systemd --variable=systemdsystemunitdir)
 
 all: build
 
