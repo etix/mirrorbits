@@ -148,7 +148,7 @@ func GetPidLocation() string {
 		if defaultPidFile == "" { // Compile time
 			rdir := os.Getenv("XDG_RUNTIME_DIR")
 			if rdir == "" {
-				return "/var/run/mirrorbits.pid" // Fallback
+				return "/run/mirrorbits/mirrorbits.pid" // Fallback
 			}
 			return rdir + "/mirrorbits.pid"
 		}
