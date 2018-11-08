@@ -60,7 +60,7 @@ func NewGeoIP() *GeoIP {
 }
 
 // Open the GeoIP database
-func (g *GeoIP) openDatabase(file string) (*maxminddb.Reader, time.Time, error) {
+func (g *GeoIP) openDatabase(file string) (*maxminddb.Reader, error) {
 	dbpath := GetConfig().GeoipDatabasePath
 	if dbpath != "" && !strings.HasSuffix(dbpath, "/") {
 		dbpath += "/"
@@ -69,24 +69,12 @@ func (g *GeoIP) openDatabase(file string) (*maxminddb.Reader, time.Time, error) 
 	filename := dbpath + file
 
 	var err error
-	var fi os.FileInfo
-	var modTime time.Time
 
-	if fi, err = os.Stat(filename + geoipUpdatedExt); !os.IsNotExist(err) {
+	if _, err = os.Stat(filename + geoipUpdatedExt); !os.IsNotExist(err) {
 		filename += geoipUpdatedExt
-	} else {
-		fi, err = os.Stat(filename)
-		if err != nil {
-			return nil, time.Time{}, err
-		}
 	}
 
-	if fi != nil {
-		modTime = fi.ModTime()
-	}
-
-	db, err := maxminddb.Open(filename)
-	return db, modTime, err
+	return maxminddb.Open(filename)
 }
 
 type geoipDB struct {
@@ -105,11 +93,14 @@ func (g *GeoIP) loadDB(filename string, geodb **geoipDB, geoiperror *GeoIPError)
 		}
 	}
 
-	db, modTime, err := g.openDatabase(filename)
+	db, err := g.openDatabase(filename)
 	if err != nil {
 		geoiperror.Errors = append(geoiperror.Errors, err)
 		return err
 	}
+
+	modTime := time.Unix(int64(db.Metadata.BuildEpoch), 0)
+
 	if (*geodb).modTime.Equal(modTime) {
 		return nil
 	}
@@ -117,7 +108,7 @@ func (g *GeoIP) loadDB(filename string, geodb **geoipDB, geoiperror *GeoIPError)
 	(*geodb).db = db
 	(*geodb).modTime = modTime
 
-	log.Infof("Loading %s database (updated on %s)", filename, (*geodb).modTime)
+	log.Infof("Loading %s database (built on %s)", filename, (*geodb).modTime)
 	return nil
 }
 
