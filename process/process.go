@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path"
 	"strconv"
 	"syscall"
 
@@ -159,8 +160,17 @@ func GetPidLocation() string {
 
 // WritePidFile writes the current pid file to disk
 func WritePidFile() {
-	pid := fmt.Sprintf("%d", os.Getpid())
-	if err := ioutil.WriteFile(GetPidLocation(), []byte(pid), 0644); err != nil {
+	// Get the pid destination
+	p := GetPidLocation()
+
+	// Create the whole directory path
+	if err := os.MkdirAll(path.Dir(p), 0755); err != nil {
+		log.Errorf("Unable to write pid file: %v", err)
+	}
+
+	// Get our own PID and write it
+	pid := strconv.Itoa(os.Getpid())
+	if err := ioutil.WriteFile(p, []byte(pid), 0644); err != nil {
 		log.Errorf("Unable to write pid file: %v", err)
 	}
 }
