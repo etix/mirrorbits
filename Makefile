@@ -1,4 +1,4 @@
-.PHONY: all vendor build dev clean release test installdirs install install-service service-systemd
+.PHONY: all vendor build dev clean release test installdirs install uninstall install-service uninstall-service service-systemd
 
 VERSION := $(shell git describe --always --dirty --tags)
 SHA := $(shell git rev-parse --short HEAD)
@@ -47,19 +47,27 @@ test:
 	@govendor test $(GOFLAGS) -v -cover +local
 
 installdirs:
-	mkdir -p ${DESTDIR}${PREFIX}/{bin,share} ${TEMPLATES}
+	mkdir -p ${DESTDIR}${PREFIX}/{bin,share} ${DESTDIR}$(PREFIX)/share/mirrorbits
 
 install: build installdirs install-service
 # For the 'make install' to work with sudo it might be necessary to add
 # the Go binary path to the 'secure_path' and add 'GOPATH' to 'env_keep'.
 	@cp -vf $(BINARY) ${DESTDIR}${PREFIX}/bin/
-	@cp -vf templates/* ${TEMPLATES}
+	@cp -vf templates/* ${DESTDIR}$(PREFIX)/share/mirrorbits
+
+uninstall: uninstall-service
+	@rm -vf ${DESTDIR}${PREFIX}/bin/$(BINARY_NAME)
+	@rm -vfr ${DESTDIR}$(PREFIX)/share/mirrorbits
 
 ifeq (,${SERVICEDIR_SYSTEMD})
 install-service:
+uninstall-service:
 else
 install-service: service-systemd
 	install -Dm644 contrib/init/systemd/mirrorbits.service ${DESTDIR}${SERVICEDIR_SYSTEMD}/mirrorbits.service
+
+uninstall-service:
+	@rm -vf ${DESTDIR}${SERVICEDIR_SYSTEMD}/mirrorbits.service
 
 service-systemd:
 	@sed "s|##PREFIX##|$(PREFIX)|" contrib/init/systemd/mirrorbits.service.in > contrib/init/systemd/mirrorbits.service
