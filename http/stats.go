@@ -6,6 +6,7 @@ package http
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -47,7 +48,7 @@ type Stats struct {
 }
 
 type countItem struct {
-	mirrorID string
+	mirrorID int
 	filepath string
 	size     int64
 	time     time.Time
@@ -74,7 +75,7 @@ func (s *Stats) Terminate() {
 
 // CountDownload is a lightweight method used to count a new download for a specific file and mirror
 func (s *Stats) CountDownload(m mirrors.Mirror, fileinfo filesystem.FileInfo) error {
-	if m.ID == "" {
+	if m.Name == "" {
 		return errUnknownMirror
 	}
 	if fileinfo.Path == "" {
@@ -99,8 +100,8 @@ func (s *Stats) processCountDownload() {
 		case c := <-s.countChan:
 			date := c.time.Format("2006_01_02|") // Includes separator
 			s.mapStats["f"+date+c.filepath]++
-			s.mapStats["m"+date+c.mirrorID]++
-			s.mapStats["s"+date+c.mirrorID] += c.size
+			s.mapStats["m"+date+strconv.Itoa(c.mirrorID)]++
+			s.mapStats["s"+date+strconv.Itoa(c.mirrorID)] += c.size
 		case <-pushTicker.C:
 			s.pushStats()
 		}

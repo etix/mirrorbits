@@ -116,25 +116,28 @@ func TestAddMirror(t *testing.T) {
 
 	c := NewCluster(conn)
 
-	r := []string{"bbb"}
+	r := []int{2}
 	c.AddMirror(&mirrors.Mirror{
-		ID: "bbb",
+		ID:   2,
+		Name: "bbb",
 	})
 	if !reflect.DeepEqual(r, c.mirrorsIndex) {
 		t.Fatalf("Expected %+v, got %+v", r, c.mirrorsIndex)
 	}
 
-	r = []string{"aaa", "bbb"}
+	r = []int{1, 2}
 	c.AddMirror(&mirrors.Mirror{
-		ID: "aaa",
+		ID:   1,
+		Name: "aaa",
 	})
 	if !reflect.DeepEqual(r, c.mirrorsIndex) {
 		t.Fatalf("Expected %+v, got %+v", r, c.mirrorsIndex)
 	}
 
-	r = []string{"aaa", "bbb", "ccc"}
+	r = []int{1, 2, 3}
 	c.AddMirror(&mirrors.Mirror{
-		ID: "ccc",
+		ID:   3,
+		Name: "ccc",
 	})
 	if !reflect.DeepEqual(r, c.mirrorsIndex) {
 		t.Fatalf("Expected %+v, got %+v", r, c.mirrorsIndex)
@@ -147,29 +150,32 @@ func TestRemoveMirror(t *testing.T) {
 	c := NewCluster(conn)
 
 	c.AddMirror(&mirrors.Mirror{
-		ID: "aaa",
+		ID:   1,
+		Name: "aaa",
 	})
 	c.AddMirror(&mirrors.Mirror{
-		ID: "bbb",
+		ID:   2,
+		Name: "bbb",
 	})
 	c.AddMirror(&mirrors.Mirror{
-		ID: "ccc",
+		ID:   3,
+		Name: "ccc",
 	})
 
-	c.RemoveMirror(&mirrors.Mirror{ID: "xxx"})
-	r := []string{"aaa", "bbb", "ccc"}
+	c.RemoveMirror(&mirrors.Mirror{ID: 4})
+	r := []int{1, 2, 3}
 	if !reflect.DeepEqual(r, c.mirrorsIndex) {
 		t.Fatalf("Expected %+v, got %+v", r, c.mirrorsIndex)
 	}
 
-	c.RemoveMirror(&mirrors.Mirror{ID: "aaa"})
-	r = []string{"bbb", "ccc"}
+	c.RemoveMirror(&mirrors.Mirror{ID: 1})
+	r = []int{2, 3}
 	if !reflect.DeepEqual(r, c.mirrorsIndex) {
 		t.Fatalf("Expected %+v, got %+v", r, c.mirrorsIndex)
 	}
 
-	c.RemoveMirror(&mirrors.Mirror{ID: "ccc"})
-	r = []string{"bbb"}
+	c.RemoveMirror(&mirrors.Mirror{ID: 3})
+	r = []int{2}
 	if !reflect.DeepEqual(r, c.mirrorsIndex) {
 		t.Fatalf("Expected %+v, got %+v", r, c.mirrorsIndex)
 	}
@@ -185,21 +191,25 @@ func TestIsHandled(t *testing.T) {
 	defer c.Stop()
 
 	c.AddMirror(&mirrors.Mirror{
-		ID: "aaa",
+		ID:   1,
+		Name: "aaa",
 	})
 	c.AddMirror(&mirrors.Mirror{
-		ID: "bbb",
+		ID:   2,
+		Name: "bbb",
 	})
 	c.AddMirror(&mirrors.Mirror{
-		ID: "ccc",
+		ID:   3,
+		Name: "ccc",
 	})
 	c.AddMirror(&mirrors.Mirror{
-		ID: "ddd",
+		ID:   4,
+		Name: "ddd",
 	})
 
 	c.nodeTotal = 1
 
-	if !c.IsHandled("aaa") || !c.IsHandled("bbb") || !c.IsHandled("ccc") || !c.IsHandled("ddd") {
+	if !c.IsHandled(1) || !c.IsHandled(2) || !c.IsHandled(3) || !c.IsHandled(4) {
 		t.Fatalf("All mirrors should be handled")
 	}
 
@@ -207,16 +217,16 @@ func TestIsHandled(t *testing.T) {
 
 	handled := 0
 
-	if c.IsHandled("aaa") {
+	if c.IsHandled(1) {
 		handled++
 	}
-	if c.IsHandled("bbb") {
+	if c.IsHandled(2) {
 		handled++
 	}
-	if c.IsHandled("ccc") {
+	if c.IsHandled(3) {
 		handled++
 	}
-	if c.IsHandled("ddd") {
+	if c.IsHandled(4) {
 		handled++
 	}
 
@@ -226,53 +236,53 @@ func TestIsHandled(t *testing.T) {
 }
 
 func TestRemoveMirrorIDFromSlice(t *testing.T) {
-	s1 := []string{"aaa", "bbb", "ccc", "ddd", "eee"}
-	r1 := []string{"aaa", "bbb", "ddd", "eee"}
-	r := removeMirrorIDFromSlice(s1, "ccc")
+	s1 := []int{1, 2, 3, 4, 5}
+	r1 := []int{1, 2, 4, 5}
+	r := removeMirrorIDFromSlice(s1, 3)
 	if !reflect.DeepEqual(r1, r) {
 		t.Fatalf("Expected %+v, got %+v", r1, r)
 	}
 
-	s2 := []string{"aaa", "bbb", "ccc", "ddd", "eee"}
-	r2 := []string{"bbb", "ccc", "ddd", "eee"}
-	r = removeMirrorIDFromSlice(s2, "aaa")
+	s2 := []int{1, 2, 3, 4, 5}
+	r2 := []int{2, 3, 4, 5}
+	r = removeMirrorIDFromSlice(s2, 1)
 	if !reflect.DeepEqual(r2, r) {
 		t.Fatalf("Expected %+v, got %+v", r2, r)
 	}
 
-	s3 := []string{"aaa", "bbb", "ccc", "ddd", "eee"}
-	r3 := []string{"aaa", "bbb", "ccc", "ddd"}
-	r = removeMirrorIDFromSlice(s3, "eee")
+	s3 := []int{1, 2, 3, 4, 5}
+	r3 := []int{1, 2, 3, 4}
+	r = removeMirrorIDFromSlice(s3, 5)
 	if !reflect.DeepEqual(r3, r) {
 		t.Fatalf("Expected %+v, got %+v", r3, r)
 	}
 
-	s4 := []string{"aaa", "bbb", "ccc", "ddd", "eee"}
-	r4 := []string{"aaa", "bbb", "ccc", "ddd", "eee"}
-	r = removeMirrorIDFromSlice(s4, "xxx")
+	s4 := []int{1, 2, 3, 4, 5}
+	r4 := []int{1, 2, 3, 4, 5}
+	r = removeMirrorIDFromSlice(s4, 6)
 	if !reflect.DeepEqual(r4, r) {
 		t.Fatalf("Expected %+v, got %+v", r4, r)
 	}
 }
 
 func TestAddMirrorIDToSlice(t *testing.T) {
-	s1 := []string{"aaa", "ccc"}
-	r1 := []string{"aaa", "bbb", "ccc"}
-	r := addMirrorIDToSlice(s1, "bbb")
+	s1 := []int{1, 3}
+	r1 := []int{1, 2, 3}
+	r := addMirrorIDToSlice(s1, 2)
 	if !reflect.DeepEqual(r1, r) {
 		t.Fatalf("Expected %+v, got %+v", r1, r)
 	}
 
-	s2 := []string{"aaa", "bbb", "ccc"}
-	r2 := []string{"111", "aaa", "bbb", "ccc"}
-	r = addMirrorIDToSlice(s2, "111")
+	s2 := []int{2, 3, 4}
+	r2 := []int{1, 2, 3, 4}
+	r = addMirrorIDToSlice(s2, 1)
 	if !reflect.DeepEqual(r2, r) {
 		t.Fatalf("Expected %+v, got %+v", r2, r)
 	}
 
-	s3 := []string{"aaa", "bbb", "ccc"}
-	r3 := []string{"aaa", "bbb", "ccc", "ddd"}
-	r = addMirrorIDToSlice(s3, "ddd")
+	s3 := []int{1, 2, 3}
+	r3 := []int{1, 2, 3, 4}
+	r = addMirrorIDToSlice(s3, 4)
 	if !reflect.DeepEqual(r3, r) {
 		t.Fatalf("Expected %+v, got %+v", r3, r)
 	}

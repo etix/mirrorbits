@@ -151,7 +151,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 	// - mirrors being in the same AS number
 	totalScore := 0
 	baseScore := int(farthestMirror)
-	weights := map[string]int{}
+	weights := map[int]int{}
 	for i := 0; i < len(mlist); i++ {
 		m := &mlist[i]
 
@@ -209,7 +209,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 			weightedMirrors := make([]mirrors.Mirror, selected)
 			rest := totalScore
 			for i := 0; i < selected; i++ {
-				var id string
+				var id int
 				rv := rand.Int31n(int32(rest))
 				s := 0
 				for k, v := range weights {

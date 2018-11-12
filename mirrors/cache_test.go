@@ -194,9 +194,9 @@ func TestCache_fetchFileMirrors(t *testing.T) {
 	}
 
 	cmdGetFilemirrors := mock.Command("SMEMBERS", "FILEMIRRORS_"+filename).Expect([]interface{}{
-		[]byte("m9"),
-		[]byte("m2"),
-		[]byte("m5"),
+		[]byte("9"),
+		[]byte("2"),
+		[]byte("5"),
 	})
 
 	ids, err := c.fetchFileMirrors(filename)
@@ -225,7 +225,8 @@ func TestCache_fetchMirror(t *testing.T) {
 	c := NewCache(conn)
 
 	testmirror := Mirror{
-		ID:             "m1",
+		ID:             1,
+		Name:           "m1",
 		HttpURL:        "http://m1.mirror",
 		RsyncURL:       "rsync://m1.mirror",
 		FtpURL:         "ftp://m1.mirror",
@@ -254,8 +255,9 @@ func TestCache_fetchMirror(t *testing.T) {
 		t.Fatalf("Error expected, mock command not yet registered")
 	}
 
-	cmdGetMirror := mock.Command("HGETALL", "MIRROR_m1").ExpectMap(map[string]string{
-		"ID":            testmirror.ID,
+	cmdGetMirror := mock.Command("HGETALL", "MIRROR_1").ExpectMap(map[string]string{
+		"ID":            strconv.Itoa(testmirror.ID),
+		"name":          testmirror.Name,
 		"http":          testmirror.HttpURL,
 		"rsync":         testmirror.RsyncURL,
 		"ftp":           testmirror.FtpURL,
@@ -295,7 +297,7 @@ func TestCache_fetchMirror(t *testing.T) {
 		t.Fatalf("Result is different")
 	}
 
-	_, ok := c.mCache.Get(testmirror.ID)
+	_, ok := c.mCache.Get(strconv.Itoa(testmirror.ID))
 	if !ok {
 		t.Fatalf("Not stored in cache")
 	}
@@ -316,12 +318,12 @@ func TestCache_fetchFileInfoMirror(t *testing.T) {
 		Md5:     "2c98ec39f49da6ddd9cfa7b1d7342afe",
 	}
 
-	_, err := c.fetchFileInfoMirror("m1", testfile.Path)
+	_, err := c.fetchFileInfoMirror(1, testfile.Path)
 	if err == nil {
 		t.Fatalf("Error expected, mock command not yet registered")
 	}
 
-	cmdGetFileinfomirror := mock.Command("HMGET", "FILEINFO_m1_"+testfile.Path, "size", "modTime", "sha1", "sha256", "md5").ExpectMap(map[string]string{
+	cmdGetFileinfomirror := mock.Command("HMGET", "FILEINFO_1_"+testfile.Path, "size", "modTime", "sha1", "sha256", "md5").ExpectMap(map[string]string{
 		"size":    strconv.FormatInt(testfile.Size, 10),
 		"modTime": testfile.ModTime.String(),
 		"sha1":    testfile.Sha1,
@@ -329,7 +331,7 @@ func TestCache_fetchFileInfoMirror(t *testing.T) {
 		"md5":     testfile.Md5,
 	})
 
-	_, err = c.fetchFileInfoMirror("m1", testfile.Path)
+	_, err = c.fetchFileInfoMirror(1, testfile.Path)
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}
@@ -338,7 +340,7 @@ func TestCache_fetchFileInfoMirror(t *testing.T) {
 		t.Fatalf("HGETALL not executed")
 	}
 
-	_, ok := c.fimCache.Get("m1|" + testfile.Path)
+	_, ok := c.fimCache.Get("1|" + testfile.Path)
 	if !ok {
 		t.Fatalf("Not stored in cache")
 	}
@@ -350,15 +352,15 @@ func TestCache_GetMirror(t *testing.T) {
 
 	c := NewCache(conn)
 
-	testmirror := "m1"
+	testmirror := 1
 
 	_, err := c.GetMirror(testmirror)
 	if err == nil {
 		t.Fatalf("Error expected, mock command not yet registered")
 	}
 
-	cmdGetMirror := mock.Command("HGETALL", "MIRROR_m1").ExpectMap(map[string]string{
-		"ID": testmirror,
+	cmdGetMirror := mock.Command("HGETALL", "MIRROR_1").ExpectMap(map[string]string{
+		"ID": strconv.Itoa(testmirror),
 	})
 
 	m, err := c.GetMirror(testmirror)
@@ -376,7 +378,7 @@ func TestCache_GetMirror(t *testing.T) {
 		t.Fatalf("Result is different")
 	}
 
-	_, ok := c.mCache.Get(testmirror)
+	_, ok := c.mCache.Get(strconv.Itoa(testmirror))
 	if !ok {
 		t.Fatalf("Not stored in cache")
 	}
@@ -402,23 +404,23 @@ func TestCache_GetMirrors(t *testing.T) {
 	}
 
 	cmdGetFilemirrors := mock.Command("SMEMBERS", "FILEMIRRORS_"+filename).Expect([]interface{}{
-		[]byte("m1"),
-		[]byte("m2"),
+		[]byte("1"),
+		[]byte("2"),
 	})
 
-	cmdGetMirrorM1 := mock.Command("HGETALL", "MIRROR_m1").ExpectMap(map[string]string{
-		"ID":        "m1",
+	cmdGetMirrorM1 := mock.Command("HGETALL", "MIRROR_1").ExpectMap(map[string]string{
+		"ID":        "1",
 		"latitude":  "52.5167",
 		"longitude": "13.3833",
 	})
 
-	cmdGetMirrorM2 := mock.Command("HGETALL", "MIRROR_m2").ExpectMap(map[string]string{
-		"ID":        "m2",
+	cmdGetMirrorM2 := mock.Command("HGETALL", "MIRROR_2").ExpectMap(map[string]string{
+		"ID":        "2",
 		"latitude":  "51.5072",
 		"longitude": "0.1275",
 	})
 
-	cmdGetFileinfomirrorM1 := mock.Command("HMGET", "FILEINFO_m1_"+filename, "size", "modTime", "sha1", "sha256", "md5").ExpectMap(map[string]string{
+	cmdGetFileinfomirrorM1 := mock.Command("HMGET", "FILEINFO_1_"+filename, "size", "modTime", "sha1", "sha256", "md5").ExpectMap(map[string]string{
 		"size":    "44000",
 		"modTime": "",
 		"sha1":    "",
@@ -426,7 +428,7 @@ func TestCache_GetMirrors(t *testing.T) {
 		"md5":     "",
 	})
 
-	cmdGetFileinfomirrorM2 := mock.Command("HMGET", "FILEINFO_m2_"+filename, "size", "modTime", "sha1", "sha256", "md5").ExpectMap(map[string]string{
+	cmdGetFileinfomirrorM2 := mock.Command("HMGET", "FILEINFO_2_"+filename, "size", "modTime", "sha1", "sha256", "md5").ExpectMap(map[string]string{
 		"size":    "44000",
 		"modTime": "",
 		"sha1":    "",

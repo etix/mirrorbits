@@ -22,7 +22,8 @@ func generateSimpleMirrorList(number int) Mirrors {
 	ret := Mirrors{}
 	for i := 0; i < number; i++ {
 		m := Mirror{
-			ID: fmt.Sprintf("M%d", i),
+			ID:   i,
+			Name: fmt.Sprintf("M%d", i),
 		}
 		ret = append(ret, m)
 	}
@@ -32,12 +33,12 @@ func generateSimpleMirrorList(number int) Mirrors {
 func formatMirrorOrder(mirrors Mirrors) string {
 	buf := ""
 	for _, m := range mirrors {
-		buf += fmt.Sprintf("%s, ", m.ID)
+		buf += fmt.Sprintf("%s, ", m.Name)
 	}
 	return strings.TrimSuffix(buf, ", ")
 }
 
-func matchingMirrorOrder(m Mirrors, order []string) bool {
+func matchingMirrorOrder(m Mirrors, order []int) bool {
 	if len(m) != len(order) {
 		return false
 	}
@@ -66,19 +67,19 @@ func TestMirrors_Len(t *testing.T) {
 func TestMirrors_Swap(t *testing.T) {
 	m := generateSimpleMirrorList(5)
 
-	if !matchingMirrorOrder(m, []string{"M0", "M1", "M2", "M3", "M4"}) {
+	if !matchingMirrorOrder(m, []int{0, 1, 2, 3, 4}) {
 		t.Fatalf("Expected M0 before M1, got %s", formatMirrorOrder(m))
 	}
 
 	m.Swap(0, 1)
 
-	if !matchingMirrorOrder(m, []string{"M1", "M0", "M2", "M3", "M4"}) {
+	if !matchingMirrorOrder(m, []int{1, 0, 2, 3, 4}) {
 		t.Fatalf("Expected M1 before M0, got %s", formatMirrorOrder(m))
 	}
 
 	m.Swap(2, 4)
 
-	if !matchingMirrorOrder(m, []string{"M1", "M0", "M4", "M3", "M2"}) {
+	if !matchingMirrorOrder(m, []int{1, 0, 4, 3, 2}) {
 		t.Fatal("Expected M4 at position 2 and M2 at position 4", m)
 	}
 }
@@ -148,81 +149,93 @@ func TestByRank_Less(t *testing.T) {
 
 	m := Mirrors{
 		Mirror{
-			ID:    "M0",
+			ID:    1,
+			Name:  "M1",
 			Asnum: 6666,
 		},
 		Mirror{
-			ID:    "M1",
+			ID:    2,
+			Name:  "M2",
 			Asnum: 5555,
 		},
 		Mirror{
-			ID:    "M2",
+			ID:    3,
+			Name:  "M3",
 			Asnum: 4444,
 		},
 		Mirror{
-			ID:    "M3",
+			ID:    4,
+			Name:  "M4",
 			Asnum: 6666,
 		},
 	}
 
 	sort.Sort(ByRank{m, c})
 
-	if !matchingMirrorOrder(m, []string{"M2", "M0", "M1", "M3"}) {
-		t.Fatalf("Order doesn't seem right: %s, expected M2, M0, M1, M3", formatMirrorOrder(m))
+	if !matchingMirrorOrder(m, []int{3, 1, 2, 4}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M3, M1, M2, M4", formatMirrorOrder(m))
 	}
 
 	/* distance */
 
 	m = Mirrors{
 		Mirror{
-			ID:       "M0",
+			ID:       1,
+			Name:     "M1",
 			Distance: 1000.0,
 		},
 		Mirror{
-			ID:       "M1",
+			ID:       2,
+			Name:     "M2",
 			Distance: 999.0,
 		},
 		Mirror{
-			ID:       "M2",
+			ID:       3,
+			Name:     "M3",
 			Distance: 1000.0,
 		},
 		Mirror{
-			ID:       "M3",
+			ID:       4,
+			Name:     "M4",
 			Distance: 888.0,
 		},
 	}
 
 	sort.Sort(ByRank{m, c})
 
-	if !matchingMirrorOrder(m, []string{"M3", "M1", "M0", "M2"}) {
-		t.Fatalf("Order doesn't seem right: %s, expected M3, M1, M0, M2", formatMirrorOrder(m))
+	if !matchingMirrorOrder(m, []int{4, 2, 1, 3}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M4, M2, M1, M3", formatMirrorOrder(m))
 	}
 
 	/* countrycode */
 
 	m = Mirrors{
 		Mirror{
-			ID:            "M0",
+			ID:            1,
+			Name:          "M1",
 			CountryFields: []string{"IT", "UK"},
 		},
 		Mirror{
-			ID:            "M1",
+			ID:            2,
+			Name:          "M2",
 			CountryFields: []string{"IT", "UK"},
 		},
 		Mirror{
-			ID:            "M2",
+			ID:            3,
+			Name:          "M3",
 			CountryFields: []string{"IT", "FR"},
 		},
 		Mirror{
-			ID:            "M3",
+			ID:            4,
+			Name:          "M4",
 			CountryFields: []string{"FR", "UK"},
 		},
 	}
 
 	sort.Sort(ByRank{m, c})
 
-	if !matchingMirrorOrder(m, []string{"M2", "M3", "M0", "M1"}) {
-		t.Fatalf("Order doesn't seem right: %s, expected M2, M3, M0, M1", formatMirrorOrder(m))
+	if !matchingMirrorOrder(m, []int{3, 4, 1, 2}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M3, M4, M1, M2", formatMirrorOrder(m))
 	}
 
 	/* continentcode */
@@ -235,27 +248,31 @@ func TestByRank_Less(t *testing.T) {
 
 	m = Mirrors{
 		Mirror{
-			ID:            "M0",
+			ID:            1,
+			Name:          "M1",
 			ContinentCode: "NA",
 		},
 		Mirror{
-			ID:            "M1",
+			ID:            2,
+			Name:          "M2",
 			ContinentCode: "NA",
 		},
 		Mirror{
-			ID:            "M2",
+			ID:            3,
+			Name:          "M3",
 			ContinentCode: "EU",
 		},
 		Mirror{
-			ID:            "M3",
+			ID:            4,
+			Name:          "M4",
 			ContinentCode: "NA",
 		},
 	}
 
 	sort.Sort(ByRank{m, c})
 
-	if !matchingMirrorOrder(m, []string{"M2", "M0", "M1", "M3"}) {
-		t.Fatalf("Order doesn't seem right: %s, expected M2, M0, M1, M3", formatMirrorOrder(m))
+	if !matchingMirrorOrder(m, []int{3, 1, 2, 4}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M3, M1, M2, M4", formatMirrorOrder(m))
 	}
 
 	/* */
@@ -268,19 +285,22 @@ func TestByRank_Less(t *testing.T) {
 
 	m = Mirrors{
 		Mirror{
-			ID:            "M0",
+			ID:            1,
+			Name:          "M1",
 			Distance:      100.0,
 			CountryFields: []string{"IT", "FR"},
 			ContinentCode: "EU",
 		},
 		Mirror{
-			ID:            "M1",
+			ID:            2,
+			Name:          "M2",
 			Distance:      200.0,
 			CountryFields: []string{"FR", "CH"},
 			ContinentCode: "EU",
 		},
 		Mirror{
-			ID:            "M2",
+			ID:            3,
+			Name:          "M3",
 			Distance:      1000.0,
 			CountryFields: []string{"UK", "DE"},
 			Asnum:         4444,
@@ -289,81 +309,90 @@ func TestByRank_Less(t *testing.T) {
 
 	sort.Sort(ByRank{m, c})
 
-	if !matchingMirrorOrder(m, []string{"M2", "M0", "M1"}) {
-		t.Fatalf("Order doesn't seem right: %s, expected M2, M0, M1", formatMirrorOrder(m))
+	if !matchingMirrorOrder(m, []int{3, 1, 2}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M3, M1, M2", formatMirrorOrder(m))
 	}
 }
 
 func TestByComputedScore_Less(t *testing.T) {
 	m := Mirrors{
 		Mirror{
-			ID:            "M0",
+			ID:            1,
+			Name:          "M1",
 			ComputedScore: 50,
 		},
 		Mirror{
-			ID:            "M1",
+			ID:            2,
+			Name:          "M2",
 			ComputedScore: 0,
 		},
 		Mirror{
-			ID:            "M2",
+			ID:            3,
+			Name:          "M3",
 			ComputedScore: 2500,
 		},
 		Mirror{
-			ID:            "M3",
+			ID:            4,
+			Name:          "M4",
 			ComputedScore: 21,
 		},
 	}
 
 	sort.Sort(ByComputedScore{m})
 
-	if !matchingMirrorOrder(m, []string{"M2", "M0", "M3", "M1"}) {
-		t.Fatalf("Order doesn't seem right: %s, expected M2, M0, M3, M1", formatMirrorOrder(m))
+	if !matchingMirrorOrder(m, []int{3, 1, 4, 2}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M3, M1, M4, M2", formatMirrorOrder(m))
 	}
 }
 
 func TestByExcludeReason_Less(t *testing.T) {
 	m := Mirrors{
 		Mirror{
-			ID:            "M0",
+			ID:            1,
+			Name:          "M1",
 			ExcludeReason: "x42",
 		},
 		Mirror{
-			ID:            "M1",
+			ID:            2,
+			Name:          "M2",
 			ExcludeReason: "x43",
 		},
 		Mirror{
-			ID:            "M2",
+			ID:            3,
+			Name:          "M3",
 			ExcludeReason: "Test one",
 		},
 		Mirror{
-			ID:            "M3",
+			ID:            4,
+			Name:          "M4",
 			ExcludeReason: "Test two",
 		},
 		Mirror{
-			ID:            "M4",
+			ID:            5,
+			Name:          "M5",
 			ExcludeReason: "test three",
 		},
 	}
 
 	sort.Sort(ByExcludeReason{m})
 
-	if !matchingMirrorOrder(m, []string{"M2", "M3", "M4", "M0", "M1"}) {
-		t.Fatalf("Order doesn't seem right: %s, expected M2, M3, M4, M0, M1", formatMirrorOrder(m))
+	if !matchingMirrorOrder(m, []int{3, 4, 5, 1, 2}) {
+		t.Fatalf("Order doesn't seem right: %s, expected M3, M4, M5, M1, M2", formatMirrorOrder(m))
 	}
 }
 
 func TestEnableMirror(t *testing.T) {
 	mock, conn := PrepareRedisTest()
 
-	cmdEnable := mock.Command("HMSET", "MIRROR_m1", "enabled", true).Expect("ok")
-	EnableMirror(conn, "m1")
+	cmdEnable := mock.Command("HMSET", "MIRROR_1", "enabled", true).Expect("ok")
+	EnableMirror(conn, 1)
 
 	if mock.Stats(cmdEnable) != 1 {
 		t.Fatalf("Mirror not enabled")
 	}
 
-	mock.Command("HMSET", "MIRROR_m1", "enabled", true).ExpectError(redis.Error("blah"))
-	if EnableMirror(conn, "m1") == nil {
+	mock.Command("HMSET", "MIRROR_1", "enabled", true).ExpectError(redis.Error("blah"))
+	if EnableMirror(conn, 1) == nil {
 		t.Fatalf("Error expected")
 	}
 }
@@ -371,15 +400,15 @@ func TestEnableMirror(t *testing.T) {
 func TestDisableMirror(t *testing.T) {
 	mock, conn := PrepareRedisTest()
 
-	cmdDisable := mock.Command("HMSET", "MIRROR_m1", "enabled", false).Expect("ok")
-	DisableMirror(conn, "m1")
+	cmdDisable := mock.Command("HMSET", "MIRROR_1", "enabled", false).Expect("ok")
+	DisableMirror(conn, 1)
 
 	if mock.Stats(cmdDisable) != 1 {
 		t.Fatalf("Mirror not enabled")
 	}
 
-	mock.Command("HMSET", "MIRROR_m1", "enabled", false).ExpectError(redis.Error("blah"))
-	if DisableMirror(conn, "m1") == nil {
+	mock.Command("HMSET", "MIRROR_1", "enabled", false).ExpectError(redis.Error("blah"))
+	if DisableMirror(conn, 1) == nil {
 		t.Fatalf("Error expected")
 	}
 }
@@ -389,8 +418,8 @@ func TestSetMirrorEnabled(t *testing.T) {
 
 	cmdPublish := mock.Command("PUBLISH", string(database.MIRROR_UPDATE), redigomock.NewAnyData()).Expect("ok")
 
-	cmdEnable := mock.Command("HMSET", "MIRROR_m1", "enabled", true).Expect("ok")
-	SetMirrorEnabled(conn, "m1", true)
+	cmdEnable := mock.Command("HMSET", "MIRROR_1", "enabled", true).Expect("ok")
+	SetMirrorEnabled(conn, 1, true)
 
 	if mock.Stats(cmdEnable) < 1 {
 		t.Fatalf("Mirror not enabled")
@@ -402,13 +431,13 @@ func TestSetMirrorEnabled(t *testing.T) {
 		t.Fatalf("Event MIRROR_UPDATE not published")
 	}
 
-	mock.Command("HMSET", "MIRROR_m1", "enabled", true).ExpectError(redis.Error("blah"))
-	if SetMirrorEnabled(conn, "m1", true) == nil {
+	mock.Command("HMSET", "MIRROR_1", "enabled", true).ExpectError(redis.Error("blah"))
+	if SetMirrorEnabled(conn, 1, true) == nil {
 		t.Fatalf("Error expected")
 	}
 
-	cmdDisable := mock.Command("HMSET", "MIRROR_m1", "enabled", false).Expect("ok")
-	SetMirrorEnabled(conn, "m1", false)
+	cmdDisable := mock.Command("HMSET", "MIRROR_1", "enabled", false).Expect("ok")
+	SetMirrorEnabled(conn, 1, false)
 
 	if mock.Stats(cmdDisable) != 1 {
 		t.Fatalf("Mirror not disabled")
@@ -420,8 +449,8 @@ func TestSetMirrorEnabled(t *testing.T) {
 		t.Fatalf("Event MIRROR_UPDATE not published")
 	}
 
-	mock.Command("HMSET", "MIRROR_m1", "enabled", false).ExpectError(redis.Error("blah"))
-	if SetMirrorEnabled(conn, "m1", false) == nil {
+	mock.Command("HMSET", "MIRROR_1", "enabled", false).ExpectError(redis.Error("blah"))
+	if SetMirrorEnabled(conn, 1, false) == nil {
 		t.Fatalf("Error expected")
 	}
 }
@@ -429,7 +458,7 @@ func TestSetMirrorEnabled(t *testing.T) {
 func TestMarkMirrorUp(t *testing.T) {
 	_, conn := PrepareRedisTest()
 
-	if err := MarkMirrorUp(conn, "m1"); err == nil {
+	if err := MarkMirrorUp(conn, 1); err == nil {
 		t.Fatalf("Error expected but nil returned")
 	}
 }
@@ -437,7 +466,7 @@ func TestMarkMirrorUp(t *testing.T) {
 func TestMarkMirrorDown(t *testing.T) {
 	_, conn := PrepareRedisTest()
 
-	if err := MarkMirrorDown(conn, "m1", "test1"); err == nil {
+	if err := MarkMirrorDown(conn, 1, "test1"); err == nil {
 		t.Fatalf("Error expected but nil returned")
 	}
 }
@@ -445,7 +474,7 @@ func TestMarkMirrorDown(t *testing.T) {
 func TestSetMirrorState(t *testing.T) {
 	mock, conn := PrepareRedisTest()
 
-	if err := SetMirrorState(conn, "m1", true, "test1"); err == nil {
+	if err := SetMirrorState(conn, 1, true, "test1"); err == nil {
 		t.Fatalf("Error expected but nil returned")
 	}
 
@@ -453,11 +482,11 @@ func TestSetMirrorState(t *testing.T) {
 
 	/* */
 
-	cmdPreviousState := mock.Command("HGET", "MIRROR_m1", "up").Expect(int64(0)).Expect(int64(1))
-	cmdStateSince := mock.Command("HMSET", "MIRROR_m1", "up", true, "excludeReason", "test1", "stateSince", redigomock.NewAnyInt()).Expect("ok")
-	cmdState := mock.Command("HMSET", "MIRROR_m1", "up", true, "excludeReason", "test2").Expect("ok")
+	cmdPreviousState := mock.Command("HGET", "MIRROR_1", "up").Expect(int64(0)).Expect(int64(1))
+	cmdStateSince := mock.Command("HMSET", "MIRROR_1", "up", true, "excludeReason", "test1", "stateSince", redigomock.NewAnyInt()).Expect("ok")
+	cmdState := mock.Command("HMSET", "MIRROR_1", "up", true, "excludeReason", "test2").Expect("ok")
 
-	if err := SetMirrorState(conn, "m1", true, "test1"); err != nil {
+	if err := SetMirrorState(conn, 1, true, "test1"); err != nil {
 		t.Fatalf("Unexpected error: %s", err)
 	}
 
@@ -477,7 +506,7 @@ func TestSetMirrorState(t *testing.T) {
 
 	/* */
 
-	if err := SetMirrorState(conn, "m1", true, "test2"); err != nil {
+	if err := SetMirrorState(conn, 1, true, "test2"); err != nil {
 		t.Fatalf("Unexpected error: %s", err)
 	}
 
@@ -491,10 +520,10 @@ func TestSetMirrorState(t *testing.T) {
 
 	/* */
 
-	cmdPreviousState = mock.Command("HGET", "MIRROR_m1", "up").Expect(int64(1))
-	cmdStateSince = mock.Command("HMSET", "MIRROR_m1", "up", false, "excludeReason", "test3", "stateSince", redigomock.NewAnyInt()).Expect("ok")
+	cmdPreviousState = mock.Command("HGET", "MIRROR_1", "up").Expect(int64(1))
+	cmdStateSince = mock.Command("HMSET", "MIRROR_1", "up", false, "excludeReason", "test3", "stateSince", redigomock.NewAnyInt()).Expect("ok")
 
-	if err := SetMirrorState(conn, "m1", false, "test3"); err != nil {
+	if err := SetMirrorState(conn, 1, false, "test3"); err != nil {
 		t.Fatalf("Unexpected error: %s", err)
 	}
 

@@ -20,7 +20,8 @@ import (
 
 // Mirror is the structure representing all the information about a mirror
 type Mirror struct {
-	ID                    string    `redis:"ID" yaml:"-"`
+	ID                    int       `redis:"ID" yaml:"-"`
+	Name                  string    `redis:"name" yaml:"-"` //TODO allow renaming from cli
 	HttpURL               string    `redis:"http" yaml:"HttpURL"`
 	RsyncURL              string    `redis:"rsync" yaml:"RsyncURL"`
 	FtpURL                string    `redis:"ftp" yaml:"FtpURL"`
@@ -146,47 +147,47 @@ func (b ByExcludeReason) Less(i, j int) bool {
 }
 
 // EnableMirror enables the given mirror
-func EnableMirror(r *database.Redis, id string) error {
+func EnableMirror(r *database.Redis, id int) error {
 	return SetMirrorEnabled(r, id, true)
 }
 
 // DisableMirror disables the given mirror
-func DisableMirror(r *database.Redis, id string) error {
+func DisableMirror(r *database.Redis, id int) error {
 	return SetMirrorEnabled(r, id, false)
 }
 
 // SetMirrorEnabled marks a mirror as enabled or disabled
-func SetMirrorEnabled(r *database.Redis, id string, state bool) error {
+func SetMirrorEnabled(r *database.Redis, id int, state bool) error {
 	conn := r.Get()
 	defer conn.Close()
 
-	key := fmt.Sprintf("MIRROR_%s", id)
+	key := fmt.Sprintf("MIRROR_%d", id)
 	_, err := conn.Do("HMSET", key, "enabled", state)
 
 	// Publish update
 	if err == nil {
-		database.Publish(conn, database.MIRROR_UPDATE, id)
+		database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(id))
 	}
 
 	return err
 }
 
 // MarkMirrorUp marks the given mirror as up
-func MarkMirrorUp(r *database.Redis, id string) error {
+func MarkMirrorUp(r *database.Redis, id int) error {
 	return SetMirrorState(r, id, true, "")
 }
 
 // MarkMirrorDown marks the given mirror as down
-func MarkMirrorDown(r *database.Redis, id string, reason string) error {
+func MarkMirrorDown(r *database.Redis, id int, reason string) error {
 	return SetMirrorState(r, id, false, reason)
 }
 
 // SetMirrorState sets the state of a mirror to up or down with an optional reason
-func SetMirrorState(r *database.Redis, id string, state bool, reason string) error {
+func SetMirrorState(r *database.Redis, id int, state bool, reason string) error {
 	conn := r.Get()
 	defer conn.Close()
 
-	key := fmt.Sprintf("MIRROR_%s", id)
+	key := fmt.Sprintf("MIRROR_%d", id)
 
 	previousState, err := redis.Bool(conn.Do("HGET", key, "up"))
 	if err != nil {
@@ -204,7 +205,7 @@ func SetMirrorState(r *database.Redis, id string, state bool, reason string) err
 
 	if err == nil && state != previousState {
 		// Publish update
-		database.Publish(conn, database.MIRROR_UPDATE, id)
+		database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(id))
 	}
 
 	return err

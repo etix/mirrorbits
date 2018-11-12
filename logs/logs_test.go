@@ -267,13 +267,15 @@ func TestLogDownload(t *testing.T) {
 		},
 		MirrorList: mirrors.Mirrors{
 			mirrors.Mirror{
-				ID:            "m1",
+				ID:            1,
+				Name:          "m1",
 				Asnum:         444,
 				Distance:      99,
 				CountryFields: []string{"FR", "UK", "DE"},
 			},
 			mirrors.Mirror{
-				ID: "m2",
+				ID:   2,
+				Name: "m2",
 			},
 		},
 		IP: "192.168.0.1",
@@ -313,10 +315,12 @@ func TestLogDownload(t *testing.T) {
 	p = &mirrors.Results{
 		MirrorList: mirrors.Mirrors{
 			mirrors.Mirror{
-				ID: "m1",
+				ID:   1,
+				Name: "m1",
 			},
 			mirrors.Mirror{
-				ID: "m2",
+				ID:   2,
+				Name: "m2",
 			},
 		},
 	}

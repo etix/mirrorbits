@@ -53,6 +53,22 @@ func main() {
 
 		/* Connect to the database */
 		r := database.NewRedis()
+		{
+			up, err := r.UpgradeNeeded()
+			if err != nil {
+				//FIXME
+				log.Fatalf("UpgradeNeeded failed: %s\n", err)
+			}
+			if up {
+				err = r.Upgrade()
+				if err != nil {
+					//FIXME
+					log.Fatalf("Upgrade failed: %+v\n", err)
+				}
+				log.Info("Database upgrade successful, starting normally")
+			}
+		}
+
 		r.ConnectPubsub()
 		c := mirrors.NewCache(r)
 		h := http.HTTPServer(r, c)

@@ -250,7 +250,8 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 			fallback = true
 			for i, f := range fallbacks {
 				mlist = append(mlist, mirrors.Mirror{
-					ID:            fmt.Sprintf("fallback%d", i),
+					ID:            i * -1,
+					Name:          fmt.Sprintf("fallback%d", i),
 					HttpURL:       f.URL,
 					CountryCodes:  strings.ToUpper(f.CountryCode),
 					CountryFields: []string{strings.ToUpper(f.CountryCode)},
@@ -466,7 +467,8 @@ func (h *HTTP) checksumHandler(w http.ResponseWriter, r *http.Request, ctx *Cont
 
 // MirrorStats contains the stats of a given mirror
 type MirrorStats struct {
-	ID         string
+	ID         int
+	Name       string
 	Downloads  int64
 	Bytes      int64
 	PercentD   float32
@@ -512,7 +514,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	defer rconn.Close()
 
 	// Get all mirrors ID
-	mirrorsIDs, err := redis.Strings(rconn.Do("LRANGE", "MIRRORS", "0", "-1"))
+	mirrorsIDs, err := h.redis.GetListOfMirrors()
 	if err != nil {
 		http.Error(w, "Cannot fetch the list of mirrors", http.StatusInternalServerError)
 		return
@@ -521,7 +523,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	rconn.Send("MULTI")
 
 	// Get all mirrors stats
-	for _, id := range mirrorsIDs {
+	for id := range mirrorsIDs {
 		today := time.Now().UTC().Format("2006_01_02")
 		rconn.Send("HGET", "STATS_MIRROR_"+today, id)
 		rconn.Send("HGET", "STATS_MIRROR_BYTES_"+today, id)
@@ -538,7 +540,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	var results []MirrorStats
 	var index int64
 	mlist := make([]mirrors.Mirror, 0, len(mirrorsIDs))
-	for _, id := range mirrorsIDs {
+	for id, name := range mirrorsIDs {
 		mirror, err := h.cache.GetMirror(id)
 		if err != nil {
 			continue
@@ -571,6 +573,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 
 		s := MirrorStats{
 			ID:        id,
+			Name:      name,
 			Downloads: downloads,
 			Bytes:     bytes,
 			SyncOffset: SyncOffset{

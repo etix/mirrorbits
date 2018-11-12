@@ -30,7 +30,7 @@ type cluster struct {
 	nodeIndex     int
 	nodeTotal     int
 	nodesLock     sync.RWMutex
-	mirrorsIndex  []string
+	mirrorsIndex  []int
 	stop          chan bool
 	wg            sync.WaitGroup
 	running       bool
@@ -183,10 +183,16 @@ func (c *cluster) RemoveMirror(mirror *mirrors.Mirror) {
 	c.nodesLock.Unlock()
 }
 
-func (c *cluster) IsHandled(mirrorID string) bool {
+func (c *cluster) RemoveMirrorID(id int) {
+	c.nodesLock.Lock()
+	c.mirrorsIndex = removeMirrorIDFromSlice(c.mirrorsIndex, id)
+	c.nodesLock.Unlock()
+}
+
+func (c *cluster) IsHandled(mirrorID int) bool {
 	c.nodesLock.RLock()
 	defer c.nodesLock.RUnlock()
-	index := sort.SearchStrings(c.mirrorsIndex, mirrorID)
+	index := sort.SearchInts(c.mirrorsIndex, mirrorID)
 
 	mRange := int(float32(len(c.mirrorsIndex))/float32(c.nodeTotal) + 0.5)
 	start := mRange * c.nodeIndex
@@ -200,20 +206,20 @@ func (c *cluster) IsHandled(mirrorID string) bool {
 	return false
 }
 
-func removeMirrorIDFromSlice(slice []string, mirrorID string) []string {
-	// See https://golang.org/pkg/sort/#SearchStrings
-	idx := sort.SearchStrings(slice, mirrorID)
+func removeMirrorIDFromSlice(slice []int, mirrorID int) []int {
+	// See https://golang.org/pkg/sort/#SearchInts
+	idx := sort.SearchInts(slice, mirrorID)
 	if idx < len(slice) && slice[idx] == mirrorID {
 		slice = append(slice[:idx], slice[idx+1:]...)
 	}
 	return slice
 }
 
-func addMirrorIDToSlice(slice []string, mirrorID string) []string {
-	// See https://golang.org/pkg/sort/#SearchStrings
-	idx := sort.SearchStrings(slice, mirrorID)
+func addMirrorIDToSlice(slice []int, mirrorID int) []int {
+	// See https://golang.org/pkg/sort/#SearchInts
+	idx := sort.SearchInts(slice, mirrorID)
 	if idx >= len(slice) || slice[idx] != mirrorID {
-		slice = append(slice[:idx], append([]string{mirrorID}, slice[idx:]...)...)
+		slice = append(slice[:idx], append([]int{mirrorID}, slice[idx:]...)...)
 	}
 	return slice
 }

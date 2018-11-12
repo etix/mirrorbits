@@ -76,7 +76,7 @@ func (t *Trace) GetLastUpdate(mirror mirrors.Mirror) error {
 		return ErrNoTrace
 	}
 
-	log.Debugf("Getting latest trace file for %s...", mirror.ID)
+	log.Debugf("Getting latest trace file for %s...", mirror.Name)
 
 	// Prepare the HTTP request
 	req, err := http.NewRequest("GET", utils.ConcatURL(mirror.HttpURL, traceFile), nil)
@@ -118,14 +118,14 @@ func (t *Trace) GetLastUpdate(mirror mirrors.Mirror) error {
 	conn := t.redis.Get()
 	defer conn.Close()
 
-	_, err = conn.Do("HSET", fmt.Sprintf("MIRROR_%s", mirror.ID), "lastModTime", timestamp)
+	_, err = conn.Do("HSET", fmt.Sprintf("MIRROR_%d", mirror.ID), "lastModTime", timestamp)
 	if err != nil {
 		return err
 	}
 
 	// Publish an update on redis
-	database.Publish(conn, database.MIRROR_UPDATE, mirror.ID)
+	database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(mirror.ID))
 
-	log.Debugf("[%s] trace last sync: %s", mirror.ID, time.Unix(timestamp, 0))
+	log.Debugf("[%s] trace last sync: %s", mirror.Name, time.Unix(timestamp, 0))
 	return nil
 }

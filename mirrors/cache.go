@@ -42,7 +42,7 @@ func (f *fileInfoValue) Size() int {
 }
 
 type fileMirrorValue struct {
-	value []string
+	value []int
 }
 
 func (f *fileMirrorValue) Size() int {
@@ -163,7 +163,7 @@ func (c *Cache) fetchFileInfo(path string) (f filesystem.FileInfo, err error) {
 // GetMirrors returns all the mirrors serving a given file either from the cache
 // or directly from the database if the object is not yet stored in the cache.
 func (c *Cache) GetMirrors(path string, clientInfo network.GeoIPRecord) (mirrors []Mirror, err error) {
-	var mirrorsIDs []string
+	var mirrorsIDs []int
 	v, ok := c.fmCache.Get(path)
 	if ok {
 		mirrorsIDs = v.(*fileMirrorValue).value
@@ -177,7 +177,7 @@ func (c *Cache) GetMirrors(path string, clientInfo network.GeoIPRecord) (mirrors
 	for _, id := range mirrorsIDs {
 		var mirror Mirror
 		var fileInfo filesystem.FileInfo
-		v, ok := c.mCache.Get(id)
+		v, ok := c.mCache.Get(strconv.Itoa(id))
 		if ok {
 			mirror = v.(*mirrorValue).value
 		} else {
@@ -187,7 +187,7 @@ func (c *Cache) GetMirrors(path string, clientInfo network.GeoIPRecord) (mirrors
 				return
 			}
 		}
-		v, ok = c.fimCache.Get(fmt.Sprintf("%s|%s", id, path))
+		v, ok = c.fimCache.Get(fmt.Sprintf("%d|%s", id, path))
 		if ok {
 			fileInfo = v.(*fileInfoValue).value
 		} else {
@@ -216,10 +216,10 @@ func (c *Cache) GetMirrors(path string, clientInfo network.GeoIPRecord) (mirrors
 	return
 }
 
-func (c *Cache) fetchFileMirrors(path string) (ids []string, err error) {
+func (c *Cache) fetchFileMirrors(path string) (ids []int, err error) {
 	rconn := c.r.Get()
 	defer rconn.Close()
-	ids, err = redis.Strings(rconn.Do("SMEMBERS", fmt.Sprintf("FILEMIRRORS_%s", path)))
+	ids, err = redis.Ints(rconn.Do("SMEMBERS", fmt.Sprintf("FILEMIRRORS_%s", path)))
 	if err != nil {
 		return
 	}
@@ -227,10 +227,10 @@ func (c *Cache) fetchFileMirrors(path string) (ids []string, err error) {
 	return
 }
 
-func (c *Cache) fetchMirror(mirrorID string) (mirror Mirror, err error) {
+func (c *Cache) fetchMirror(mirrorID int) (mirror Mirror, err error) {
 	rconn := c.r.Get()
 	defer rconn.Close()
-	reply, err := redis.Values(rconn.Do("HGETALL", fmt.Sprintf("MIRROR_%s", mirrorID)))
+	reply, err := redis.Values(rconn.Do("HGETALL", fmt.Sprintf("MIRROR_%d", mirrorID)))
 	if err != nil {
 		return
 	}
@@ -243,16 +243,16 @@ func (c *Cache) fetchMirror(mirrorID string) (mirror Mirror, err error) {
 		return
 	}
 	mirror.Prepare()
-	c.mCache.Set(mirrorID, &mirrorValue{value: mirror})
+	c.mCache.Set(strconv.Itoa(mirrorID), &mirrorValue{value: mirror})
 	return
 }
 
-func (c *Cache) fetchFileInfoMirror(id, path string) (f filesystem.FileInfo, err error) {
+func (c *Cache) fetchFileInfoMirror(id int, path string) (f filesystem.FileInfo, err error) {
 	rconn := c.r.Get()
 	defer rconn.Close()
 	f.Path = path // Path is not stored in the object instance in redis
 
-	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILEINFO_%s_%s", id, path), "size", "modTime", "sha1", "sha256", "md5"))
+	reply, err := redis.Strings(rconn.Do("HMGET", fmt.Sprintf("FILEINFO_%d_%s", id, path), "size", "modTime", "sha1", "sha256", "md5"))
 	if err != nil {
 		return
 	}
@@ -266,18 +266,18 @@ func (c *Cache) fetchFileInfoMirror(id, path string) (f filesystem.FileInfo, err
 	f.Sha256 = reply[3]
 	f.Md5 = reply[4]
 
-	c.fimCache.Set(fmt.Sprintf("%s|%s", id, path), &fileInfoValue{value: f})
+	c.fimCache.Set(fmt.Sprintf("%d|%s", id, path), &fileInfoValue{value: f})
 	return
 }
 
 // GetMirror returns all information about a given mirror either from the cache
 // or directly from the database if the object is not yet stored in the cache.
-func (c *Cache) GetMirror(identifier string) (mirror Mirror, err error) {
-	v, ok := c.mCache.Get(identifier)
+func (c *Cache) GetMirror(id int) (mirror Mirror, err error) {
+	v, ok := c.mCache.Get(strconv.Itoa(id))
 	if ok {
 		mirror = v.(*mirrorValue).value
 	} else {
-		mirror, err = c.fetchMirror(identifier)
+		mirror, err = c.fetchMirror(id)
 		if err != nil {
 			return
 		}

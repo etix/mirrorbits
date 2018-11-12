@@ -57,21 +57,26 @@ type scan struct {
 	redis *database.Redis
 
 	conn        redis.Conn
-	identifier  string
+	mirrorid    int
 	filesTmpKey string
 	count       uint
 }
 
 // IsScanning returns true is a scan is already in progress for the given mirror
-func IsScanning(conn redis.Conn, identifier string) (bool, error) {
-	return redis.Bool(conn.Do("EXISTS", fmt.Sprintf("SCANNING_%s", identifier)))
+func IsScanning(conn redis.Conn, id int) (bool, error) {
+	return redis.Bool(conn.Do("EXISTS", fmt.Sprintf("SCANNING_%d", id)))
 }
 
 // Scan starts a scan of the given mirror
-func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan bool) error {
+func Scan(typ ScannerType, r *database.Redis, url string, id int, stop chan bool) error {
+	// Connect to the database
+	conn := r.Get()
+	defer conn.Close()
+
 	s := &scan{
-		redis:      r,
-		identifier: identifier,
+		redis:    r,
+		mirrorid: id,
+		conn:     conn,
 	}
 
 	var scanner Scanner
@@ -88,17 +93,17 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 		panic(fmt.Sprintf("Unknown scanner"))
 	}
 
-	// Connect to the database
-	conn := s.redis.Get()
-	defer conn.Close()
-
-	s.conn = conn
+	// Get the mirror name
+	name, err := redis.String(conn.Do("HGET", "MIRRORS", id))
+	if err != nil {
+		return err
+	}
 
 	// Try to acquire a lock so we don't have a scanning race
 	// from different nodes.
 	// Also make the key expire automatically in case our process
 	// gets killed.
-	lock := network.NewClusterLock(s.redis, fmt.Sprintf("SCANNING_%s", identifier), identifier)
+	lock := network.NewClusterLock(s.redis, fmt.Sprintf("SCANNING_%d", id), name)
 
 	done, err := lock.Get()
 	if err != nil {
@@ -109,17 +114,17 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 
 	defer lock.Release()
 
-	s.setLastSync(conn, identifier, false)
+	s.setLastSync(conn, id, false)
 
 	conn.Send("MULTI")
 
-	filesKey := fmt.Sprintf("MIRROR_%s_FILES", identifier)
-	s.filesTmpKey = fmt.Sprintf("MIRROR_%s_FILES_TMP", identifier)
+	filesKey := fmt.Sprintf("MIRROR_%d_FILES", id)
+	s.filesTmpKey = fmt.Sprintf("MIRROR_%d_FILES_TMP", id)
 
 	// Remove any left over
 	conn.Send("DEL", s.filesTmpKey)
 
-	err = scanner.Scan(url, identifier, conn, stop)
+	err = scanner.Scan(url, name, conn, stop)
 	if err != nil {
 		// Discard MULTI
 		s.ScannerDiscard()
@@ -127,7 +132,7 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 		// Remove the temporary key
 		conn.Do("DEL", s.filesTmpKey)
 
-		log.Errorf("[%s] %s", identifier, err.Error())
+		log.Errorf("[%s] %s", name, err.Error())
 		return err
 	}
 
@@ -144,11 +149,11 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 	if len(toremove) > 0 {
 		conn.Send("MULTI")
 		for _, e := range toremove {
-			log.Debugf("[%s] Removing %s from mirror", identifier, e)
-			conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", e), identifier)
-			conn.Send("DEL", fmt.Sprintf("FILEINFO_%s_%s", identifier, e))
+			log.Debugf("[%s] Removing %s from mirror", name, e)
+			conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", e), id)
+			conn.Send("DEL", fmt.Sprintf("FILEINFO_%d_%s", id, e))
 			// Publish update
-			database.SendPublish(conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", identifier, e))
+			database.SendPublish(conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", id, e))
 
 		}
 		_, err = conn.Do("EXEC")
@@ -166,7 +171,7 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 		}
 	}
 
-	sinterKey := fmt.Sprintf("HANDLEDFILES_%s", identifier)
+	sinterKey := fmt.Sprintf("HANDLEDFILES_%d", id)
 
 	// Count the number of files known on the remote end
 	common, _ := redis.Int64(conn.Do("SINTERSTORE", sinterKey, "FILES", filesKey))
@@ -175,8 +180,8 @@ func Scan(typ ScannerType, r *database.Redis, url, identifier string, stop chan 
 		return err
 	}
 
-	s.setLastSync(conn, identifier, true)
-	log.Infof("[%s] Indexed %d files (%d known), %d removed", identifier, s.count, common, len(toremove))
+	s.setLastSync(conn, id, true)
+	log.Infof("[%s] Indexed %d files (%d known), %d removed", name, s.count, common, len(toremove))
 	return nil
 }
 
@@ -188,14 +193,14 @@ func (s *scan) ScannerAddFile(f filedata) {
 
 	// Mark the file as being supported by this mirror
 	rk := fmt.Sprintf("FILEMIRRORS_%s", f.path)
-	s.conn.Send("SADD", rk, s.identifier)
+	s.conn.Send("SADD", rk, s.mirrorid)
 
 	// Save the size of the current file found on this mirror
-	ik := fmt.Sprintf("FILEINFO_%s_%s", s.identifier, f.path)
+	ik := fmt.Sprintf("FILEINFO_%d_%s", s.mirrorid, f.path)
 	s.conn.Send("HSET", ik, "size", f.size)
 
 	// Publish update
-	database.SendPublish(s.conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%s %s", s.identifier, f.path))
+	database.SendPublish(s.conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", s.mirrorid, f.path))
 }
 
 func (s *scan) ScannerDiscard() {
@@ -207,23 +212,23 @@ func (s *scan) ScannerCommit() error {
 	return err
 }
 
-func (s *scan) setLastSync(conn redis.Conn, identifier string, successful bool) error {
+func (s *scan) setLastSync(conn redis.Conn, id int, successful bool) error {
 	now := time.Now().UTC().Unix()
 
 	conn.Send("MULTI")
 
 	// Set the last sync time
-	conn.Send("HSET", fmt.Sprintf("MIRROR_%s", identifier), "lastSync", now)
+	conn.Send("HSET", fmt.Sprintf("MIRROR_%d", id), "lastSync", now)
 
 	// Set the last successful sync time
 	if successful {
-		conn.Send("HSET", fmt.Sprintf("MIRROR_%s", identifier), "lastSuccessfulSync", now)
+		conn.Send("HSET", fmt.Sprintf("MIRROR_%d", id), "lastSuccessfulSync", now)
 	}
 
 	_, err := conn.Do("EXEC")
 
 	// Publish an update on redis
-	database.Publish(conn, database.MIRROR_UPDATE, identifier)
+	database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(id))
 
 	return err
 }

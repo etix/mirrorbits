@@ -11,4 +11,6 @@ const (
 	ContextAllowRedirects ContextKey = iota
 	// ContextMirrorID is the key for the variable: MirrorID
 	ContextMirrorID
+	// ContextMirrorName is the key for the variable: MirrorName
+	ContextMirrorName
 )
