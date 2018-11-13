@@ -54,7 +54,7 @@ type cli struct {
 // ParseCommands parses the command line and call the appropriate functions
 func ParseCommands(args ...string) error {
 	c := &cli{
-		redis: database.NewRedis(),
+		redis: database.NewRedisCli(),
 	}
 
 	if len(args) > 0 && args[0] != "help" {

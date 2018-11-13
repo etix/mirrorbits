@@ -39,7 +39,7 @@ func (r *Redis) AcquireLock(name string) (*Lock, error) {
 		held:  true,
 	}
 
-	conn := r.Get()
+	conn := r.UnblockedGet()
 	defer conn.Close()
 	_, err := conn.Do("SET", l.name, l.value, "NX", "PX", "5000")
 	if err == redis.ErrNil {
@@ -72,7 +72,7 @@ func (l *Lock) keepalive() {
 			l.Unlock()
 			return
 		}
-		conn := l.redis.Get()
+		conn := l.redis.UnblockedGet()
 		ok, err := redis.Bool(conn.Do("PEXPIRE", l.name, "5000"))
 		conn.Close()
 		if err != nil {
@@ -87,7 +87,7 @@ func (l *Lock) keepalive() {
 }
 
 func (l *Lock) isValid() (bool, error) {
-	conn := l.redis.Get()
+	conn := l.redis.UnblockedGet()
 	defer conn.Close()
 	value, err := redis.String(conn.Do("GET", l.name))
 	if err != nil && err != redis.ErrNil {
@@ -107,7 +107,7 @@ func (l *Lock) Release() {
 	}
 	l.held = false
 	l.Unlock()
-	conn := l.redis.Get()
+	conn := l.redis.UnblockedGet()
 	defer conn.Close()
 	v, _ := redis.String(conn.Do("GET", l.name))
 	if v == l.value {

@@ -154,6 +154,18 @@ func (m *monitor) MonitorLoop() {
 
 	mirrorUpdateEvent := m.cache.GetMirrorInvalidationEvent()
 
+	// Wait until the database is ready to be used
+	for {
+		r := m.redis.Get()
+		if r.Err() != nil {
+			if _, ok := r.Err().(database.NetReadyError); ok {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+		}
+		break
+	}
+
 	// Scan the local repository
 	m.retry(func(i uint) error {
 		err := m.scanRepository()

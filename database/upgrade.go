@@ -9,7 +9,8 @@ import (
 )
 
 const (
-	dbVersion = 1 // Current DB format version
+	dbVersion    = 1 // Current DB format version
+	dbVersionKey = "MIRRORBITS_DB_VERSION"
 )
 
 var (
@@ -30,11 +31,11 @@ func (r *Redis) UpgradeNeeded() (bool, error) {
 
 // GetDBFormatVersion return the current database format version
 func (r *Redis) GetDBFormatVersion() (int, error) {
-	conn := r.Get()
+	conn := r.UnblockedGet()
 	defer conn.Close()
 
 again:
-	version, err := redis.Int(conn.Do("GET", "MIRRORBITS_DB_VERSION"))
+	version, err := redis.Int(conn.Do("GET", dbVersionKey))
 	if RedisIsLoading(err) {
 		time.Sleep(time.Millisecond * 100)
 		goto again
@@ -45,9 +46,9 @@ again:
 		}
 		if found {
 			return 0, nil
-		} else {
-			return dbVersion, nil
 		}
+		_, err = conn.Do("SET", dbVersionKey, dbVersion)
+		return dbVersion, err
 	} else if err != nil {
 		return -1, err
 	}

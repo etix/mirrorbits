@@ -37,3 +37,42 @@ func (r *Redis) GetListOfMirrors() (map[int]string, error) {
 
 	return mirrors, nil
 }
+
+type NetReadyError struct {
+	error
+}
+
+func (n *NetReadyError) Timeout() bool   { return false }
+func (n *NetReadyError) Temporary() bool { return true }
+
+func NewNetTemporaryError() NetReadyError {
+	return NetReadyError{
+		error: errors.New("database not ready"),
+	}
+}
+
+type NotReadyError struct{}
+
+func (e *NotReadyError) Close() error {
+	return NewNetTemporaryError()
+}
+
+func (e *NotReadyError) Err() error {
+	return NewNetTemporaryError()
+}
+
+func (e *NotReadyError) Do(commandName string, args ...interface{}) (reply interface{}, err error) {
+	return nil, NewNetTemporaryError()
+}
+
+func (e *NotReadyError) Send(commandName string, args ...interface{}) error {
+	return NewNetTemporaryError()
+}
+
+func (e *NotReadyError) Flush() error {
+	return NewNetTemporaryError()
+}
+
+func (e *NotReadyError) Receive() (reply interface{}, err error) {
+	return nil, NewNetTemporaryError()
+}

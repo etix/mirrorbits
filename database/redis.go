@@ -44,19 +44,57 @@ type Redis struct {
 	knownMaster     string
 	knownMasterLock sync.Mutex
 	stop            chan bool
+	ready           chan struct{}
 }
 
 // NewRedis returns a new instance of the redis database
 func NewRedis() *Redis {
-	return NewRedisCustomPool(nil)
+	r := NewRedisCustomPool(nil)
+	go func() {
+	again:
+		up, err := r.UpgradeNeeded()
+		if err != nil {
+			time.Sleep(50 * time.Millisecond)
+			goto again
+		}
+		if up {
+			t := time.Now()
+			err = r.Upgrade()
+			if err != nil {
+				log.Fatalf("Upgrade failed: %+v", err)
+			}
+			log.Infof("Database upgrade successful (took %s), starting normally", time.Since(t).Round(time.Millisecond))
+		}
+		close(r.ready)
+	}()
+
+	return r
+}
+
+// NewRedisCli returns a new instance of the redis database for the CLI
+func NewRedisCli() *Redis {
+	r := NewRedisCustomPool(nil)
+
+	up, err := r.UpgradeNeeded()
+	if err != nil {
+		time.Sleep(50 * time.Millisecond)
+		return r
+	}
+	if up {
+		log.Fatalf("Database upgrade required")
+	}
+	close(r.ready)
+
+	return r
 }
 
 // NewRedisCustomPool returns a new instance of the redis database
 // using a custom pool
 func NewRedisCustomPool(pool redisPool) *Redis {
-	r := &Redis{}
-
-	r.stop = make(chan bool)
+	r := &Redis{
+		stop:  make(chan bool),
+		ready: make(chan struct{}),
+	}
 
 	if pool != nil {
 		r.pool = pool
@@ -97,6 +135,17 @@ func NewRedisCustomPool(pool redisPool) *Redis {
 
 // Get returns a redis connection from the pool
 func (r *Redis) Get() redis.Conn {
+	select {
+	case <-r.ready:
+	default:
+		return &NotReadyError{}
+	}
+	return r.pool.Get()
+}
+
+// UnblockedGet returns a redis connection from the pool even
+// if the database checks and/or upgrade are not finished.
+func (r *Redis) UnblockedGet() redis.Conn {
 	return r.pool.Get()
 }
 
@@ -122,7 +171,7 @@ func (r *Redis) ConnectPubsub() {
 
 // CheckVersion checks if the redis server version is supported
 func (r *Redis) CheckVersion() error {
-	c := r.Get()
+	c := r.UnblockedGet()
 	defer c.Close()
 	return r.checkVersion(c)
 }

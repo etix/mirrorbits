@@ -40,7 +40,7 @@ func (v *Version1) Upgrade() error {
 		return err
 	}
 
-	r := v.Redis.Get()
+	r := v.Redis.UnblockedGet()
 	defer r.Close()
 
 	_, err = r.Do("SET", "MIRRORBITS_DB_VERSION", 1)
@@ -54,7 +54,7 @@ func (v *Version1) Upgrade() error {
 func (v *Version1) CreateMirrorIndex() (map[int]string, error) {
 	m := make(map[int]string)
 
-	conn := v.Redis.Get()
+	conn := v.Redis.UnblockedGet()
 	defer conn.Close()
 
 	// Get the v0 list of mirrors
@@ -91,7 +91,7 @@ func (v *Version1) CreateMirrorIndex() (map[int]string, error) {
 }
 
 func (v *Version1) RenameKeys(m map[int]string) error {
-	conn := v.Redis.Get()
+	conn := v.Redis.UnblockedGet()
 	defer conn.Close()
 
 	// Rename all keys to contain the ID instead of the name
@@ -167,7 +167,7 @@ func (v *Version1) RenameKeys(m map[int]string) error {
 }
 
 func (v *Version1) FixMirrorID(m map[int]string) error {
-	conn := v.Redis.Get()
+	conn := v.Redis.UnblockedGet()
 	defer conn.Close()
 
 	// Replace ID by the new mirror id
@@ -183,7 +183,7 @@ func (v *Version1) FixMirrorID(m map[int]string) error {
 }
 
 func (v *Version1) RenameStats(m map[int]string) error {
-	conn := v.Redis.Get()
+	conn := v.Redis.UnblockedGet()
 	defer conn.Close()
 
 	keys, err := redis.Strings(conn.Do("KEYS", "STATS_MIRROR_*"))
