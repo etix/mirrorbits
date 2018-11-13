@@ -49,23 +49,9 @@ type Redis struct {
 // NewRedis returns a new instance of the redis database
 func NewRedis() *Redis {
 	r := NewRedisCustomPool(nil)
-	go func() {
-	again:
-		up, err := r.UpgradeNeeded()
-		if err != nil {
-			time.Sleep(50 * time.Millisecond)
-			goto again
-		}
-		if up {
-			t := time.Now()
-			err = r.Upgrade()
-			if err != nil {
-				log.Fatalf("Upgrade failed: %+v", err)
-			}
-			log.Infof("Database upgrade successful (took %s), starting normally", time.Since(t).Round(time.Millisecond))
-		}
-		close(r.ready)
-	}()
+
+	// Asynchronous db update handler
+	go r.dbUpdateHandler()
 
 	return r
 }
@@ -77,12 +63,11 @@ func NewRedis() *Redis {
 func NewRedisCli() *Redis {
 	r := NewRedisCustomPool(nil)
 
-	up, err := r.UpgradeNeeded()
+	// Synchronous db update check
+	upneeded, err := r.UpgradeNeeded()
 	if err != nil {
-		time.Sleep(50 * time.Millisecond)
-		return r
-	}
-	if up {
+		log.Fatal(err)
+	} else if upneeded {
 		log.Fatalf("Database upgrade required")
 	}
 	close(r.ready)
@@ -399,6 +384,32 @@ func (r *Redis) connRecover() {
 			}
 		}
 	}
+}
+
+func (r *Redis) dbUpdateHandler() {
+	var logOnce sync.Once
+
+again:
+	upneeded, err := r.UpgradeNeeded()
+	if err != nil {
+		time.Sleep(100 * time.Millisecond)
+		goto again
+	}
+	if upneeded {
+		t := time.Now()
+		err = r.Upgrade()
+		if err == ErrAlreadyLocked {
+			logOnce.Do(func() {
+				log.Warning("Database upgrade running. Waiting for completion...")
+			})
+			time.Sleep(100 * time.Millisecond)
+			goto again
+		} else if err != nil {
+			log.Fatalf("Upgrade failed: %+v", err)
+		}
+		log.Infof("Database upgrade successful (took %s), starting normally", time.Since(t).Round(time.Millisecond))
+	}
+	close(r.ready)
 }
 
 // RedisIsLoading returns true if the error is of type LOADING
