@@ -3,6 +3,7 @@ package v1
 import (
 	"fmt"
 
+	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/database/interfaces"
 	"github.com/gomodule/redigo/redis"
 	"github.com/pkg/errors"
@@ -43,7 +44,7 @@ func (v *Version1) Upgrade() error {
 	r := v.Redis.UnblockedGet()
 	defer r.Close()
 
-	_, err = r.Do("SET", "MIRRORBITS_DB_VERSION", 1)
+	_, err = r.Do("SET", core.DBVersionKey, 1)
 	if err != nil {
 		return err
 	}

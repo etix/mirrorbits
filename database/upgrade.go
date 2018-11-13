@@ -4,13 +4,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/database/upgrader"
 	"github.com/gomodule/redigo/redis"
-)
-
-const (
-	dbVersion    = 1 // Current DB format version
-	dbVersionKey = "MIRRORBITS_DB_VERSION"
 )
 
 var (
@@ -23,10 +19,10 @@ func (r *Redis) UpgradeNeeded() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if version > dbVersion {
+	if version > core.DBVersion {
 		return false, ErrUnsupportedVersion
 	}
-	return version != dbVersion, nil
+	return version != core.DBVersion, nil
 }
 
 // GetDBFormatVersion return the current database format version
@@ -35,7 +31,7 @@ func (r *Redis) GetDBFormatVersion() (int, error) {
 	defer conn.Close()
 
 again:
-	version, err := redis.Int(conn.Do("GET", dbVersionKey))
+	version, err := redis.Int(conn.Do("GET", core.DBVersionKey))
 	if RedisIsLoading(err) {
 		time.Sleep(time.Millisecond * 100)
 		goto again
@@ -47,8 +43,8 @@ again:
 		if found {
 			return 0, nil
 		}
-		_, err = conn.Do("SET", dbVersionKey, dbVersion)
-		return dbVersion, err
+		_, err = conn.Do("SET", core.DBVersionKey, core.DBVersion)
+		return core.DBVersion, err
 	} else if err != nil {
 		return -1, err
 	}
@@ -61,9 +57,9 @@ func (r *Redis) Upgrade() error {
 	if err != nil {
 		return err
 	}
-	if version > dbVersion {
+	if version > core.DBVersion {
 		return ErrUnsupportedVersion
-	} else if version == dbVersion {
+	} else if version == core.DBVersion {
 		return nil
 	}
 	lock, err := r.AcquireLock("upgrade")
@@ -72,7 +68,7 @@ func (r *Redis) Upgrade() error {
 	}
 	defer lock.Release()
 
-	for i := version + 1; i <= dbVersion; i++ {
+	for i := version + 1; i <= core.DBVersion; i++ {
 		u := upgrader.GetUpgrader(r, i)
 		if u != nil {
 			log.Warningf("Upgrading database from version %d to version %d...", i-1, i)

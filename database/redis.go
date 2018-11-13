@@ -20,8 +20,6 @@ import (
 const (
 	redisConnectionTimeout = 200 * time.Millisecond
 	redisReadWriteTimeout  = 300 * time.Second
-	// RedisMinimumVersion contains the minimum redis version required to run the application
-	RedisMinimumVersion = "3.2.0"
 )
 
 var (
@@ -122,7 +120,7 @@ func NewRedisCustomPool(pool redisPool) *Redis {
 				}
 
 				if r.checkVersion(conn) == ErrRedisUpgradeRequired {
-					log.Fatalf("Unsupported Redis version, please upgrade to Redis >= %s", RedisMinimumVersion)
+					log.Fatalf("Unsupported Redis version, please upgrade to Redis >= %s", core.RedisMinimumVersion)
 				}
 
 				return conn, err
@@ -191,7 +189,7 @@ func (r *Redis) checkVersion(conn redis.Conn) error {
 	}
 	info, err := parseInfo(conn.Do("INFO", "server"))
 	if err == nil {
-		if parseVersion(info["redis_version"]) < parseVersion(RedisMinimumVersion) {
+		if parseVersion(info["redis_version"]) < parseVersion(core.RedisMinimumVersion) {
 			return ErrRedisUpgradeRequired
 		}
 	}
