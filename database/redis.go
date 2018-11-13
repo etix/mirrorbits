@@ -128,6 +128,9 @@ func (r *Redis) CheckVersion() error {
 }
 
 func (r *Redis) checkVersion(conn redis.Conn) error {
+	if conn == nil {
+		return ErrUnreachable
+	}
 	info, err := parseInfo(conn.Do("INFO", "server"))
 	if err == nil {
 		if parseVersion(info["redis_version"]) < parseVersion(RedisMinimumVersion) {
