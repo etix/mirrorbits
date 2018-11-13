@@ -71,7 +71,10 @@ func NewRedis() *Redis {
 	return r
 }
 
-// NewRedisCli returns a new instance of the redis database for the CLI
+// NewRedisCli returns a new instance of the redis database for the CLI.
+// Unlike NewRedis(), this function doesn't handle the upgrade. It just
+// quit with an error if the db format is invalid.
+// TODO the CLI should not use Redis directly but move to RPC
 func NewRedisCli() *Redis {
 	r := NewRedisCustomPool(nil)
 
