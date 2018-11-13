@@ -447,7 +447,7 @@ func (c *cli) CmdRemove(args ...string) error {
 	mirrors.DisableMirror(c.redis, id)
 
 	// Get all files supported by the given mirror
-	files, err := redis.Strings(conn.Do("SMEMBERS", fmt.Sprintf("MIRROR_%d_FILES", id)))
+	files, err := redis.Strings(conn.Do("SMEMBERS", fmt.Sprintf("MIRRORFILES_%d", id)))
 	if err != nil {
 		log.Fatal("Error: Cannot fetch file list: ", err)
 	}
@@ -469,8 +469,8 @@ func (c *cli) CmdRemove(args ...string) error {
 	// Remove all other keys
 	_, err = conn.Do("DEL",
 		fmt.Sprintf("MIRROR_%d", id),
-		fmt.Sprintf("MIRROR_%d_FILES", id),
-		fmt.Sprintf("MIRROR_%d_FILES_TMP", id),
+		fmt.Sprintf("MIRRORFILES_%d", id),
+		fmt.Sprintf("MIRRORFILESTMP_%d", id),
 		fmt.Sprintf("HANDLEDFILES_%d", id),
 		fmt.Sprintf("SCANNING_%d", id))
 

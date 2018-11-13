@@ -118,8 +118,8 @@ func Scan(typ ScannerType, r *database.Redis, url string, id int, stop chan bool
 
 	conn.Send("MULTI")
 
-	filesKey := fmt.Sprintf("MIRROR_%d_FILES", id)
-	s.filesTmpKey = fmt.Sprintf("MIRROR_%d_FILES_TMP", id)
+	filesKey := fmt.Sprintf("MIRRORFILES_%d", id)
+	s.filesTmpKey = fmt.Sprintf("MIRRORFILESTMP_%d", id)
 
 	// Remove any left over
 	conn.Send("DEL", s.filesTmpKey)
