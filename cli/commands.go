@@ -1110,7 +1110,7 @@ func (c *cli) CmdStats(args ...string) error {
 
 		stats, err := redis.Values(conn.Do("EXEC"))
 		if err != nil {
-			log.Critical("Cannot fetch stats: %s", err)
+			log.Criticalf("Cannot fetch stats: %s", err)
 			return err
 		}
 
@@ -1157,7 +1157,7 @@ func (c *cli) CmdStats(args ...string) error {
 			fmt.Fprintf(w, "\t\n")
 		}
 
-		fmt.Fprintf(w, "Total download requests:\t%d\n", requests)
+		fmt.Fprintf(w, "Total download requests: \t%d\n", requests)
 		w.Flush()
 	} else if cmd.Arg(0) == "mirror" {
 		// Mirror stats
