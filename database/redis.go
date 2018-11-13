@@ -26,8 +26,8 @@ const (
 var (
 	// ErrUnreachable is returned when the endpoint is not reachable
 	ErrUnreachable = errors.New("redis endpoint unreachable")
-	// ErrUpgradeRequired is returned when the redis server is running an unsupported version
-	ErrUpgradeRequired = errors.New("unsupported Redis version")
+	// ErrRedisUpgradeRequired is returned when the redis server is running an unsupported version
+	ErrRedisUpgradeRequired = errors.New("unsupported Redis version")
 )
 
 type redisPool interface {
@@ -72,6 +72,10 @@ func NewRedisCustomPool(pool redisPool) *Redis {
 					r.setFailureState(false)
 				default:
 					r.setFailureState(true)
+				}
+
+				if r.checkVersion(conn) == ErrRedisUpgradeRequired {
+					log.Fatalf("Unsupported Redis version, please upgrade to Redis >= %s", RedisMinimumVersion)
 				}
 
 				return conn, err
@@ -120,10 +124,14 @@ func (r *Redis) ConnectPubsub() {
 func (r *Redis) CheckVersion() error {
 	c := r.Get()
 	defer c.Close()
-	info, err := parseInfo(c.Do("INFO", "server"))
+	return r.checkVersion(c)
+}
+
+func (r *Redis) checkVersion(conn redis.Conn) error {
+	info, err := parseInfo(conn.Do("INFO", "server"))
 	if err == nil {
 		if parseVersion(info["redis_version"]) < parseVersion(RedisMinimumVersion) {
-			return ErrUpgradeRequired
+			return ErrRedisUpgradeRequired
 		}
 	}
 	return err
