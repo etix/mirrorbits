@@ -20,39 +20,85 @@ type Version1 struct {
 	Redis interfaces.Redis
 }
 
-func (v *Version1) Upgrade() error {
-	m, err := v.CreateMirrorIndex()
-	if err != nil {
-		return err
-	}
-
-	err = v.RenameKeys(m)
-	if err != nil {
-		return err
-	}
-
-	err = v.FixMirrorID(m)
-	if err != nil {
-		return err
-	}
-
-	err = v.RenameStats(m)
-	if err != nil {
-		return err
-	}
-
-	r := v.Redis.UnblockedGet()
-	defer r.Close()
-
-	_, err = r.Do("SET", core.DBVersionKey, 1)
-	if err != nil {
-		return err
-	}
-
-	return nil
+type actions struct {
+	delete []string
+	rename map[string]string
 }
 
-func (v *Version1) CreateMirrorIndex() (map[int]string, error) {
+func (v *Version1) Upgrade() error {
+	a := &actions{
+		rename: make(map[string]string),
+	}
+
+	conn := v.Redis.UnblockedGet()
+	defer conn.Close()
+
+	// Erase previous work keys (previous failed upgrade?)
+	_, err := conn.Do("EVAL", `
+	local keys = redis.call('keys', ARGV[1])
+	for i=1,#keys,5000 do
+		redis.call('del', unpack(keys, i, math.min(i+4999, #keys)))
+	end
+	return keys`, 0, "V1_*")
+
+	if err != nil {
+		return err
+	}
+
+	m, err := v.CreateMirrorIndex(a)
+	if err != nil {
+		return err
+	}
+
+	err = v.RenameKeys(a, m)
+	if err != nil {
+		return err
+	}
+
+	err = v.FixMirrorID(a, m)
+	if err != nil {
+		return err
+	}
+
+	err = v.RenameStats(a, m)
+	if err != nil {
+		return err
+	}
+
+	// Start a transaction to atomically and irrevocably set the new version
+	conn.Send("MULTI")
+
+	for k, v := range a.rename {
+		conn.Send("RENAME", k, v)
+	}
+
+	for _, d := range a.delete {
+		do := true
+		for _, v := range a.rename {
+			if d == v {
+				// Abort the operation since this would
+				// delete the result of a rename
+				do = false
+				break
+			}
+		}
+		if do {
+			conn.Send("DEL", d)
+		}
+	}
+
+	conn.Send("SET", core.DBVersionKey, 1)
+
+	// Finalize the transaction
+	_, err = conn.Do("EXEC")
+
+	// <-- At this point, if any of the previous mutation failed, it is still
+	// safe to run a previous version of mirrorbits.
+
+	return err
+}
+
+func (v *Version1) CreateMirrorIndex(a *actions) (map[int]string, error) {
 	m := make(map[int]string)
 
 	conn := v.Redis.UnblockedGet()
@@ -79,19 +125,13 @@ func (v *Version1) CreateMirrorIndex() (map[int]string, error) {
 		m[id] = name
 	}
 
-	// Remove the original list of mirrors
-	if _, err = conn.Do("DEL", "MIRRORS"); err != nil {
-		return m, errors.WithStack(err)
-	}
+	// Prepare for renaming
+	a.rename["V1_MIRRORS"] = "MIRRORS"
 
-	// Rename the new index
-	if _, err = conn.Do("RENAME", "V1_MIRRORS", "MIRRORS"); err != nil {
-		return m, errors.WithStack(err)
-	}
 	return m, nil
 }
 
-func (v *Version1) RenameKeys(m map[int]string) error {
+func (v *Version1) RenameKeys(a *actions, m map[int]string) error {
 	conn := v.Redis.UnblockedGet()
 	defer conn.Close()
 
@@ -107,19 +147,13 @@ func (v *Version1) RenameKeys(m map[int]string) error {
 
 		// Rename the FILEINFO_<name>_<file> keys
 		for _, file := range files {
-			conn.Send("RENAME", fmt.Sprintf("FILEINFO_%s_%s", name, file), fmt.Sprintf("FILEINFO_%d_%s", id, file))
-		}
-		if err := conn.Flush(); err != nil {
-			return errors.WithStack(err)
+			a.rename[fmt.Sprintf("FILEINFO_%s_%s", name, file)] = fmt.Sprintf("FILEINFO_%d_%s", id, file)
 		}
 
 		// Rename the remaing global keys
-		conn.Send("RENAME", fmt.Sprintf("MIRROR_%s", name), fmt.Sprintf("MIRROR_%d", id))
-		conn.Send("RENAME", fmt.Sprintf("MIRROR_%s_FILES", name), fmt.Sprintf("MIRRORFILES_%d", id))
-		conn.Send("RENAME", fmt.Sprintf("HANDLEDFILES_%s", name), fmt.Sprintf("HANDLEDFILES_%d", id))
-		if err := conn.Flush(); err != nil {
-			return errors.WithStack(err)
-		}
+		a.rename[fmt.Sprintf("MIRROR_%s_FILES", name)] = fmt.Sprintf("MIRRORFILES_%d", id)
+		a.rename[fmt.Sprintf("HANDLEDFILES_%s", name)] = fmt.Sprintf("HANDLEDFILES_%d", id)
+		// MIRROR_%s -> MIRROR_%d is handled by FixMirrorID
 	}
 
 	// Get the list of files in the local repo
@@ -154,27 +188,27 @@ func (v *Version1) RenameKeys(m map[int]string) error {
 			return errors.WithStack(err)
 		}
 
-		// Remove the previous key
-		conn.Send("DEL", fmt.Sprintf("FILEMIRRORS_%s", file))
-		// Rename the new key
-		conn.Send("RENAME", fmt.Sprintf("V1_FILEMIRRORS_%s", file), fmt.Sprintf("FILEMIRRORS_%s", file))
-
-		if err := conn.Flush(); err != nil {
-			return errors.WithStack(err)
-		}
+		// Mark the key for renaming
+		a.rename[fmt.Sprintf("V1_FILEMIRRORS_%s", file)] = fmt.Sprintf("FILEMIRRORS_%s", file)
 	}
 
 	return nil
 }
 
-func (v *Version1) FixMirrorID(m map[int]string) error {
+func (v *Version1) FixMirrorID(a *actions, m map[int]string) error {
 	conn := v.Redis.UnblockedGet()
 	defer conn.Close()
 
 	// Replace ID by the new mirror id
 	// Add a field 'name' containing the mirror name
 	for id, name := range m {
-		conn.Send("HMSET", fmt.Sprintf("MIRROR_%d", id), "ID", id, "name", name)
+		err := CopyKey(conn, fmt.Sprintf("MIRROR_%s", name), fmt.Sprintf("V1_MIRROR_%d", id))
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		conn.Send("HMSET", fmt.Sprintf("V1_MIRROR_%d", id), "ID", id, "name", name)
+		a.rename[fmt.Sprintf("V1_MIRROR_%d", id)] = fmt.Sprintf("MIRROR_%d", id)
+		a.delete = append(a.delete, fmt.Sprintf("MIRROR_%s", name))
 	}
 	if err := conn.Flush(); err != nil {
 		return errors.WithStack(err)
@@ -183,7 +217,7 @@ func (v *Version1) FixMirrorID(m map[int]string) error {
 	return nil
 }
 
-func (v *Version1) RenameStats(m map[int]string) error {
+func (v *Version1) RenameStats(a *actions, m map[int]string) error {
 	conn := v.Redis.UnblockedGet()
 	defer conn.Close()
 
@@ -204,8 +238,6 @@ func (v *Version1) RenameStats(m map[int]string) error {
 		}
 
 		for identifier, value := range stats {
-			conn.Send("HDEL", key, identifier)
-
 			var id int
 			for mid, mname := range m {
 				if mname == identifier {
@@ -219,7 +251,8 @@ func (v *Version1) RenameStats(m map[int]string) error {
 				continue
 			}
 
-			conn.Send("HSET", key, id, value)
+			conn.Send("HSET", "V1_"+key, id, value)
+			a.rename["V1_"+key] = key
 		}
 		if err := conn.Flush(); err != nil {
 			return errors.WithStack(err)
@@ -227,6 +260,15 @@ func (v *Version1) RenameStats(m map[int]string) error {
 	}
 
 	return nil
+}
+
+func CopyKey(conn redis.Conn, src, dst string) error {
+	dmp, err := redis.String(conn.Do("DUMP", src))
+	if err != nil {
+		return err
+	}
+	_, err = conn.Do("RESTORE", dst, 0, dmp, "REPLACE")
+	return err
 }
 
 // IsErrNoSuchKey return true if error is of type "no such key"
