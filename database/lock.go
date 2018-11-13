@@ -41,7 +41,7 @@ func (r *Redis) AcquireLock(name string) (*Lock, error) {
 
 	conn := r.UnblockedGet()
 	defer conn.Close()
-	_, err := conn.Do("SET", l.name, l.value, "NX", "PX", "5000")
+	_, err := redis.String(conn.Do("SET", l.name, l.value, "NX", "PX", "5000"))
 	if err == redis.ErrNil {
 		return nil, ErrAlreadyLocked
 	} else if err != nil {
