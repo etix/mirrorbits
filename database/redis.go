@@ -37,12 +37,13 @@ type redisPool interface {
 
 // Redis is the instance object of the redis database
 type Redis struct {
-	pool         redisPool
-	Pubsub       *Pubsub
-	failure      bool
-	failureState sync.RWMutex
-	knownMaster  string
-	stop         chan bool
+	pool            redisPool
+	Pubsub          *Pubsub
+	failure         bool
+	failureState    sync.RWMutex
+	knownMaster     string
+	knownMasterLock sync.Mutex
+	stop            chan bool
 }
 
 // NewRedis returns a new instance of the redis database
@@ -287,6 +288,8 @@ func (r *Redis) logError(format string, args ...interface{}) {
 }
 
 func (r *Redis) printConnectedMaster(address string) {
+	r.knownMasterLock.Lock()
+	defer r.knownMasterLock.Unlock()
 	if address != r.knownMaster && core.Daemon {
 		r.knownMaster = address
 		log.Infof("Connected to redis master %s", address)
