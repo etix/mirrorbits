@@ -14,6 +14,7 @@ import (
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/core"
 	"github.com/gomodule/redigo/redis"
+	"github.com/rafaeljusto/redigomock"
 )
 
 const (
@@ -100,6 +101,11 @@ func NewRedisCustomPool(pool redisPool) *Redis {
 	}
 
 	if pool != nil {
+		// Check if we are running inside `go test`
+		if _, ok := pool.Get().(*redigomock.Conn); ok {
+			// Close ready since we are running a mock
+			close(r.ready)
+		}
 		r.pool = pool
 	} else {
 		r.pool = &redis.Pool{
