@@ -21,7 +21,7 @@ import (
 // Mirror is the structure representing all the information about a mirror
 type Mirror struct {
 	ID                    int       `redis:"ID" yaml:"-"`
-	Name                  string    `redis:"name" yaml:"-"` //TODO allow renaming from cli
+	Name                  string    `redis:"name" yaml:"Name"`
 	HttpURL               string    `redis:"http" yaml:"HttpURL"`
 	RsyncURL              string    `redis:"rsync" yaml:"RsyncURL"`
 	FtpURL                string    `redis:"ftp" yaml:"FtpURL"`

@@ -702,7 +702,7 @@ func (c *cli) CmdEdit(args ...string) error {
 		return nil
 	}
 
-	id, _, err := GetSingle(list)
+	id, name, err := GetSingle(list)
 	if err != nil {
 		return err
 	}
@@ -782,21 +782,50 @@ reopen:
 		yamlstr = yamlstr[:commentIndex]
 	}
 
-	// Fill the struct from the yaml
-	err = yaml.Unmarshal([]byte(yamlstr), &mirror)
-	if err != nil {
+	reopen := func(err error) bool {
 	eagain:
 		fmt.Printf("%s\nRetry? [Y/n]", err.Error())
 		reader := bufio.NewReader(os.Stdin)
 		s, _ := reader.ReadString('\n')
 		switch s[0] {
 		case 'y', 'Y', 10:
-			goto reopen
+			return true
 		case 'n', 'N':
 			fmt.Println("Aborted")
-			return nil
+			return false
 		default:
 			goto eagain
+		}
+	}
+
+	// Fill the struct from the yaml
+	err = yaml.Unmarshal([]byte(yamlstr), &mirror)
+	if err != nil {
+		switch reopen(err) {
+		case true:
+			goto reopen
+		case false:
+			return nil
+		}
+	}
+
+	if mirror.Name != name {
+		// Name has been changed, verify it's not already
+		// taken by an other mirror.
+		mirrorsIDs, err := c.redis.GetListOfMirrors()
+		if err != nil {
+			return err
+		}
+
+		for _, n := range mirrorsIDs {
+			if n == mirror.Name {
+				switch reopen(errors.New("Name already taken")) {
+				case true:
+					goto reopen
+				case false:
+					return nil
+				}
+			}
 		}
 	}
 
@@ -821,8 +850,9 @@ reopen:
 	mirror.Comment = comment
 
 	// Save the values back into redis
-	_, err = conn.Do("HMSET", key,
-		"ID", id,
+	conn.Send("MULTI")
+	conn.Send("HMSET", key,
+		"name", mirror.Name,
 		"http", mirror.HttpURL,
 		"rsync", mirror.RsyncURL,
 		"ftp", mirror.FtpURL,
@@ -846,6 +876,12 @@ reopen:
 		"allowredirects", mirror.AllowRedirects,
 		"enabled", mirror.Enabled)
 
+	if mirror.Name != name {
+		// The name of the mirror has been changed.
+		conn.Send("HSET", "MIRRORS", id, mirror.Name)
+	}
+
+	_, err = conn.Do("EXEC")
 	if err != nil {
 		log.Fatal("Couldn't save the configuration into redis:", err)
 	}
@@ -853,7 +889,7 @@ reopen:
 	// Publish update
 	database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(id))
 
-	fmt.Println("Mirror edited successfully")
+	fmt.Printf("Mirror '%s' edited successfully\n", name)
 
 	return nil
 }
