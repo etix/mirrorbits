@@ -28,7 +28,7 @@ type FTPScanner struct {
 }
 
 // Scan starts an ftp scan of the given mirror
-func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan bool) error {
+func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop <-chan struct{}) error {
 	if !strings.HasPrefix(scanurl, "ftp://") {
 		return fmt.Errorf("%s does not start with ftp://", scanurl)
 	}
@@ -108,7 +108,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop chan
 }
 
 // Walk inside an FTP repository
-func (f *FTPScanner) walkFtp(c *ftp.ServerConn, files []*filedata, path string, stop chan bool) ([]*filedata, error) {
+func (f *FTPScanner) walkFtp(c *ftp.ServerConn, files []*filedata, path string, stop <-chan struct{}) ([]*filedata, error) {
 	if utils.IsStopped(stop) {
 		return nil, ErrScanAborted
 	}

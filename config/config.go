@@ -56,6 +56,8 @@ func defaultConfig() Configuration {
 		DisallowRedirects:       false,
 		WeightDistributionRange: 1.5,
 		DisableOnMissingFile:    false,
+		RPCListenAddress:        "localhost:3390",
+		RPCPassword:             "",
 	}
 }
 
@@ -86,6 +88,9 @@ type Configuration struct {
 
 	RedisSentinelMasterName string      `yaml:"RedisSentinelMasterName"`
 	RedisSentinels          []sentinels `yaml:"RedisSentinels"`
+
+	RPCListenAddress string `yaml:"RPCListenAddress"`
+	RPCPassword      string `yaml:"RPCPassword"`
 }
 
 type fallback struct {
@@ -126,7 +131,7 @@ func ReloadConfig() error {
 	content, err := ioutil.ReadFile(core.ConfigFile)
 	if err != nil {
 		fmt.Println("Configuration could not be found.\n\tUse -config <path>")
-		os.Exit(-1)
+		os.Exit(1)
 	}
 
 	if os.Getenv("DEBUG") != "" {

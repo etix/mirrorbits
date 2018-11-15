@@ -29,10 +29,14 @@ vendor:
 	go get github.com/kardianos/govendor
 	govendor sync ${PACKAGE}
 
-build: vendor
+protoc:
+	go get -u github.com/golang/protobuf/protoc-gen-go
+	protoc -I rpc rpc/rpc.proto --go_out=plugins=grpc:rpc
+
+build: vendor protoc
 	go build $(GOFLAGS) -o $(BINARY) .
 
-dev: vendor
+dev: vendor protoc
 	go build $(GOFLAGSDEV) -o $(BINARY) .
 
 clean:
@@ -40,6 +44,7 @@ clean:
 	@rm -f $(BINARY)
 	@rm -f contrib/init/systemd/mirrorbits.service
 	@rm -dRf dist
+	@rm -f rpc/*.pb.go
 
 release: $(TARBALL)
 

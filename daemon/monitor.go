@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/etix/mirrorbits/cli"
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/database"
@@ -46,7 +45,7 @@ type monitor struct {
 	httpTransport   http.Transport
 	healthCheckChan chan int
 	syncChan        chan int
-	stop            chan bool
+	stop            chan struct{}
 	configNotifier  chan bool
 	wg              sync.WaitGroup
 	formatLongestID int
@@ -87,7 +86,7 @@ func NewMonitor(r *database.Redis, c *mirrors.Cache) *monitor {
 	m.mirrors = make(map[int]*mirror)
 	m.healthCheckChan = make(chan int, healthCheckThreads*5)
 	m.syncChan = make(chan int)
-	m.stop = make(chan bool)
+	m.stop = make(chan struct{})
 	m.configNotifier = make(chan bool, 1)
 	m.trace = scan.NewTraceHandler(m.redis, m.stop)
 
@@ -438,7 +437,7 @@ func (m *monitor) syncLoop() {
 				}
 			}()
 
-			err = cli.ErrNoSyncMethod
+			err = scan.ErrNoSyncMethod
 
 			// First try to scan with rsync
 			if mir.RsyncURL != "" {

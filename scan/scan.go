@@ -25,6 +25,8 @@ var (
 	ErrScanAborted = errors.New("scan aborted")
 	// ErrScanInProgress is returned when a scan is started while another is already in progress
 	ErrScanInProgress = errors.New("scan already in progress")
+	// ErrNoSyncMethod is returned when no sync protocol is available
+	ErrNoSyncMethod = errors.New("no suitable URL for the scan")
 
 	log = logging.MustGetLogger("main")
 )
@@ -41,7 +43,7 @@ const (
 
 // Scanner is the interface that all scanners must implement
 type Scanner interface {
-	Scan(url, identifier string, conn redis.Conn, stop chan bool) error
+	Scan(url, identifier string, conn redis.Conn, stop <-chan struct{}) error
 }
 
 type filedata struct {
@@ -68,7 +70,7 @@ func IsScanning(conn redis.Conn, id int) (bool, error) {
 }
 
 // Scan starts a scan of the given mirror
-func Scan(typ ScannerType, r *database.Redis, url string, id int, stop chan bool) error {
+func Scan(typ ScannerType, r *database.Redis, url string, id int, stop <-chan struct{}) error {
 	// Connect to the database
 	conn := r.Get()
 	defer conn.Close()
@@ -295,7 +297,7 @@ func (s *sourcescanner) walkSource(conn redis.Conn, path string, f os.FileInfo, 
 }
 
 // ScanSource starts a scan of the local repository
-func ScanSource(r *database.Redis, forceRehash bool, stop chan bool) (err error) {
+func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err error) {
 	s := &sourcescanner{}
 
 	conn := r.Get()

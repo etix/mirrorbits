@@ -133,13 +133,13 @@ func TestIsPrimaryCountry(t *testing.T) {
 }
 
 func TestIsStopped(t *testing.T) {
-	stop := make(chan bool, 1)
+	stop := make(chan struct{}, 1)
 
 	if IsStopped(stop) {
 		t.Fatal("Expected false, got true")
 	}
 
-	stop <- true
+	close(stop)
 
 	if !IsStopped(stop) {
 		t.Fatal("Expected true, got false")

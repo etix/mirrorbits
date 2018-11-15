@@ -21,7 +21,7 @@ CONFFILE=/etc/mirrorbits.conf
 RUNLOG=/var/log/mirrorbits/mirrorbits.log
 PIDFILE=/var/run/$NAME.pid
 DAEMON=/usr/bin/$NAME
-DAEMON_ARGS="-D -p $PIDFILE -log $RUNLOG"
+DAEMON_ARGS="daemon -p $PIDFILE -log $RUNLOG"
 SCRIPTNAME=/etc/init.d/$NAME
 
 # Exit if the package is not installed

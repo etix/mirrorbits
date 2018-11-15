@@ -51,6 +51,7 @@ Yet some things might change before the 1.0 release. If you intend to deploy Mir
 ## Prerequisites
 
 * Go 1.7 or later
+* Protobuf (protoc)
 * Redis 3.2 or later (with [persistence](https://redis.io/topics/persistence) enabled)
 * GeoIP2 databases from [Maxmind](https://dev.maxmind.com/geoip/geoip2/geolite2/) (preferably updated regularly)
 
@@ -88,7 +89,7 @@ Mirrorbits is a self-contained application and can act, at the same time, as the
 
 To run the server:
 ```
-mirrorbits -D
+mirrorbits daemon
 ```
 Additional options can be found with ```mirrorbits -help```.
 

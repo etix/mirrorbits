@@ -1,0 +1,142 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+service CLI {
+    rpc GetVersion (google.protobuf.Empty) returns (VersionReply) {}
+    rpc Upgrade (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+    rpc Reload (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+    rpc ChangeStatus (ChangeStatusRequest) returns (google.protobuf.Empty) {}
+    rpc List (google.protobuf.Empty) returns (MirrorListReply) {}
+    rpc MirrorInfo (MirrorIDRequest) returns (Mirror) {}
+    rpc AddMirror (Mirror) returns (AddMirrorReply) {}
+    rpc UpdateMirror (Mirror) returns (google.protobuf.Empty) {}
+    rpc RemoveMirror (MirrorIDRequest) returns (google.protobuf.Empty) {}
+    rpc RefreshRepository (RefreshRepositoryRequest) returns (google.protobuf.Empty) {}
+    rpc ScanMirror (ScanMirrorRequest) returns (ScanMirrorReply) {}
+    rpc StatsFile (StatsFileRequest) returns (StatsFileReply) {}
+    rpc StatsMirror (StatsMirrorRequest) returns (StatsMirrorReply) {}
+    rpc Ping (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+
+    // Tools
+    rpc MatchMirror (MatchRequest) returns (MatchReply) {}
+}
+
+message VersionReply {
+    string Version = 1;
+	string Build = 2;  
+	string GoVersion = 3; 
+	string OS = 4;
+	string Arch = 5;
+	int32 GoMaxProcs = 6;
+}
+
+message MatchRequest {
+    string Pattern = 1;
+}
+
+message Mirror {
+    int32 ID = 1;
+    string Name = 2;
+    string HttpURL = 3;
+    string RsyncURL = 4;
+    string FtpURL = 5;
+    string SponsorName = 6;
+    string SponsorURL = 7;
+    string SponsorLogoURL = 8;
+    string AdminName = 9;
+    string AdminEmail = 10;
+    string CustomData = 11;
+    bool ContinentOnly = 12;
+    bool CountryOnly = 13;
+    bool ASOnly = 14;
+    int32 Score = 15;
+    float Latitude = 16;
+    float Longitude = 17;
+    string ContinentCode = 18;
+    string CountryCodes = 19;
+    string ExcludedCountryCodes = 20;
+    uint32 Asnum = 21;
+    string Comment = 22;
+    bool Enabled = 23;
+    bool Up = 24;
+    string ExcludeReason = 25;
+    google.protobuf.Timestamp StateSince = 26;
+    int32 AllowRedirects = 27;
+    google.protobuf.Timestamp LastSync = 28;
+    google.protobuf.Timestamp LastSuccessfulSync = 29;
+    google.protobuf.Timestamp LastModTime = 30;
+}
+
+message MirrorListReply {
+    repeated Mirror Mirrors = 1;
+}
+
+message MirrorID {
+    int32 ID = 1;
+    string Name = 2;
+}
+
+message MatchReply {
+    repeated MirrorID Mirrors = 1;
+}
+
+message ChangeStatusRequest {
+    int32 ID = 1;
+    bool Enabled = 2;
+}
+
+message MirrorIDRequest {
+    int32 ID = 1;
+}
+
+message AddMirrorReply {
+    float Latitude = 1;
+    float Longitude = 2;
+    string Country = 3;
+    string Continent = 4;
+    string ASN = 5;
+    repeated string Warnings = 6;
+}
+
+message RefreshRepositoryRequest {
+    bool Rehash = 1;
+}
+
+message ScanMirrorRequest {
+    int32 ID = 1;
+    bool AutoEnable = 2;
+    enum Method {
+        ALL = 0;
+        FTP = 1;
+        RSYNC = 2;
+    }
+    Method Protocol = 3;
+}
+
+message ScanMirrorReply {
+    bool Enabled = 1;
+}
+
+message StatsFileRequest {
+    string Pattern = 1;
+    google.protobuf.Timestamp DateStart = 2;
+    google.protobuf.Timestamp DateEnd = 3;
+}
+
+message StatsFileReply {
+    map<string, int64> files = 1;
+}
+
+message StatsMirrorRequest {
+    int32 ID = 1;
+    google.protobuf.Timestamp DateStart = 2;
+    google.protobuf.Timestamp DateEnd = 3;
+}
+
+message StatsMirrorReply {
+    Mirror Mirror = 1;
+    int64 Requests = 2;
+    int64 Bytes = 3;
+}

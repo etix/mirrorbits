@@ -295,3 +295,10 @@ func (t *Time) RedisScan(src interface{}) (err error) {
 	}
 	return err
 }
+
+// FromTime returns a Time from a time.Time
+func (t Time) FromTime(time time.Time) Time {
+	return Time{
+		Time: time,
+	}
+}

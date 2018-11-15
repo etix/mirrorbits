@@ -28,7 +28,7 @@ type RsyncScanner struct {
 }
 
 // Scan starts an rsync scan of the given mirror
-func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop chan bool) error {
+func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <-chan struct{}) error {
 	var env []string
 
 	if !strings.HasPrefix(rsyncURL, "rsync://") {

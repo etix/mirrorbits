@@ -19,13 +19,15 @@ matrix:
 before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y libgeoip-dev
+  - curl -L https://github.com/google/protobuf/releases/download/v3.5.1/protoc-3.5.1-linux-x86_64.zip -o /tmp/protoc.zip
+  - unzip /tmp/protoc.zip -d "$HOME"/protoc
 
 install:
   - go version
   - export GOBIN="$GOPATH/bin"
-  - export PATH="$PATH:$GOBIN"
+  - export PROTOCBIN="$HOME/protoc/bin"
+  - export PATH="$PATH:$PROTOCBIN:$GOBIN"
   - go env
 
 script:
-  - make
-  - make test
+  - make && make test

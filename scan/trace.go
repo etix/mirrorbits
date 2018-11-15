@@ -34,13 +34,13 @@ type Trace struct {
 	redis      *database.Redis
 	transport  http.Transport
 	httpClient http.Client
-	stop       chan bool
+	stop       <-chan struct{}
 }
 
 // NewTraceHandler returns a new instance of the trace file handler.
 // Trace files are used to compute the time offset between a mirror
 // and the local repository.
-func NewTraceHandler(redis *database.Redis, stop chan bool) *Trace {
+func NewTraceHandler(redis *database.Redis, stop <-chan struct{}) *Trace {
 	t := &Trace{
 		redis: redis,
 		stop:  stop,

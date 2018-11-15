@@ -21,17 +21,14 @@ import (
 	"github.com/etix/mirrorbits/logs"
 	"github.com/etix/mirrorbits/mirrors"
 	"github.com/etix/mirrorbits/process"
+	"github.com/etix/mirrorbits/rpc"
 	"github.com/op/go-logging"
+	"github.com/pkg/errors"
 )
 
 var (
 	log = logging.MustGetLogger("main")
 )
-
-func init() {
-	LoadConfig()
-	logs.ReloadLogs()
-}
 
 func main() {
 
@@ -46,14 +43,24 @@ func main() {
 	}
 
 	if core.Daemon {
+		LoadConfig()
+		logs.ReloadLogs()
+
 		process.WritePidFile()
 
 		// Show our nice welcome logo
 		fmt.Printf(core.Banner+"\n\n", core.VERSION)
 
+		/* Setup RPC */
+		rpcs := new(rpc.CLI)
+		if err := rpcs.Start(); err != nil {
+			log.Fatal(errors.Wrap(err, "rpc error"))
+		}
+
 		/* Connect to the database */
 		r := database.NewRedis()
 		r.ConnectPubsub()
+		rpcs.SetDatabase(r)
 		c := mirrors.NewCache(r)
 		h := http.HTTPServer(r, c)
 
@@ -65,6 +72,7 @@ func main() {
 
 		/* Handle SIGNALS */
 		k := make(chan os.Signal, 1)
+		rpcs.SetSignals(k)
 		signal.Notify(k,
 			syscall.SIGINT,  // Terminate
 			syscall.SIGTERM, // Terminate
@@ -157,8 +165,10 @@ func main() {
 			log.Notice("Server stopped gracefully.")
 		}
 	} else {
-		if err := cli.ParseCommands(core.Args()...); err != nil {
-			log.Fatal(err)
+		args := os.Args[len(os.Args)-core.NArg:]
+		if err := cli.ParseCommands(args...); err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			os.Exit(1)
 		}
 	}
 	os.Exit(0)

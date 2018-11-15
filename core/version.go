@@ -14,11 +14,34 @@ var (
 	DEV     = ""
 )
 
-func PrintVersion() {
-	fmt.Println("Version:", VERSION)
-	fmt.Println("Build:", BUILD+DEV)
-	fmt.Println("GoVersion:", runtime.Version())
-	fmt.Println("Operating System:", runtime.GOOS)
-	fmt.Println("Architecture:", runtime.GOARCH)
-	fmt.Println("Gomaxprocs:", runtime.GOMAXPROCS(0))
+// VersionInfo is a struct containing version related informations
+type VersionInfo struct {
+	Version    string
+	Build      string
+	GoVersion  string
+	OS         string
+	Arch       string
+	GoMaxProcs int
+}
+
+// GetVersionInfo returns the details of the current build
+func GetVersionInfo() VersionInfo {
+	return VersionInfo{
+		Version:    VERSION,
+		Build:      BUILD + DEV,
+		GoVersion:  runtime.Version(),
+		OS:         runtime.GOOS,
+		Arch:       runtime.GOARCH,
+		GoMaxProcs: runtime.GOMAXPROCS(0),
+	}
+}
+
+// PrintVersion prints the versions contained in a VersionReply
+func PrintVersion(info VersionInfo) {
+	fmt.Printf(" %-17s %s\n", "Version:", info.Version)
+	fmt.Printf(" %-17s %s\n", "Build:", info.Build)
+	fmt.Printf(" %-17s %s\n", "GoVersion:", info.GoVersion)
+	fmt.Printf(" %-17s %s\n", "Operating System:", info.OS)
+	fmt.Printf(" %-17s %s\n", "Architecture:", info.Arch)
+	fmt.Printf(" %-17s %d\n", "Gomaxprocs:", info.GoMaxProcs)
 }

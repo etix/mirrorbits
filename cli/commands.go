@@ -6,7 +6,7 @@ package cli
 import (
 	"bufio"
 	"bytes"
-	"errors"
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -14,47 +14,49 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"text/tabwriter"
 	"time"
 
 	"github.com/etix/mirrorbits/core"
-	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/mirrors"
-	"github.com/etix/mirrorbits/network"
-	"github.com/etix/mirrorbits/process"
-	"github.com/etix/mirrorbits/scan"
+	"github.com/etix/mirrorbits/rpc"
 	"github.com/etix/mirrorbits/utils"
-	"github.com/gomodule/redigo/redis"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/howeyc/gopass"
 	"github.com/op/go-logging"
+	"github.com/pkg/errors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
 )
 
 const (
-	commentSeparator = "##### Comments go below this line #####"
+	commentSeparator  = "##### Comments go below this line #####"
+	defaultRPCTimeout = time.Second * 10
 )
 
 var (
 	log = logging.MustGetLogger("main")
-
-	// ErrNoSyncMethod is returned when no sync protocol is available
-	ErrNoSyncMethod = errors.New("no suitable URL for the scan")
 )
 
 type cli struct {
-	redis *database.Redis
+	sync.Mutex
+	rpcconn *grpc.ClientConn
+	creds   *loginCreds
 }
 
 // ParseCommands parses the command line and call the appropriate functions
 func ParseCommands(args ...string) error {
 	c := &cli{
-		redis: database.NewRedisCli(),
+		creds: &loginCreds{
+			Password: core.RPCPassword,
+		},
 	}
 
 	if len(args) > 0 && args[0] != "help" {
@@ -63,10 +65,21 @@ func ParseCommands(args ...string) error {
 			fmt.Println("Error: Command not found:", args[0])
 			return c.CmdHelp()
 		}
+		if len(c.creds.Password) == 0 && core.RPCAskPass {
+			fmt.Print("Password: ")
+			passwd, err := gopass.GetPasswdMasked()
+			if err != nil {
+				return err
+			}
+			c.creds.Password = string(passwd)
+		}
 		ret := method.Func.CallSlice([]reflect.Value{
 			reflect.ValueOf(c),
 			reflect.ValueOf(args[1:]),
 		})[0].Interface()
+		if c.rpcconn != nil {
+			c.rpcconn.Close()
+		}
 		if ret == nil {
 			return nil
 		}
@@ -81,7 +94,9 @@ func (c *cli) getMethod(name string) (reflect.Method, bool) {
 }
 
 func (c *cli) CmdHelp() error {
-	help := fmt.Sprintf("Usage: mirrorbits [OPTIONS] COMMAND [arg...]\n\nA smart download redirector.\n\nCommands:\n")
+	help := fmt.Sprintf("Usage: mirrorbits [OPTIONS] COMMAND [arg...]\n\nA smart download redirector.\n\n")
+	help += fmt.Sprintf("Server commands:\n    %-10.10s%s\n\n", "daemon", "Start the server")
+	help += fmt.Sprintf("CLI commands:\n")
 	for _, command := range [][]string{
 		{"add", "Add a new mirror"},
 		{"disable", "Disable a mirror"},
@@ -134,26 +149,12 @@ func (c *cli) CmdList(args ...string) error {
 		return nil
 	}
 
-	conn, err := c.redis.Connect()
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	list, err := client.List(ctx, &empty.Empty{})
 	if err != nil {
-		log.Fatal("Redis: ", err)
-	}
-	defer conn.Close()
-
-	mirrorsIDs, err := c.redis.GetListOfMirrors()
-	if err != nil {
-		log.Fatal("Cannot fetch the list of mirrors: ", err)
-	}
-
-	conn.Send("MULTI")
-
-	for id := range mirrorsIDs {
-		conn.Send("HGETALL", fmt.Sprintf("MIRROR_%d", id))
-	}
-
-	res, err := redis.Values(conn.Do("EXEC"))
-	if err != nil {
-		log.Fatal("Redis: ", err)
+		log.Fatal("list error:", err)
 	}
 
 	w := new(tabwriter.Writer)
@@ -179,64 +180,58 @@ func (c *cli) CmdList(args ...string) error {
 	}
 	fmt.Fprint(w, "\n")
 
-	for _, e := range res {
-		var mirror mirrors.Mirror
-		res, ok := e.([]interface{})
-		if !ok {
-			log.Fatal("Typecast failed")
-		} else {
-			err := redis.ScanStruct([]interface{}(res), &mirror)
-			if err != nil {
-				log.Fatal("ScanStruct:", err)
+	for _, mirror := range list.Mirrors {
+		if *disabled == true {
+			if mirror.Enabled == true {
+				continue
 			}
-			if *disabled == true {
-				if mirror.Enabled == true {
-					continue
-				}
-			}
-			if *enabled == true {
-				if mirror.Enabled == false {
-					continue
-				}
-			}
-			if *down == true {
-				if mirror.Up == true {
-					continue
-				}
-			}
-			fmt.Fprintf(w, "%s ", mirror.Name)
-			if *score == true {
-				fmt.Fprintf(w, "\t%d ", mirror.Score)
-			}
-			if *http == true {
-				fmt.Fprintf(w, "\t%s ", mirror.HttpURL)
-			}
-			if *rsync == true {
-				fmt.Fprintf(w, "\t%s ", mirror.RsyncURL)
-			}
-			if *ftp == true {
-				fmt.Fprintf(w, "\t%s ", mirror.FtpURL)
-			}
-			if *location == true {
-				countries := strings.Split(mirror.CountryCodes, " ")
-				countryCode := "/"
-				if len(countries) >= 1 {
-					countryCode = countries[0]
-				}
-				fmt.Fprintf(w, "\t%s (%s) ", countryCode, mirror.ContinentCode)
-			}
-			if *state == true {
-				if mirror.Enabled == false {
-					fmt.Fprintf(w, "\tdisabled")
-				} else if mirror.Up == true {
-					fmt.Fprintf(w, "\tup")
-				} else {
-					fmt.Fprintf(w, "\tdown")
-				}
-				fmt.Fprintf(w, " \t(%s)", mirror.StateSince.Format(time.RFC1123))
-			}
-			fmt.Fprint(w, "\n")
 		}
+		if *enabled == true {
+			if mirror.Enabled == false {
+				continue
+			}
+		}
+		if *down == true {
+			if mirror.Up == true {
+				continue
+			}
+		}
+		stateSince, err := ptypes.Timestamp(mirror.StateSince)
+		if err != nil {
+			log.Fatal("list error:", err)
+		}
+		fmt.Fprintf(w, "%s ", mirror.Name)
+		if *score == true {
+			fmt.Fprintf(w, "\t%d ", mirror.Score)
+		}
+		if *http == true {
+			fmt.Fprintf(w, "\t%s ", mirror.HttpURL)
+		}
+		if *rsync == true {
+			fmt.Fprintf(w, "\t%s ", mirror.RsyncURL)
+		}
+		if *ftp == true {
+			fmt.Fprintf(w, "\t%s ", mirror.FtpURL)
+		}
+		if *location == true {
+			countries := strings.Split(mirror.CountryCodes, " ")
+			countryCode := "/"
+			if len(countries) >= 1 {
+				countryCode = countries[0]
+			}
+			fmt.Fprintf(w, "\t%s (%s) ", countryCode, mirror.ContinentCode)
+		}
+		if *state == true {
+			if mirror.Enabled == false {
+				fmt.Fprintf(w, "\tdisabled")
+			} else if mirror.Up == true {
+				fmt.Fprintf(w, "\tup")
+			} else {
+				fmt.Fprintf(w, "\tdown")
+			}
+			fmt.Fprintf(w, " \t(%s)", stateSince.Format(time.RFC1123))
+		}
+		fmt.Fprint(w, "\n")
 	}
 
 	w.Flush()
@@ -283,112 +278,65 @@ func (c *cli) CmdAdd(args ...string) error {
 		*http = "http://" + *http
 	}
 
-	u, err := url.Parse(*http)
+	_, err := url.Parse(*http)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Can't parse url\n")
 		os.Exit(-1)
 	}
 
-	ip, err := network.LookupMirrorIP(u.Host)
-	if err == network.ErrMultipleAddresses {
-		fmt.Fprintf(os.Stderr, "Warning: the hostname returned more than one address! This is highly unreliable.\n")
-	} else if err != nil {
-		log.Fatal("IP lookup failed: ", err.Error())
+	mirror := &mirrors.Mirror{
+		Name:           cmd.Arg(0),
+		HttpURL:        *http,
+		RsyncURL:       *rsync,
+		FtpURL:         *ftp,
+		SponsorName:    *sponsorName,
+		SponsorURL:     *sponsorURL,
+		SponsorLogoURL: *sponsorLogo,
+		AdminName:      *adminName,
+		AdminEmail:     *adminEmail,
+		CustomData:     *customData,
+		ContinentOnly:  *continentOnly,
+		CountryOnly:    *countryOnly,
+		ASOnly:         *asOnly,
+		Score:          *score,
+		Comment:        *comment,
 	}
 
-	geo := network.NewGeoIP()
-	if err := geo.LoadGeoIP(); err != nil {
-		log.Fatal(err.Error())
-	}
-
-	geoRec := geo.GetRecord(ip)
-
-	conn, err := c.redis.Connect()
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	m, err := rpc.MirrorToRPC(mirror)
 	if err != nil {
-		log.Fatal("Redis: ", err)
+		log.Fatal("edit error:", err)
 	}
-	defer conn.Close()
-
-	mirrorsIDs, err := c.redis.GetListOfMirrors()
+	reply, err := client.AddMirror(ctx, m)
 	if err != nil {
-		return err
+		if err.Error() == rpc.ErrNameAlreadyTaken.Error() {
+			log.Fatalf("Mirror %s already exists!\n", mirror.Name)
+		}
+		log.Fatal("edit error:", err)
 	}
-	for _, name := range mirrorsIDs {
-		if name == cmd.Arg(0) {
-			fmt.Fprintf(os.Stderr, "Mirror %s already exists!\n", cmd.Arg(0))
-			os.Exit(-1)
+
+	for i := 0; i < len(reply.Warnings); i++ {
+		fmt.Println(reply.Warnings[i])
+		if i == len(reply.Warnings)-1 {
+			fmt.Println("")
 		}
 	}
 
-	// Normalize the URLs
-	if http != nil {
-		*http = utils.NormalizeURL(*http)
-	}
-	if rsync != nil {
-		*rsync = utils.NormalizeURL(*rsync)
-	}
-	if ftp != nil {
-		*ftp = utils.NormalizeURL(*ftp)
-	}
-
-	var latitude, longitude float32
-	var continentCode, countryCode string
-
-	if geoRec.IsValid() {
-		latitude = geoRec.Latitude
-		longitude = geoRec.Longitude
-		continentCode = geoRec.ContinentCode
-		countryCode = geoRec.CountryCode
-	} else {
-		fmt.Fprintf(os.Stderr, "Warning: unable to guess the geographic location of %s\n", cmd.Arg(0))
+	if reply.Country != "" {
+		fmt.Println("Mirror location:")
+		fmt.Printf("Latitude:  %.4f\n", reply.Latitude)
+		fmt.Printf("Longitude: %.4f\n", reply.Longitude)
+		fmt.Printf("Continent: %s\n", reply.Continent)
+		fmt.Printf("Country:   %s\n", reply.Country)
+		fmt.Printf("ASN:       %s\n", reply.ASN)
+		fmt.Println("")
 	}
 
-	newid, err := redis.Int(conn.Do("INCR", "LAST_MID"))
-	if err != nil {
-		return err
-	}
+	fmt.Printf("Mirror '%s' added successfully\n", mirror.Name)
+	fmt.Printf("Enable this mirror using\n  $ mirrorbits enable %s\n", mirror.Name)
 
-	_, err = conn.Do("HMSET", fmt.Sprintf("MIRROR_%d", newid),
-		"ID", newid,
-		"name", cmd.Arg(0),
-		"http", *http,
-		"rsync", *rsync,
-		"ftp", *ftp,
-		"sponsorName", *sponsorName,
-		"sponsorURL", *sponsorURL,
-		"sponsorLogo", *sponsorLogo,
-		"adminName", *adminName,
-		"adminEmail", *adminEmail,
-		"customData", *customData,
-		"continentOnly", *continentOnly,
-		"countryOnly", *countryOnly,
-		"asOnly", *asOnly,
-		"score", *score,
-		"latitude", fmt.Sprintf("%f", latitude),
-		"longitude", fmt.Sprintf("%f", longitude),
-		"continentCode", continentCode,
-		"countryCodes", countryCode,
-		"asnum", geoRec.ASNum,
-		"comment", strings.TrimSpace(*comment),
-		"enabled", false,
-		"up", false)
-	if err != nil {
-		goto oops
-	}
-
-	_, err = conn.Do("HSET", "MIRRORS", newid, cmd.Arg(0))
-	if err != nil {
-		goto oops
-	}
-
-	// Publish update
-	database.Publish(conn, database.MIRROR_UPDATE, cmd.Arg(0))
-
-	fmt.Println("Mirror added successfully")
-	return nil
-oops:
-	fmt.Fprintf(os.Stderr, "Oops: %s", err)
-	os.Exit(-1)
 	return nil
 }
 
@@ -404,25 +352,7 @@ func (c *cli) CmdRemove(args ...string) error {
 		return nil
 	}
 
-	// Guess which mirror to use
-	list, err := c.matchMirror(cmd.Arg(0))
-	if err != nil {
-		return err
-	}
-	if len(list) == 0 {
-		fmt.Fprintf(os.Stderr, "No match for %s\n", cmd.Arg(0))
-		return nil
-	} else if len(list) > 1 {
-		for _, name := range list {
-			fmt.Fprintf(os.Stderr, "%s\n", name)
-		}
-		return nil
-	}
-
-	id, name, err := GetSingle(list)
-	if err != nil {
-		log.Fatal("Unexpected error:", err)
-	}
+	id, name := c.matchMirror(cmd.Arg(0))
 
 	if *force == false {
 		fmt.Printf("Removing %s, are you sure? [y/N]", name)
@@ -432,60 +362,19 @@ func (c *cli) CmdRemove(args ...string) error {
 		case 'y', 'Y':
 			break
 		default:
-			fmt.Println("Skipped")
 			return nil
 		}
 	}
 
-	conn, err := c.redis.Connect()
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	_, err := client.RemoveMirror(ctx, &rpc.MirrorIDRequest{
+		ID: int32(id),
+	})
 	if err != nil {
-		log.Fatal("Redis: ", err)
+		log.Fatal("remove error:", err)
 	}
-	defer conn.Close()
-
-	// First disable the mirror
-	mirrors.DisableMirror(c.redis, id)
-
-	// Get all files supported by the given mirror
-	files, err := redis.Strings(conn.Do("SMEMBERS", fmt.Sprintf("MIRRORFILES_%d", id)))
-	if err != nil {
-		log.Fatal("Error: Cannot fetch file list: ", err)
-	}
-
-	conn.Send("MULTI")
-
-	// Remove each FILEINFO / FILEMIRRORS
-	for _, file := range files {
-		conn.Send("DEL", fmt.Sprintf("FILEINFO_%d_%s", id, file))
-		conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", file), id)
-		conn.Send("PUBLISH", database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", id, file))
-	}
-
-	_, err = conn.Do("EXEC")
-	if err != nil {
-		log.Fatal("Error: FILEINFO/FILEMIRRORS keys could not be removed: ", err)
-	}
-
-	// Remove all other keys
-	_, err = conn.Do("DEL",
-		fmt.Sprintf("MIRROR_%d", id),
-		fmt.Sprintf("MIRRORFILES_%d", id),
-		fmt.Sprintf("MIRRORFILESTMP_%d", id),
-		fmt.Sprintf("HANDLEDFILES_%d", id),
-		fmt.Sprintf("SCANNING_%d", id))
-
-	if err != nil {
-		log.Fatal("Error: MIRROR keys could not be removed: ", err)
-	}
-
-	// Remove the last reference
-	_, err = conn.Do("HDEL", "MIRRORS", id)
-	if err != nil {
-		log.Fatal("Error: Could not remove the reference from key MIRRORS")
-	}
-
-	// Publish update
-	database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(id))
 
 	fmt.Printf("Mirror '%s' removed successfully\n", name)
 	return nil
@@ -497,6 +386,7 @@ func (c *cli) CmdScan(args ...string) error {
 	all := cmd.Bool("all", false, "Scan all mirrors at once")
 	ftp := cmd.Bool("ftp", false, "Force a scan using FTP")
 	rsync := cmd.Bool("rsync", false, "Force a scan using rsync")
+	timeout := cmd.Uint("timeout", 0, "Timeout in seconds")
 
 	if err := cmd.Parse(args); err != nil {
 		return nil
@@ -506,114 +396,69 @@ func (c *cli) CmdScan(args ...string) error {
 		return nil
 	}
 
-	conn, err := c.redis.Connect()
-	if err != nil {
-		log.Fatal("Redis: ", err)
-	}
-	defer conn.Close()
+	client := c.GetRPC()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// Check if the local repository has been scanned already
-	exists, err := redis.Bool(conn.Do("EXISTS", "FILES"))
-	if err != nil {
-		return err
-	}
-	if !exists {
-		fmt.Fprintf(os.Stderr, "Local repository not yet indexed.\nYou should run 'refresh' first!\n")
-		os.Exit(-1)
-	}
+	list := make(map[int]string)
 
-	var list map[int]string
-
+	// Get the list of mirrors to scan
 	if *all == true {
-		list, err = c.redis.GetListOfMirrors()
+		reply, err := client.MatchMirror(ctx, &rpc.MatchRequest{
+			Pattern: "", // Match all of them
+		})
 		if err != nil {
 			return errors.New("Cannot fetch the list of mirrors")
 		}
+
+		for _, m := range reply.Mirrors {
+			list[int(m.ID)] = m.Name
+		}
 	} else {
-		list, err = c.matchMirror(cmd.Arg(0))
-		if err != nil {
-			return err
-		}
-		if len(list) == 0 {
-			fmt.Fprintf(os.Stderr, "No match for %s\n", cmd.Arg(0))
-			return nil
-		} else if len(list) > 1 {
-			for _, e := range list {
-				fmt.Fprintf(os.Stderr, "%s\n", e)
-			}
-			return nil
-		}
+		// Single mirror
+		id, name := c.matchMirror(cmd.Arg(0))
+		list[id] = name
 	}
 
-	var wg sync.WaitGroup
-	stop := make(chan bool)
-	trace := scan.NewTraceHandler(c.redis, stop)
+	// Set the method of the scan (if not default)
+	var method rpc.ScanMirrorRequest_Method
+	if *ftp == false && *rsync == false {
+		method = rpc.ScanMirrorRequest_ALL
+	} else if *rsync == true {
+		method = rpc.ScanMirrorRequest_RSYNC
+	} else if *ftp == true {
+		method = rpc.ScanMirrorRequest_FTP
+	}
 
 	for id, name := range list {
 
-		key := fmt.Sprintf("MIRROR_%d", id)
-		m, err := redis.Values(conn.Do("HGETALL", key))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot fetch mirror details: %s\n", err)
-			return err
+		if *timeout > 0 {
+			ctx, cancel = context.WithTimeout(context.Background(), time.Duration(*timeout)*time.Second)
+			defer cancel()
 		}
 
-		var mirror mirrors.Mirror
-		err = redis.ScanStruct(m, &mirror)
+		fmt.Printf("Scanning %s... ", name)
+
+		reply, err := client.ScanMirror(ctx, &rpc.ScanMirrorRequest{
+			ID:         int32(id),
+			AutoEnable: *enable,
+			Protocol:   method,
+		})
 		if err != nil {
-			return err
-		}
-
-		log.Noticef("Scanning %s...", name)
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := trace.GetLastUpdate(mirror)
-			if err != nil && err != scan.ErrNoTrace {
-				if numError, ok := err.(*strconv.NumError); ok {
-					if numError.Err == strconv.ErrSyntax {
-						log.Warningf("[%s] parsing trace file failed: %s is not a valid timestamp", mirror.Name, strconv.Quote(numError.Num))
-						return
-					}
-				} else {
-					log.Warningf("[%s] fetching trace file failed: %s", mirror.Name, err)
-				}
+			s := status.Convert(err)
+			if s.Code() == codes.FailedPrecondition || len(list) == 1 {
+				return errors.New("\nscan error: " + grpc.ErrorDesc(err))
 			}
-		}()
-
-		err = ErrNoSyncMethod
-
-		if *rsync == true || *ftp == true {
-			// Use the requested protocol
-			if *rsync == true && mirror.RsyncURL != "" {
-				err = scan.Scan(scan.RSYNC, c.redis, mirror.RsyncURL, id, nil)
-			} else if *ftp == true && mirror.FtpURL != "" {
-				err = scan.Scan(scan.FTP, c.redis, mirror.FtpURL, id, nil)
-			}
+			fmt.Println("scan error:", grpc.ErrorDesc(err))
+			continue
 		} else {
-			// Use rsync (if applicable) and fallback to FTP
-			if mirror.RsyncURL != "" {
-				err = scan.Scan(scan.RSYNC, c.redis, mirror.RsyncURL, id, nil)
+			fmt.Println("done")
+			if reply.Enabled {
+				fmt.Println("  ∟ Enabled")
 			}
-			if err != nil && mirror.FtpURL != "" {
-				err = scan.Scan(scan.FTP, c.redis, mirror.FtpURL, id, nil)
-			}
-		}
-
-		if err != nil {
-			log.Errorf("Scanning %s failed: %s", name, err.Error())
-		}
-
-		// Finally enable the mirror if requested
-		if err == nil && *enable == true {
-			if err := mirrors.EnableMirror(c.redis, id); err != nil {
-				log.Fatal("Couldn't enable the mirror: ", err)
-			}
-			fmt.Println("Mirror enabled successfully")
 		}
 	}
-	wg.Wait()
+
 	return nil
 }
 
@@ -629,44 +474,67 @@ func (c *cli) CmdRefresh(args ...string) error {
 		return nil
 	}
 
-	err := scan.ScanSource(c.redis, *rehash, nil)
-	return err
+	fmt.Print("Refreshing the local repository... ")
+
+	client := c.GetRPC()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_, err := client.RefreshRepository(ctx, &rpc.RefreshRepositoryRequest{
+		Rehash: *rehash,
+	})
+	if err != nil {
+		fmt.Println("")
+		log.Fatal(err)
+	}
+
+	fmt.Println("done")
+
+	return nil
 }
 
-func (c *cli) matchMirror(text string) (map[int]string, error) {
-	if len(text) == 0 {
-		return nil, errors.New("Nothing to match")
+func (c *cli) matchMirror(pattern string) (id int, name string) {
+	if len(pattern) == 0 {
+		return -1, ""
 	}
 
-	conn, err := c.redis.Connect()
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	reply, err := client.MatchMirror(ctx, &rpc.MatchRequest{
+		Pattern: pattern,
+	})
 	if err != nil {
-		log.Fatal("Redis: ", err)
-	}
-	defer conn.Close()
-
-	mirrorsIDs, err := c.redis.GetListOfMirrors()
-	if err != nil {
-		return nil, errors.New("Cannot fetch the list of mirrors")
+		fmt.Fprintf(os.Stderr, "mirror matching: %s\n", err)
+		os.Exit(1)
 	}
 
-	for id, name := range mirrorsIDs {
-		if !strings.Contains(name, text) {
-			delete(mirrorsIDs, id)
+	switch len(reply.Mirrors) {
+	case 0:
+		fmt.Fprintf(os.Stderr, "No match for '%s'\n", pattern)
+		os.Exit(1)
+	case 1:
+		id, name, err := GetSingle(reply.Mirrors)
+		if err != nil {
+			log.Fatal("unexpected error:", err)
 		}
+		return id, name
+	default:
+		fmt.Fprintln(os.Stderr, "Multiple match:")
+		for _, mirror := range reply.Mirrors {
+			fmt.Fprintf(os.Stderr, "  %s\n", mirror.Name)
+		}
+		os.Exit(1)
 	}
-	return mirrorsIDs, nil
+	return
 }
 
-func GetSingle(list map[int]string) (int, string, error) {
+func GetSingle(list []*rpc.MirrorID) (int, string, error) {
 	if len(list) == 0 {
 		return -1, "", errors.New("list is empty")
 	} else if len(list) > 1 {
 		return -1, "", errors.New("too many results")
 	}
-	for id, name := range list {
-		return id, name, nil
-	}
-	return -1, "", nil
+	return int(list[0].ID), list[0].Name, nil
 }
 
 func (c *cli) CmdEdit(args ...string) error {
@@ -687,45 +555,20 @@ func (c *cli) CmdEdit(args ...string) error {
 		log.Fatal("Environment variable $EDITOR not set")
 	}
 
-	// Guess which mirror to use
-	list, err := c.matchMirror(cmd.Arg(0))
-	if err != nil {
-		return err
-	}
-	if len(list) == 0 {
-		fmt.Fprintf(os.Stderr, "No match for %s\n", cmd.Arg(0))
-		return nil
-	} else if len(list) > 1 {
-		for _, e := range list {
-			fmt.Fprintf(os.Stderr, "%s\n", e)
-		}
-		return nil
-	}
+	id, _ := c.matchMirror(cmd.Arg(0))
 
-	id, name, err := GetSingle(list)
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	rpcm, err := client.MirrorInfo(ctx, &rpc.MirrorIDRequest{
+		ID: int32(id),
+	})
 	if err != nil {
-		return err
+		log.Fatal("edit error:", err)
 	}
-
-	// Connect to the database
-	conn, err := c.redis.Connect()
+	mirror, err := rpc.MirrorFromRPC(rpcm)
 	if err != nil {
-		log.Fatal("Redis: ", err)
-	}
-	defer conn.Close()
-
-	// Get the mirror information
-	key := fmt.Sprintf("MIRROR_%d", id)
-	m, err := redis.Values(conn.Do("HGETALL", key))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Cannot fetch mirror details: %s\n", err)
-		return err
-	}
-
-	var mirror mirrors.Mirror
-	err = redis.ScanStruct(m, &mirror)
-	if err != nil {
-		return err
+		log.Fatal("edit error:", err)
 	}
 
 	// Generate a yaml configuration string from the struct
@@ -771,10 +614,8 @@ reopen:
 		return nil
 	}
 
-	var (
-		yamlstr = string(out)
-		comment string
-	)
+	var comment string
+	yamlstr := string(out)
 
 	commentIndex := strings.Index(yamlstr, commentSeparator)
 	if commentIndex > 0 {
@@ -809,87 +650,28 @@ reopen:
 		}
 	}
 
-	if mirror.Name != name {
-		// Name has been changed, verify it's not already
-		// taken by an other mirror.
-		mirrorsIDs, err := c.redis.GetListOfMirrors()
-		if err != nil {
-			return err
-		}
-
-		for _, n := range mirrorsIDs {
-			if n == mirror.Name {
-				switch reopen(errors.New("Name already taken")) {
-				case true:
-					goto reopen
-				case false:
-					return nil
-				}
-			}
-		}
-	}
-
-	// Reformat contry codes
-	mirror.CountryCodes = utils.SanitizeLocationCodes(mirror.CountryCodes)
-	mirror.ExcludedCountryCodes = utils.SanitizeLocationCodes(mirror.ExcludedCountryCodes)
-
-	// Reformat continent code
-	mirror.ContinentCode = utils.SanitizeLocationCodes(mirror.ContinentCode)
-
-	// Normalize URLs
-	if mirror.HttpURL != "" {
-		mirror.HttpURL = utils.NormalizeURL(mirror.HttpURL)
-	}
-	if mirror.RsyncURL != "" {
-		mirror.RsyncURL = utils.NormalizeURL(mirror.RsyncURL)
-	}
-	if mirror.FtpURL != "" {
-		mirror.FtpURL = utils.NormalizeURL(mirror.FtpURL)
-	}
-
 	mirror.Comment = comment
 
-	// Save the values back into redis
-	conn.Send("MULTI")
-	conn.Send("HMSET", key,
-		"name", mirror.Name,
-		"http", mirror.HttpURL,
-		"rsync", mirror.RsyncURL,
-		"ftp", mirror.FtpURL,
-		"sponsorName", mirror.SponsorName,
-		"sponsorURL", mirror.SponsorURL,
-		"sponsorLogo", mirror.SponsorLogoURL,
-		"adminName", mirror.AdminName,
-		"adminEmail", mirror.AdminEmail,
-		"customData", mirror.CustomData,
-		"continentOnly", mirror.ContinentOnly,
-		"countryOnly", mirror.CountryOnly,
-		"asOnly", mirror.ASOnly,
-		"score", mirror.Score,
-		"latitude", mirror.Latitude,
-		"longitude", mirror.Longitude,
-		"continentCode", mirror.ContinentCode,
-		"countryCodes", mirror.CountryCodes,
-		"excludedCountryCodes", mirror.ExcludedCountryCodes,
-		"asnum", mirror.Asnum,
-		"comment", mirror.Comment,
-		"allowredirects", mirror.AllowRedirects,
-		"enabled", mirror.Enabled)
-
-	if mirror.Name != name {
-		// The name of the mirror has been changed.
-		conn.Send("HSET", "MIRRORS", id, mirror.Name)
-	}
-
-	_, err = conn.Do("EXEC")
+	ctx, cancel = context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	m, err := rpc.MirrorToRPC(mirror)
 	if err != nil {
-		log.Fatal("Couldn't save the configuration into redis:", err)
+		log.Fatal("edit error:", err)
+	}
+	_, err = client.UpdateMirror(ctx, m)
+	if err != nil {
+		if err.Error() == rpc.ErrNameAlreadyTaken.Error() {
+			switch reopen(errors.New("Name already taken")) {
+			case true:
+				goto reopen
+			case false:
+				return nil
+			}
+		}
+		log.Fatal("edit error:", err)
 	}
 
-	// Publish update
-	database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(id))
-
-	fmt.Printf("Mirror '%s' edited successfully\n", name)
+	fmt.Printf("Mirror '%s' edited successfully\n", mirror.Name)
 
 	return nil
 }
@@ -905,52 +687,30 @@ func (c *cli) CmdShow(args ...string) error {
 		return nil
 	}
 
-	// Guess which mirror to use
-	list, err := c.matchMirror(cmd.Arg(0))
-	if err != nil {
-		return err
-	}
-	if len(list) == 0 {
-		fmt.Fprintf(os.Stderr, "No match for %s\n", cmd.Arg(0))
-		return nil
-	} else if len(list) > 1 {
-		for _, e := range list {
-			fmt.Fprintf(os.Stderr, "%s\n", e)
-		}
-		return nil
-	}
+	id, _ := c.matchMirror(cmd.Arg(0))
 
-	id, name, err := GetSingle(list)
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	rpcm, err := client.MirrorInfo(ctx, &rpc.MirrorIDRequest{
+		ID: int32(id),
+	})
 	if err != nil {
-		return err
+		log.Fatal("edit error:", err)
 	}
-
-	// Connect to the database
-	conn, err := c.redis.Connect()
+	mirror, err := rpc.MirrorFromRPC(rpcm)
 	if err != nil {
-		log.Fatal("Redis: ", err)
-	}
-	defer conn.Close()
-
-	// Get the mirror information
-	key := fmt.Sprintf("MIRROR_%d", id)
-	m, err := redis.Values(conn.Do("HGETALL", key))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Cannot fetch mirror details: %s\n", err)
-		return err
-	}
-
-	var mirror mirrors.Mirror
-	err = redis.ScanStruct(m, &mirror)
-	if err != nil {
-		return err
+		log.Fatal("edit error:", err)
 	}
 
 	// Generate a yaml configuration string from the struct
 	out, err := yaml.Marshal(mirror)
+	if err != nil {
+		log.Fatal("show error:", err)
+	}
 
-	fmt.Printf("Mirror: %s\n%s\nComment:\n%s\n", name, out, mirror.Comment)
-	return err
+	fmt.Printf("%s\nComment:\n%s\n", out, mirror.Comment)
+	return nil
 }
 
 func (c *cli) CmdExport(args ...string) error {
@@ -974,67 +734,42 @@ func (c *cli) CmdExport(args ...string) error {
 		return nil
 	}
 
-	conn, err := c.redis.Connect()
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	list, err := client.List(ctx, &empty.Empty{})
 	if err != nil {
-		log.Fatal("Redis: ", err)
-	}
-	defer conn.Close()
-
-	mirrorsIDs, err := c.redis.GetListOfMirrors()
-	if err != nil {
-		log.Fatal("Cannot fetch the list of mirrors: ", err)
-	}
-
-	conn.Send("MULTI")
-
-	for id := range mirrorsIDs {
-		conn.Send("HGETALL", fmt.Sprintf("MIRROR_%d", id))
-	}
-
-	res, err := redis.Values(conn.Do("EXEC"))
-	if err != nil {
-		log.Fatal("Redis: ", err)
+		log.Fatal("export error:", err)
 	}
 
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
 
-	for _, e := range res {
-		var mirror mirrors.Mirror
-		res, ok := e.([]interface{})
-		if !ok {
-			log.Fatal("Typecast failed")
-		} else {
-			err := redis.ScanStruct([]interface{}(res), &mirror)
-			if err != nil {
-				log.Fatal("ScanStruct:", err)
+	for _, m := range list.Mirrors {
+		if *disabled == false {
+			if m.Enabled == false {
+				continue
 			}
-			if *disabled == false {
-				if mirror.Enabled == false {
-					continue
-				}
-			}
-			ccodes := strings.Fields(mirror.CountryCodes)
+		}
+		ccodes := strings.Fields(m.CountryCodes)
 
-			urls := make([]string, 0, 3)
-			if *rsync == true && mirror.RsyncURL != "" {
-				urls = append(urls, mirror.RsyncURL)
-			}
-			if *http == true && mirror.HttpURL != "" {
-				urls = append(urls, mirror.HttpURL)
-			}
-			if *ftp == true && mirror.FtpURL != "" {
-				urls = append(urls, mirror.FtpURL)
-			}
+		urls := make([]string, 0, 3)
+		if *rsync == true && m.RsyncURL != "" {
+			urls = append(urls, m.RsyncURL)
+		}
+		if *http == true && m.HttpURL != "" {
+			urls = append(urls, m.HttpURL)
+		}
+		if *ftp == true && m.FtpURL != "" {
+			urls = append(urls, m.FtpURL)
+		}
 
-			for _, u := range urls {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", ccodes[0], u, mirror.AdminEmail)
-			}
+		for _, u := range urls {
+			fmt.Fprintf(w, "%s\t%s\t%s\n", ccodes[0], u, m.AdminEmail)
 		}
 	}
 
 	w.Flush()
-
 	return nil
 }
 
@@ -1049,33 +784,7 @@ func (c *cli) CmdEnable(args ...string) error {
 		return nil
 	}
 
-	// Guess which mirror to use
-
-	list, err := c.matchMirror(cmd.Arg(0))
-	if err != nil {
-		return err
-	}
-	if len(list) == 0 {
-		fmt.Fprintf(os.Stderr, "No match for %s\n", cmd.Arg(0))
-		return nil
-	} else if len(list) > 1 {
-		for _, e := range list {
-			fmt.Fprintf(os.Stderr, "%s\n", e)
-		}
-		return nil
-	}
-
-	id, name, err := GetSingle(list)
-	if err != nil {
-		return err
-	}
-
-	err = mirrors.EnableMirror(c.redis, id)
-	if err != nil {
-		log.Fatalf("Couldn't enable mirror '%s': %s\n", name, err)
-	}
-
-	fmt.Printf("Mirror '%s' enabled successfully\n", name)
+	c.changeStatus(cmd.Arg(0), true)
 	return nil
 }
 
@@ -1090,34 +799,34 @@ func (c *cli) CmdDisable(args ...string) error {
 		return nil
 	}
 
-	// Guess which mirror to use
-
-	list, err := c.matchMirror(cmd.Arg(0))
-	if err != nil {
-		return err
-	}
-	if len(list) == 0 {
-		fmt.Fprintf(os.Stderr, "No match for %s\n", cmd.Arg(0))
-		return nil
-	} else if len(list) > 1 {
-		for _, e := range list {
-			fmt.Fprintf(os.Stderr, "%s\n", e)
-		}
-		return nil
-	}
-
-	id, name, err := GetSingle(list)
-	if err != nil {
-		return err
-	}
-
-	err = mirrors.DisableMirror(c.redis, id)
-	if err != nil {
-		log.Fatalf("Couldn't disable mirror '%s': %s\n", name, err)
-	}
-
-	fmt.Printf("Mirror '%s' disabled successfully\n", name)
+	c.changeStatus(cmd.Arg(0), false)
 	return nil
+}
+
+func (c *cli) changeStatus(pattern string, enabled bool) {
+	id, name := c.matchMirror(pattern)
+
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	_, err := client.ChangeStatus(ctx, &rpc.ChangeStatusRequest{
+		ID:      int32(id),
+		Enabled: enabled,
+	})
+	if err != nil {
+		if enabled {
+			log.Fatalf("Couldn't enable mirror '%s': %s\n", name, err)
+		} else {
+			log.Fatalf("Couldn't disable mirror '%s': %s\n", name, err)
+		}
+	}
+
+	if enabled {
+		fmt.Printf("Mirror '%s' enabled successfully\n", name)
+	} else {
+		fmt.Printf("Mirror '%s' disabled successfully\n", name)
+	}
+	return
 }
 
 func (c *cli) CmdStats(args ...string) error {
@@ -1134,83 +843,49 @@ func (c *cli) CmdStats(args ...string) error {
 		return nil
 	}
 
-	conn, err := c.redis.Connect()
-	if err != nil {
-		log.Fatal("Redis: ", err)
-	}
-	defer conn.Close()
-
 	start, err := time.Parse("2006-1-2", *dateStart)
 	if err != nil {
 		start = time.Now()
 	}
+	startproto, _ := ptypes.TimestampProto(start)
 
 	end, err := time.Parse("2006-1-2", *dateEnd)
 	if err != nil {
 		end = time.Now()
 	}
+	endproto, _ := ptypes.TimestampProto(end)
 
-	tkcoverage := utils.TimeKeyCoverage(start, end)
-	for _, b := range tkcoverage {
-		log.Debugf("Requesting %s", b)
-	}
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
 
 	if cmd.Arg(0) == "file" {
 		// File stats
 
-		re, err := regexp.Compile(cmd.Arg(1))
+		reply, err := client.StatsFile(ctx, &rpc.StatsFileRequest{
+			Pattern:   cmd.Arg(1),
+			DateStart: startproto,
+			DateEnd:   endproto,
+		})
 		if err != nil {
-			return err
-		}
-
-		conn.Send("MULTI")
-
-		for _, k := range tkcoverage {
-			conn.Send("HGETALL", "STATS_FILE_"+k)
-		}
-
-		stats, err := redis.Values(conn.Do("EXEC"))
-		if err != nil {
-			log.Criticalf("Cannot fetch stats: %s", err)
-			return err
-		}
-
-		var requests int64
-		m := make(map[string]int64)
-
-		for _, res := range stats {
-			line, ok := res.([]interface{})
-			if !ok {
-				log.Fatal("Typecast failed")
-			} else {
-				stats := []interface{}(line)
-				for i := 0; i < len(stats); i += 2 {
-					path, _ := redis.String(stats[i], nil)
-					matched := re.MatchString(path)
-					if err != nil {
-						log.Error(err.Error())
-					} else if matched {
-						reqs, _ := redis.Int64(stats[i+1], nil)
-						m[path] += reqs
-						requests += reqs
-					}
-				}
-			}
+			log.Fatal("file stats error:", err)
 		}
 
 		// Format the results
 		w := new(tabwriter.Writer)
 		w.Init(os.Stdout, 0, 8, 0, '\t', 0)
 
-		// Sort keys
+		// Sort keys and count requests
 		var keys []string
-		for k := range m {
+		var requests int64
+		for k, req := range reply.Files {
+			requests += req
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
 
 		for _, k := range keys {
-			fmt.Fprintf(w, "%s:\t%d\n", k, m[k])
+			fmt.Fprintf(w, "%s:\t%d\n", k, reply.Files[k])
 		}
 
 		if len(keys) > 0 {
@@ -1223,63 +898,15 @@ func (c *cli) CmdStats(args ...string) error {
 	} else if cmd.Arg(0) == "mirror" {
 		// Mirror stats
 
-		list, err := c.matchMirror(cmd.Arg(1))
+		id, name := c.matchMirror(cmd.Arg(1))
+
+		reply, err := client.StatsMirror(ctx, &rpc.StatsMirrorRequest{
+			ID:        int32(id),
+			DateStart: startproto,
+			DateEnd:   endproto,
+		})
 		if err != nil {
-			return err
-		}
-		if len(list) == 0 {
-			fmt.Fprintf(os.Stderr, "No match for mirror %s\n", cmd.Arg(1))
-			return nil
-		} else if len(list) > 1 {
-			for _, e := range list {
-				fmt.Fprintf(os.Stderr, "%s\n", e)
-			}
-			return nil
-		}
-
-		id, name, err := GetSingle(list)
-		if err != nil {
-			log.Fatal("Unexpected error:", err)
-		}
-
-		conn.Send("MULTI")
-
-		// Fetch the stats
-		for _, k := range tkcoverage {
-			conn.Send("HGET", "STATS_MIRROR_"+k, id)
-			conn.Send("HGET", "STATS_MIRROR_BYTES_"+k, id)
-		}
-
-		stats, err := redis.Strings(conn.Do("EXEC"))
-		if err != nil {
-			log.Critical("Cannot fetch stats: %s", err)
-			return err
-		}
-
-		// Fetch the mirror struct
-		m, err := redis.Values(conn.Do("HGETALL", fmt.Sprintf("MIRROR_%d", id)))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot fetch mirror details: %s\n", err)
-			return err
-		}
-
-		var mirror mirrors.Mirror
-		err = redis.ScanStruct(m, &mirror)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot fetch mirror details: %s\n", err)
-			return err
-		}
-
-		var (
-			requests int64
-			bytes    int64
-		)
-
-		for i := 0; i < len(stats); i += 2 {
-			v1, _ := strconv.ParseInt(stats[i], 10, 64)
-			v2, _ := strconv.ParseInt(stats[i+1], 10, 64)
-			requests += v1
-			bytes += v2
+			log.Fatal("mirror stats error:", err)
 		}
 
 		// Format the results
@@ -1287,19 +914,19 @@ func (c *cli) CmdStats(args ...string) error {
 		w.Init(os.Stdout, 0, 8, 0, '\t', 0)
 
 		fmt.Fprintf(w, "Identifier:\t%s\n", name)
-		if !mirror.Enabled {
+		if !reply.Mirror.Enabled {
 			fmt.Fprintf(w, "Status:\tdisabled\n")
-		} else if mirror.Up {
+		} else if reply.Mirror.Up {
 			fmt.Fprintf(w, "Status:\tup\n")
 		} else {
 			fmt.Fprintf(w, "Status:\tdown\n")
 		}
-		fmt.Fprintf(w, "Download requests:\t%d\n", requests)
+		fmt.Fprintf(w, "Download requests:\t%d\n", reply.Requests)
 		fmt.Fprint(w, "Bytes transferred:\t")
 		if *human {
-			fmt.Fprintln(w, utils.ReadableSize(bytes))
+			fmt.Fprintln(w, utils.ReadableSize(reply.Bytes))
 		} else {
-			fmt.Fprintln(w, bytes)
+			fmt.Fprintln(w, reply.Bytes)
 		}
 		w.Flush()
 	}
@@ -1308,32 +935,53 @@ func (c *cli) CmdStats(args ...string) error {
 }
 
 func (c *cli) CmdReload(args ...string) error {
-	pid := process.GetRemoteProcPid()
-	if pid > 0 {
-		err := syscall.Kill(pid, syscall.SIGHUP)
-		if err != nil {
-			log.Errorf("Unable to reload configuration: %v", err)
-		}
-	} else {
-		log.Error("No pid found. Ensures the server is running.")
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	_, err := client.Reload(ctx, &empty.Empty{})
+	if err != nil {
+		log.Fatal("upgrade error:", err)
 	}
+
 	return nil
 }
 
 func (c *cli) CmdUpgrade(args ...string) error {
-	pid := process.GetRemoteProcPid()
-	if pid > 0 {
-		err := syscall.Kill(pid, syscall.SIGUSR2)
-		if err != nil {
-			log.Errorf("Unable to upgrade binary: %v", err)
-		}
-	} else {
-		log.Error("No pid found. Ensures the server is running.")
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	_, err := client.Upgrade(ctx, &empty.Empty{})
+	if err != nil {
+		log.Fatal("upgrade error:", err)
 	}
+
 	return nil
 }
 
 func (c *cli) CmdVersion(args ...string) error {
-	core.PrintVersion()
+	fmt.Printf("Client:\n")
+	core.PrintVersion(core.GetVersionInfo())
+	fmt.Println()
+
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	reply, err := client.GetVersion(ctx, &empty.Empty{})
+	if err != nil {
+		s := status.Convert(err)
+		return errors.Wrap(s.Err(), "version error")
+	}
+
+	if reply.Version != "" {
+		fmt.Printf("Server:\n")
+		core.PrintVersion(core.VersionInfo{
+			Version:    reply.Version,
+			Build:      reply.Build,
+			GoVersion:  reply.GoVersion,
+			OS:         reply.OS,
+			Arch:       reply.Arch,
+			GoMaxProcs: int(reply.GoMaxProcs),
+		})
+	}
 	return nil
 }

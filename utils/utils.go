@@ -108,7 +108,7 @@ func IsPrimaryCountry(clientInfo network.GeoIPRecord, list []string) bool {
 }
 
 // IsStopped returns true if a stop has been requested
-func IsStopped(stop chan bool) bool {
+func IsStopped(stop <-chan struct{}) bool {
 	select {
 	case <-stop:
 		return true
