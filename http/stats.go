@@ -40,11 +40,12 @@ var (
 
 // Stats is the internal structure for the download stats
 type Stats struct {
-	r         *database.Redis
-	countChan chan countItem
-	mapStats  map[string]int64
-	stop      chan bool
-	wg        sync.WaitGroup
+	r          *database.Redis
+	countChan  chan countItem
+	mapStats   map[string]int64
+	stop       chan bool
+	wg         sync.WaitGroup
+	downgraded bool
 }
 
 type countItem struct {
@@ -116,6 +117,16 @@ func (s *Stats) pushStats() {
 
 	rconn := s.r.Get()
 	defer rconn.Close()
+
+	if rconn.Err() != nil {
+		if s.downgraded == false {
+			log.Warningf("Uncommited stats kept in-memory: %v", rconn.Err())
+		}
+
+		s.downgraded = true
+		return
+	}
+
 	rconn.Send("MULTI")
 
 	for k, v := range s.mapStats {
@@ -173,6 +184,8 @@ func (s *Stats) pushStats() {
 		log.Errorf("Stats: could not save stats to redis: %s", err.Error())
 		return
 	}
+
+	s.downgraded = false
 
 	// Clear the map
 	s.mapStats = make(map[string]int64)
