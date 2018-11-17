@@ -82,33 +82,6 @@ The resulting executable should now live in your */usr/local/bin* directory. You
 
 A sample configuration file can be found [here](mirrorbits.conf).
 
-Option | description
------- | -----------
-Repository | Path to your own copy of the repository
-Templates | Path containing the templates
-OutputMode | auto: based on the *Accept* header content<br>redirect: do an HTTP redirect to the destination<br>json: return a JSON formatted document (also known as API mode)
-ListenAddress | Local address and port to bind
-Gzip | Use gzip compression for the JSON responses
-RedisAddress | Address and port of the Redis database
-RedisPassword | Password to access the Redis database
-RedisDB | Database index
-RedisSentinelMasterName | Name of the redis-sentinel cluster
-RedisSentinels | List of redis-sentinel hosts
-LogDir | Path to the directory where to save log files
-TraceFileLocation | Relative path to a trace file (from the repository root) containing a Unix timestamp regularly updated
-GeoipDatabasePath | Path to the geoip databases
-ConcurrentSync | Maximum number of server sync (rsync/ftp) do to simultaneously
-ScanInterval | Interval between rsync/ftp synchronizations (in minutes)
-CheckInterval | Interval between mirrors health's checks (in minutes)
-RepositoryScanInterval | Interval between scans of the local repository (in minutes, 0 to disable)
-Hashes | List of file hashes to computes (SHA1, SHA256, MD5)
-DisallowRedirects | Disable any mirror trying to do an HTTP redirect
-WeightDistributionRange | Multiplier of the distance to the first mirror to find other possible mirrors in order to distribute the load
-DisableOnMissingFile | Disable a mirror if an advertised file on rsync/ftp appears to be missing on HTTP
-MaxLinkHeaders | Amount of backup mirror locations returned in HTTP headers
-Fallbacks | A list of possible mirrors to use as fallback if a request fails or if the database is unreachable. **These mirrors are not tracked by mirrorbits.** It is assumed they have all the files available in the local repository.
-LocalJSPath | A local path or URL containing the JavaScript used by the templates. If this is not set (the default), the JavaScript will just be loaded from the usual CDNs. See also `contrib/localjs/fetchfiles.sh`.
-
 ## Running
 
 Mirrorbits is a self-contained application and can act, at the same time, as the server and the cli.
