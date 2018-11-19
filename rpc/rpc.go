@@ -38,27 +38,35 @@ var (
 
 // CLI object handles the server side RPC of the CLI
 type CLI struct {
-	sig   chan<- os.Signal
-	redis *database.Redis
+	listener net.Listener
+	server   *grpc.Server
+	sig      chan<- os.Signal
+	redis    *database.Redis
 }
 
 func (c *CLI) Start() error {
-	lis, err := net.Listen("tcp", GetConfig().RPCListenAddress)
+	var err error
+	c.listener, err = net.Listen("tcp", GetConfig().RPCListenAddress)
 	if err != nil {
 		return err
 	}
-	s := grpc.NewServer(
+	c.server = grpc.NewServer(
 		grpc.UnaryInterceptor(UnaryInterceptor),
 		grpc.StreamInterceptor(StreamInterceptor),
 	)
-	RegisterCLIServer(s, c)
-	reflection.Register(s)
+	RegisterCLIServer(c.server, c)
+	reflection.Register(c.server)
 	go func() {
-		if err := s.Serve(lis); err != nil {
+		if err := c.server.Serve(c.listener); err != nil {
 			log.Fatalf("failed to serve rpc: %v", err)
 		}
 	}()
 	return nil
+}
+
+func (c *CLI) Close() error {
+	c.server.Stop()
+	return c.listener.Close()
 }
 
 func (c *CLI) SetSignals(sig chan<- os.Signal) {

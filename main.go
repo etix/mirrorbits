@@ -92,6 +92,7 @@ func main() {
 					os.Exit(0)
 				case syscall.SIGQUIT:
 					m.Stop()
+					rpcs.Close()
 					if h.Listener != nil {
 						log.Notice("Waiting for running tasks to finish...")
 						h.Stop(5 * time.Second)
@@ -116,6 +117,7 @@ func main() {
 					logs.ReloadLogs()
 				case syscall.SIGUSR2:
 					log.Notice("SIGUSR2 Received: Seamless binary upgrade...")
+					rpcs.Close()
 					err := process.Relaunch(*h.Listener)
 					if err != nil {
 						log.Errorf("Relaunch failed: %s\n", err)
