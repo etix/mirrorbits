@@ -514,16 +514,23 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	defer rconn.Close()
 
 	// Get all mirrors ID
-	mirrorsIDs, err := h.redis.GetListOfMirrors()
+	mirrorsMap, err := h.redis.GetListOfMirrors()
 	if err != nil {
 		http.Error(w, "Cannot fetch the list of mirrors", http.StatusInternalServerError)
 		return
 	}
 
+	var mirrorsIDs []int
+	for id := range mirrorsMap {
+		// We need a common order to iterate the
+		// results from Redis.
+		mirrorsIDs = append(mirrorsIDs, id)
+	}
+
 	rconn.Send("MULTI")
 
 	// Get all mirrors stats
-	for id := range mirrorsIDs {
+	for _, id := range mirrorsIDs {
 		today := time.Now().UTC().Format("2006_01_02")
 		rconn.Send("HGET", "STATS_MIRROR_"+today, id)
 		rconn.Send("HGET", "STATS_MIRROR_BYTES_"+today, id)
@@ -540,7 +547,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	var results []MirrorStats
 	var index int64
 	mlist := make([]mirrors.Mirror, 0, len(mirrorsIDs))
-	for id, name := range mirrorsIDs {
+	for _, id := range mirrorsIDs {
 		mirror, err := h.cache.GetMirror(id)
 		if err != nil {
 			continue
@@ -573,7 +580,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 
 		s := MirrorStats{
 			ID:        id,
-			Name:      name,
+			Name:      mirror.Name,
 			Downloads: downloads,
 			Bytes:     bytes,
 			SyncOffset: SyncOffset{
