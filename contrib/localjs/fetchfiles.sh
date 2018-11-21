@@ -12,12 +12,12 @@ whattofetch=(
 	"https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.pie.min.js"
 	"https://cdnjs.cloudflare.com/ajax/libs/flot.tooltip/0.9.0/jquery.flot.tooltip.js"
 	"https://cdnjs.cloudflare.com/ajax/libs/flot.tooltip/0.9.0/jquery.flot.tooltip.min.js"
-	"https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.2/leaflet.css"
-	"https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.2/leaflet.js"
-	"https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.2/images/marker-icon.png"
-	"https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.2/images/marker-shadow.png"
-	"https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.0.0/MarkerCluster.css"
-	"https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.0.0/leaflet.markercluster.js"
+	"https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.4/leaflet.css"
+	"https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.4/leaflet.js"
+	"https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.4/images/marker-icon.png"
+	"https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.4/images/marker-shadow.png"
+	"https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.4.1/MarkerCluster.css"
+	"https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.4.1/leaflet.markercluster.js"
 )
 
 showhelp()
