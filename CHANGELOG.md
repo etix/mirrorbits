@@ -1,3 +1,27 @@
+## v0.5
+
+### FEATURES
+
+- Allow renaming a mirror directly from `mirrorbits edit`
+- Option to exclude a country from being served by a mirror
+
+### ENHANCEMENTS
+
+- Use of GeoIP2 mmdb databases
+- RPC between the CLI and the server
+- Use SHA256 as new default hash
+- General improvements on the web templates
+- Google Maps replaced by OpenStreetMap (#74)
+- Google Charts replaced by Flot (#76)
+- Possibility to fetch and serve Javascript locally without relying on CDNs (#76)
+- Dockerfile improvements
+- Systemd service file with process isolation
+
+### BUGFIXES
+
+- Add the Redis database index in pubsub announcements (#75)
+- Exclude partial directories from rsync (#64)
+
 ## v0.4
 
 ### FEATURES
