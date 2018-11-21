@@ -22,6 +22,12 @@
 - Add the Redis database index in pubsub announcements (#75)
 - Exclude partial directories from rsync (#64)
 
+### Changes
+
+- JSON API:
+  - Name contains the name of the mirror (previously known as ID)
+  - ID now contains the unique ID of the mirror
+
 ## v0.4
 
 ### FEATURES
