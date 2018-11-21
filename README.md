@@ -50,7 +50,7 @@ Yet some things might change before the 1.0 release. If you intend to deploy Mir
 
 ## Prerequisites
 
-* Go 1.7 or later
+* Go 1.9 or later
 * Protobuf (protoc)
 * Redis 3.2 or later (with [persistence](https://redis.io/topics/persistence) enabled)
 * GeoIP2 databases from [Maxmind](https://dev.maxmind.com/geoip/geoip2/geolite2/) (preferably updated regularly)
@@ -60,6 +60,10 @@ Yet some things might change before the 1.0 release. If you intend to deploy Mir
 **Optional:**
 
 * redis-sentinel (for high-availability support)
+
+## Upgrading
+
+Before upgrading to the latest version, please check [this guide](https://github.com/etix/mirrorbits/wiki/Upgrade-Guide).
 
 ## Installation
 
