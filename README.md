@@ -81,7 +81,10 @@ $ cd $GOPATH/src/github.com/etix/mirrorbits
 $ sudo make install
 ```
 
-The resulting executable should now live in your */usr/local/bin* directory. You can also specify a `PREFIX` or `DESTDIR` if necessary (`sudo make install PREFIX=/usr`).
+The resulting executable should now live in your */usr/local/bin* directory. You can also specify a `PREFIX` or `DESTDIR` if necessary:
+```
+sudo make install PREFIX=/usr
+```
 
 ## Configuration
 
