@@ -190,7 +190,7 @@ func SetMirrorState(r *database.Redis, id int, state bool, reason string) error 
 	key := fmt.Sprintf("MIRROR_%d", id)
 
 	previousState, err := redis.Bool(conn.Do("HGET", key, "up"))
-	if err != nil {
+	if err != nil && err != redis.ErrNil {
 		return err
 	}
 

@@ -532,7 +532,10 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 
 	switch statusCode {
 	case 200:
-		mirrors.MarkMirrorUp(m.redis, mirror.ID)
+		err = mirrors.MarkMirrorUp(m.redis, mirror.ID)
+		if err != nil {
+			log.Errorf(format+"Unable to mark mirror as up: %s", mirror.Name, err)
+		}
 		rsize, err := strconv.ParseInt(contentLength, 10, 64)
 		if err == nil && rsize != size {
 			log.Warningf(format+"File size mismatch! [%s] (%dms)", mirror.Name, file, elapsed/time.Millisecond)
@@ -540,13 +543,22 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 			log.Noticef(format+"Up! (%dms)", mirror.Name, elapsed/time.Millisecond)
 		}
 	case 404:
-		mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("File not found %s (error 404)", file))
+		err = mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("File not found %s (error 404)", file))
+		if err != nil {
+			log.Errorf(format+"Unable to mark mirror as down: %s", mirror.Name, err)
+		}
 		if GetConfig().DisableOnMissingFile {
-			mirrors.DisableMirror(m.redis, mirror.ID)
+			err = mirrors.DisableMirror(m.redis, mirror.ID)
+			if err != nil {
+				log.Errorf(format+"Unable to disable mirror: %s", mirror.Name, err)
+			}
 		}
 		log.Errorf(format+"Error: File %s not found (error 404)", mirror.Name, file)
 	default:
-		mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", statusCode))
+		err = mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", statusCode))
+		if err != nil {
+			log.Errorf(format+"Unable to mark mirror as down: %s", mirror.Name, err)
+		}
 		log.Warningf(format+"Down! Status: %d", mirror.Name, statusCode)
 	}
 	return nil
