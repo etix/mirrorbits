@@ -129,6 +129,12 @@ func SubCmd(name, signature, description string) *flag.FlagSet {
 	return flags
 }
 
+type ByDate []*rpc.Mirror
+
+func (d ByDate) Len() int           { return len(d) }
+func (d ByDate) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
+func (d ByDate) Less(i, j int) bool { return d[i].StateSince.Seconds > d[j].StateSince.Seconds }
+
 func (c *cli) CmdList(args ...string) error {
 	cmd := SubCmd("list", "", "Get the list of mirrors")
 	http := cmd.Bool("http", false, "Print HTTP addresses")
@@ -156,6 +162,8 @@ func (c *cli) CmdList(args ...string) error {
 	if err != nil {
 		log.Fatal("list error:", err)
 	}
+
+	sort.Sort(ByDate(list.Mirrors))
 
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
