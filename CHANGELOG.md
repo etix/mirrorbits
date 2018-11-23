@@ -1,3 +1,13 @@
+## v0.5.1
+
+### ENHANCEMENTS
+
+- Sort the mirrors by the last state date in the list command
+
+### BUGFIXES
+
+- Regression: mirrors were not able to transition between up and down states
+
 ## v0.5
 
 ### FEATURES
