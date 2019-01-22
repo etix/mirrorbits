@@ -1,4 +1,4 @@
-.PHONY: all vendor build dev clean release test installdirs install uninstall install-service uninstall-service service-systemd
+.PHONY: all build dev clean release test installdirs install uninstall install-service uninstall-service service-systemd
 
 VERSION := $(shell git describe --always --dirty --tags)
 SHA := $(shell git rev-parse --short HEAD)
@@ -18,38 +18,42 @@ LDFLAGS := -X $(PACKAGE)/core.VERSION=$(VERSION) -X $(PACKAGE)/core.BUILD=$(BUIL
 GOFLAGS := -ldflags "$(LDFLAGS)"
 GOFLAGSDEV := -race -ldflags "$(LDFLAGS) -X $(PACKAGE)/core.DEV=-dev"
 
-export PATH := ${GOPATH}/bin:$(PATH)
+GOPATH ?= $(HOME)/go
+PROTOC_GEN_GO := $(GOPATH)/bin/protoc-gen-go
+
+export PATH := $(GOPATH)/bin:$(PATH)
 
 PKG_CONFIG ?= /usr/bin/pkg-config
-SERVICEDIR_SYSTEMD ?= $(shell $(PKG_CONFIG) systemd --variable=systemdsystemunitdir)
+SERVICEDIR_SYSTEMD ?= $(@shell $(PKG_CONFIG) systemd --variable=systemdsystemunitdir)
 
 all: build
 
-vendor:
-	go get github.com/kardianos/govendor
-	govendor sync ${PACKAGE}
-
-protoc:
+$(PROTOC_GEN_GO):
 	go get -u github.com/golang/protobuf/protoc-gen-go
+
+rpc/rpc.pb.go: rpc/rpc.proto | $(PROTOC_GEN_GO) $(PROTOC)
+	@ if ! which protoc > /dev/null; then \
+		echo "error: protoc not installed" >&2; \
+		exit 1; \
+	fi
 	protoc -I rpc rpc/rpc.proto --go_out=plugins=grpc:rpc
 
-build: vendor protoc
-	go build $(GOFLAGS) -o $(BINARY) .
+build: rpc/rpc.pb.go
+	GO111MODULE=on go build $(GOFLAGS) -o $(BINARY) .
 
-dev: vendor protoc
-	go build $(GOFLAGSDEV) -o $(BINARY) .
+dev: rpc/rpc.pb.go
+	GO111MODULE=on go build $(GOFLAGSDEV) -o $(BINARY) .
 
 clean:
 	@echo Cleaning workspace...
 	@rm -f $(BINARY)
 	@rm -f contrib/init/systemd/mirrorbits.service
 	@rm -dRf dist
-	@rm -f rpc/*.pb.go
 
 release: $(TARBALL)
 
-test:
-	@govendor test $(GOFLAGS) -v -cover +local
+test: rpc/rpc.pb.go
+	GO111MODULE=on go test $(GOFLAGS) ./...
 
 installdirs:
 	mkdir -p ${DESTDIR}${PREFIX}/{bin,share} ${DESTDIR}$(PREFIX)/share/mirrorbits
