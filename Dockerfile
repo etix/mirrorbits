@@ -2,7 +2,7 @@ FROM golang:latest
 
 LABEL maintainer="etix@l0cal.com"
 
-ADD . /go/src/github.com/etix/mirrorbits
+ADD . /go/mirrorbits
 
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y pkg-config zlib1g-dev protobuf-compiler libprotoc-dev rsync && \
@@ -13,9 +13,9 @@ RUN go get -u github.com/maxmind/geoipupdate2/cmd/geoipupdate && \
     mkdir /usr/share/GeoIP && \
     /go/bin/geoipupdate
 RUN mkdir /srv/repo /var/log/mirrorbits && \
-    cd /go/src/github.com/etix/mirrorbits && \
+    cd /go/mirrorbits && \
     make install PREFIX=/usr
-RUN cp /go/src/github.com/etix/mirrorbits/contrib/docker/mirrorbits.conf /etc/mirrorbits.conf
+RUN cp /go/mirrorbits/contrib/docker/mirrorbits.conf /etc/mirrorbits.conf
 
 ENTRYPOINT /usr/bin/mirrorbits daemon -config /etc/mirrorbits.conf
 
