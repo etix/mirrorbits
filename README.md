@@ -75,6 +75,15 @@ A docker "quick start" can be found [on the wiki](https://github.com/etix/mirror
 
 ### Manual build
 
+
+Go >= 1.11:
+```
+$ git clone https://github.com/etix/mirrorbits.git
+$ cd mirrorbits
+$ sudo make install
+```
+
+Go < 1.11:
 ```
 $ go get -u github.com/etix/mirrorbits
 $ cd $GOPATH/src/github.com/etix/mirrorbits
