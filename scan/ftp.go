@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/etix/goftp"
+	ftp "github.com/etix/goftp"
 	"github.com/etix/mirrorbits/utils"
 	"github.com/gomodule/redigo/redis"
 )
@@ -71,8 +71,8 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop <-ch
 	_, f.featMLST = c.Feature("MLST")
 	_, f.featMDTM = c.Feature("MDTM")
 
-	if !f.featMLST && !f.featMDTM {
-		log.Warning("This server does not support any of the RFC 3659 extensions, consider using rsync instead.")
+	if !f.featMLST || !f.featMDTM {
+		log.Warning("This server does not support some of the RFC 3659 extensions, consider using rsync instead.")
 	}
 
 	log.Infof("[%s] Requesting file list via ftp...", identifier)
@@ -122,6 +122,11 @@ func (f *FTPScanner) walkFtp(c *ftp.ServerConn, files []*filedata, path string, 
 			newf := &filedata{}
 			newf.path = path + e.Name
 			newf.size = int64(e.Size)
+			if f.featMDTM {
+				newf.modTime = e.Time
+			} else {
+				newf.modTime = time.Time{}
+			}
 			files = append(files, newf)
 		} else if e.Type == ftp.EntryTypeFolder {
 			if e.Name == "." || e.Name == ".." {

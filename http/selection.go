@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"sort"
 	"strings"
+	"time"
 
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/filesystem"
@@ -70,10 +71,15 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 			m.ExcludeReason = "Not HTTP"
 			goto delete
 		}
-		// Is it the same size as source?
+		// Is it the same size / modtime as source?
 		if m.FileInfo != nil {
 			if m.FileInfo.Size != fileInfo.Size {
 				m.ExcludeReason = "File size mismatch"
+				goto delete
+			}
+			if !m.FileInfo.ModTime.IsZero() &&
+				!m.FileInfo.ModTime.Truncate(time.Second).Equal(fileInfo.ModTime.Truncate(time.Second)) {
+				m.ExcludeReason = "File mod time mismatch"
 				goto delete
 			}
 		}

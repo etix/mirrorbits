@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/etix/mirrorbits/utils"
 	"github.com/gomodule/redigo/redis"
@@ -102,6 +103,8 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <
 	for err == nil {
 		var size int64
 		var f filedata
+		var modTime time.Time
+		var modString string
 
 		if utils.IsStopped(stop) {
 			return ErrScanAborted
@@ -119,6 +122,14 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <
 			ret[4] = "/" + ret[4]
 		}
 
+		// Parse the mod time
+		modString = ret[2] + " " + ret[3]
+		modTime, err = time.Parse("2006/01/02 15:04:05", modString)
+		if err != nil {
+			log.Errorf("[%s] ScanRsync: Invalid mod time: %s", identifier, modString)
+			goto cont
+		}
+
 		// Remove the commas in the file size
 		ret[1] = strings.Replace(ret[1], ",", "", -1)
 		// Convert the size to int
@@ -130,6 +141,7 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <
 
 		// Fill the struct
 		f.size = size
+		f.modTime = modTime
 		f.path = ret[4]
 
 		r.scan.ScannerAddFile(f)

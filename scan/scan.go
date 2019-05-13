@@ -199,7 +199,7 @@ func (s *scan) ScannerAddFile(f filedata) {
 
 	// Save the size of the current file found on this mirror
 	ik := fmt.Sprintf("FILEINFO_%d_%s", s.mirrorid, f.path)
-	s.conn.Send("HSET", ik, "size", f.size)
+	s.conn.Send("HMSET", ik, "size", f.size, "modTime", f.modTime)
 
 	// Publish update
 	database.SendPublish(s.conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", s.mirrorid, f.path))
