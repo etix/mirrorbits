@@ -1,3 +1,6 @@
+// Copyright (c) 2014-2019 Ludovic Fauvet
+// Licensed under the MIT license
+
 package v1
 
 import (
