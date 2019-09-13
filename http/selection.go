@@ -49,33 +49,33 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 		// Does it support http? Is it well formated?
 		if !strings.HasPrefix(m.HttpURL, "http://") && !strings.HasPrefix(m.HttpURL, "https://") {
 			m.ExcludeReason = "Invalid URL"
-			goto delete
+			goto discard
 		}
 		// Is it enabled?
 		if !m.Enabled {
 			m.ExcludeReason = "Disabled"
-			goto delete
+			goto discard
 		}
 		// Is it up?
 		if !m.Up {
 			if m.ExcludeReason == "" {
 				m.ExcludeReason = "Down"
 			}
-			goto delete
+			goto discard
 		}
 		if ctx.SecureOption() == WITHTLS && !m.IsHTTPS() {
 			m.ExcludeReason = "Not HTTPS"
-			goto delete
+			goto discard
 		}
 		if ctx.SecureOption() == WITHOUTTLS && m.IsHTTPS() {
 			m.ExcludeReason = "Not HTTP"
-			goto delete
+			goto discard
 		}
 		// Is it the same size / modtime as source?
 		if m.FileInfo != nil {
 			if m.FileInfo.Size != fileInfo.Size {
 				m.ExcludeReason = "File size mismatch"
-				goto delete
+				goto discard
 			}
 			if !m.FileInfo.ModTime.IsZero() {
 				mModTime := m.FileInfo.ModTime
@@ -84,7 +84,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 				}
 				if !mModTime.Truncate(time.Second).Equal(fileInfo.ModTime.Truncate(time.Second)) {
 					m.ExcludeReason = "File mod time mismatch"
-					goto delete
+					goto discard
 				}
 			}
 		}
@@ -92,27 +92,27 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 		if m.ContinentOnly {
 			if !clientInfo.IsValid() || clientInfo.ContinentCode != m.ContinentCode {
 				m.ExcludeReason = "Continent only"
-				goto delete
+				goto discard
 			}
 		}
 		// Is it configured to serve its country only?
 		if m.CountryOnly {
 			if !clientInfo.IsValid() || !utils.IsInSlice(clientInfo.CountryCode, m.CountryFields) {
 				m.ExcludeReason = "Country only"
-				goto delete
+				goto discard
 			}
 		}
 		// Is it in the same AS number?
 		if m.ASOnly {
 			if !clientInfo.IsValid() || clientInfo.ASNum != m.Asnum {
 				m.ExcludeReason = "AS only"
-				goto delete
+				goto discard
 			}
 		}
 		// Is the user's country code allowed on this mirror?
 		if clientInfo.IsValid() && utils.IsInSlice(clientInfo.CountryCode, m.ExcludedCountryFields) {
 			m.ExcludeReason = "User's country restriction"
-			goto delete
+			goto discard
 		}
 		if safeIndex == 0 {
 			closestMirror = m.Distance
@@ -125,7 +125,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 		mlist[safeIndex] = mlist[i]
 		safeIndex++
 		continue
-	delete:
+	discard:
 		excluded = append(excluded, m)
 	}
 
