@@ -77,10 +77,15 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 				m.ExcludeReason = "File size mismatch"
 				goto delete
 			}
-			if !m.FileInfo.ModTime.IsZero() &&
-				!m.FileInfo.ModTime.Truncate(time.Second).Equal(fileInfo.ModTime.Truncate(time.Second)) {
-				m.ExcludeReason = "File mod time mismatch"
-				goto delete
+			if !m.FileInfo.ModTime.IsZero() {
+				mModTime := m.FileInfo.ModTime
+				if GetConfig().FixTimezoneOffsets {
+					mModTime = mModTime.Add(time.Duration(m.TZOffset) * time.Second)
+				}
+				if !mModTime.Truncate(time.Second).Equal(fileInfo.ModTime.Truncate(time.Second)) {
+					m.ExcludeReason = "File mod time mismatch"
+					goto delete
+				}
 			}
 		}
 		// Is it configured to serve its continent only?

@@ -460,7 +460,10 @@ func (c *cli) CmdScan(args ...string) error {
 			fmt.Println("scan error:", grpc.ErrorDesc(err))
 			continue
 		} else {
-			fmt.Println("done")
+			fmt.Printf("%d files indexed, %d known and %d removed\n", reply.FilesIndexed, reply.KnownIndexed, reply.Removed)
+			if reply.GetTZOffsetSeconds() != 0 {
+				fmt.Printf("  ∟ Timezone offset detected and corrected: %d seconds\n", reply.TZOffsetSeconds)
+			}
 			if reply.Enabled {
 				fmt.Println("  ∟ Enabled")
 			}

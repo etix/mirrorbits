@@ -47,6 +47,7 @@ type Mirror struct {
 	ExcludeReason         string    `redis:"excludeReason" json:",omitempty" yaml:"-"`
 	StateSince            Time      `redis:"stateSince" json:",omitempty" yaml:"-"`
 	AllowRedirects        Redirects `redis:"allowredirects" json:",omitempty" yaml:"AllowRedirects"`
+	TZOffset              int64     `redis:"tzoffset" json:"-" yaml:"-"` // timezone offset in seconds
 	Distance              float32   `redis:"-" yaml:"-"`
 	CountryFields         []string  `redis:"-" json:"-" yaml:"-"`
 	ExcludedCountryFields []string  `redis:"-" json:"-" yaml:"-"`

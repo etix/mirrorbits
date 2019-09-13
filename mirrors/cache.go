@@ -247,6 +247,21 @@ func (c *Cache) fetchMirror(mirrorID int) (mirror Mirror, err error) {
 	return
 }
 
+func (c *Cache) GetFileInfoMirror(mirrorID int, path string) (f filesystem.FileInfo, err error) {
+	var fileInfo filesystem.FileInfo
+
+	v, ok := c.fimCache.Get(fmt.Sprintf("%d|%s", mirrorID, path))
+	if ok {
+		fileInfo = v.(*fileInfoValue).value
+	} else {
+		fileInfo, err = c.fetchFileInfoMirror(mirrorID, path)
+		if err != nil {
+			return
+		}
+	}
+	return fileInfo, nil
+}
+
 func (c *Cache) fetchFileInfoMirror(id int, path string) (f filesystem.FileInfo, err error) {
 	rconn := c.r.Get()
 	defer rconn.Close()

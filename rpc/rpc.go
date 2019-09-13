@@ -42,6 +42,7 @@ type CLI struct {
 	server   *grpc.Server
 	sig      chan<- os.Signal
 	redis    *database.Redis
+	cache    *mirrors.Cache
 }
 
 func (c *CLI) Start() error {
@@ -75,6 +76,10 @@ func (c *CLI) SetSignals(sig chan<- os.Signal) {
 
 func (c *CLI) SetDatabase(r *database.Redis) {
 	c.redis = r
+}
+
+func (c *CLI) SetCache(cache *mirrors.Cache) {
+	c.cache = cache
 }
 
 func (c *CLI) Ping(context.Context, *empty.Empty) (*empty.Empty, error) {
@@ -485,21 +490,22 @@ func (c *CLI) ScanMirror(ctx context.Context, in *ScanMirrorRequest) (*ScanMirro
 	}()
 
 	err = scan.ErrNoSyncMethod
+	var res *scan.ScanResult
 
 	if in.Protocol == ScanMirrorRequest_ALL {
 		// Use rsync (if applicable) and fallback to FTP
 		if mirror.RsyncURL != "" {
-			err = scan.Scan(scan.RSYNC, c.redis, mirror.RsyncURL, mirror.ID, ctx.Done())
+			res, err = scan.Scan(scan.RSYNC, c.redis, c.cache, mirror.RsyncURL, mirror.ID, ctx.Done())
 		}
 		if err != nil && mirror.FtpURL != "" {
-			err = scan.Scan(scan.FTP, c.redis, mirror.FtpURL, mirror.ID, ctx.Done())
+			res, err = scan.Scan(scan.FTP, c.redis, c.cache, mirror.FtpURL, mirror.ID, ctx.Done())
 		}
 	} else {
 		// Use the requested protocol
 		if in.Protocol == ScanMirrorRequest_RSYNC && mirror.RsyncURL != "" {
-			err = scan.Scan(scan.RSYNC, c.redis, mirror.RsyncURL, mirror.ID, ctx.Done())
+			res, err = scan.Scan(scan.RSYNC, c.redis, c.cache, mirror.RsyncURL, mirror.ID, ctx.Done())
 		} else if in.Protocol == ScanMirrorRequest_FTP && mirror.FtpURL != "" {
-			err = scan.Scan(scan.FTP, c.redis, mirror.FtpURL, mirror.ID, ctx.Done())
+			res, err = scan.Scan(scan.FTP, c.redis, c.cache, mirror.FtpURL, mirror.ID, ctx.Done())
 		}
 	}
 
@@ -507,7 +513,12 @@ func (c *CLI) ScanMirror(ctx context.Context, in *ScanMirrorRequest) (*ScanMirro
 		return nil, errors.New(fmt.Sprintf("scanning %s failed: %s", mirror.Name, err))
 	}
 
-	reply := &ScanMirrorReply{}
+	reply := &ScanMirrorReply{
+		FilesIndexed:    res.FilesIndexed,
+		KnownIndexed:    res.KnownIndexed,
+		Removed:         res.Removed,
+		TZOffsetSeconds: res.TZOffsetSeconds,
+	}
 
 	// Finally enable the mirror if requested
 	if err == nil && in.AutoEnable == true {

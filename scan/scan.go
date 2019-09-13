@@ -14,6 +14,7 @@ import (
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/filesystem"
+	"github.com/etix/mirrorbits/mirrors"
 	"github.com/etix/mirrorbits/network"
 	"github.com/etix/mirrorbits/utils"
 	"github.com/gomodule/redigo/redis"
@@ -57,11 +58,21 @@ type filedata struct {
 
 type scan struct {
 	redis *database.Redis
+	cache *mirrors.Cache
 
 	conn        redis.Conn
 	mirrorid    int
 	filesTmpKey string
-	count       uint
+	count       int64
+}
+
+type ScanResult struct {
+	MirrorID        int
+	MirrorName      string
+	FilesIndexed    int64
+	KnownIndexed    int64
+	Removed         int64
+	TZOffsetSeconds int64
 }
 
 // IsScanning returns true is a scan is already in progress for the given mirror
@@ -70,7 +81,7 @@ func IsScanning(conn redis.Conn, id int) (bool, error) {
 }
 
 // Scan starts a scan of the given mirror
-func Scan(typ ScannerType, r *database.Redis, url string, id int, stop <-chan struct{}) error {
+func Scan(typ ScannerType, r *database.Redis, c *mirrors.Cache, url string, id int, stop <-chan struct{}) (*ScanResult, error) {
 	// Connect to the database
 	conn := r.Get()
 	defer conn.Close()
@@ -79,6 +90,7 @@ func Scan(typ ScannerType, r *database.Redis, url string, id int, stop <-chan st
 		redis:    r,
 		mirrorid: id,
 		conn:     conn,
+		cache:    c,
 	}
 
 	var scanner Scanner
@@ -98,7 +110,7 @@ func Scan(typ ScannerType, r *database.Redis, url string, id int, stop <-chan st
 	// Get the mirror name
 	name, err := redis.String(conn.Do("HGET", "MIRRORS", id))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Try to acquire a lock so we don't have a scanning race
@@ -109,9 +121,9 @@ func Scan(typ ScannerType, r *database.Redis, url string, id int, stop <-chan st
 
 	done, err := lock.Get()
 	if err != nil {
-		return err
+		return nil, err
 	} else if done == nil {
-		return ErrScanInProgress
+		return nil, ErrScanInProgress
 	}
 
 	defer lock.Release()
@@ -135,7 +147,7 @@ func Scan(typ ScannerType, r *database.Redis, url string, id int, stop <-chan st
 		conn.Do("DEL", s.filesTmpKey)
 
 		log.Errorf("[%s] %s", name, err.Error())
-		return err
+		return nil, err
 	}
 
 	// Exec multi
@@ -144,7 +156,7 @@ func Scan(typ ScannerType, r *database.Redis, url string, id int, stop <-chan st
 	// Get the list of files no more present on this mirror
 	toremove, err := redis.Values(conn.Do("SDIFF", filesKey, s.filesTmpKey))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Remove this mirror from the given file SET
@@ -160,7 +172,7 @@ func Scan(typ ScannerType, r *database.Redis, url string, id int, stop <-chan st
 		}
 		_, err = conn.Do("EXEC")
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -169,7 +181,7 @@ func Scan(typ ScannerType, r *database.Redis, url string, id int, stop <-chan st
 	if s.count > 0 {
 		_, err = conn.Do("RENAME", s.filesTmpKey, filesKey)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -179,12 +191,25 @@ func Scan(typ ScannerType, r *database.Redis, url string, id int, stop <-chan st
 	common, _ := redis.Int64(conn.Do("SINTERSTORE", sinterKey, "FILES", filesKey))
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	s.setLastSync(conn, id, true)
+
+	tzoffset, err := s.adjustTZOffset(name)
+	if err != nil {
+		log.Warningf("Unable to check timezone shifts: %s", err)
+	}
+
 	log.Infof("[%s] Indexed %d files (%d known), %d removed", name, s.count, common, len(toremove))
-	return nil
+	return &ScanResult{
+		MirrorID:        id,
+		MirrorName:      name,
+		FilesIndexed:    s.count,
+		KnownIndexed:    common,
+		Removed:         int64(len(toremove)),
+		TZOffsetSeconds: tzoffset,
+	}, nil
 }
 
 func (s *scan) ScannerAddFile(f filedata) {
@@ -233,6 +258,109 @@ func (s *scan) setLastSync(conn redis.Conn, id int, successful bool) error {
 	database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(id))
 
 	return err
+}
+
+func (s *scan) adjustTZOffset(name string) (seconds int64, err error) {
+	type pair struct {
+		local  filesystem.FileInfo
+		remote filesystem.FileInfo
+	}
+
+	var filepaths []string
+	var pairs []pair
+	var offsetmap map[int64]int
+	var commonOffsetFound bool
+
+	if s.cache == nil {
+		log.Error("Skipping timezone check: missing cache in instance")
+		return
+	}
+
+	if GetConfig().FixTimezoneOffsets == false {
+		// We need to reset any previous value already
+		// stored in the database.
+		goto finish
+	}
+
+	// Get 100 random files from the mirror
+	filepaths, err = redis.Strings(s.conn.Do("SRANDMEMBER", fmt.Sprintf("HANDLEDFILES_%d", s.mirrorid), 100))
+	if err != nil {
+		return
+	}
+
+	pairs = make([]pair, 0, 100)
+
+	// Get the metadata of each file
+	for _, path := range filepaths {
+		p := pair{}
+
+		p.local, err = s.cache.GetFileInfo(path)
+		if err != nil {
+			return
+		}
+
+		p.remote, err = s.cache.GetFileInfoMirror(s.mirrorid, path)
+		if err != nil {
+			return
+		}
+
+		if p.local.Size != p.remote.Size {
+			// File differ: comparing the modfile will fail
+			continue
+		}
+
+		// Add the file to valid pairs
+		pairs = append(pairs, p)
+	}
+
+	if len(pairs) < len(filepaths)/2 {
+		// Less than half the files we got have a size
+		// match, this is very suspicious. Skip the
+		// check and reset the offset in the db.
+		goto warn
+	}
+
+	// Compute the diff between local and remote for those files
+	offsetmap = make(map[int64]int)
+	for _, p := range pairs {
+		// Convert to seconds in unix timestamp
+		local := p.local.ModTime.Unix()
+		remote := p.remote.ModTime.Unix()
+
+		diff := local - remote
+		offsetmap[diff]++
+	}
+
+	for k, v := range offsetmap {
+		// Find the common offset (if any) of at least 90% of our subset
+		if v >= int(float64(len(pairs))/100*90) {
+			seconds = k
+			commonOffsetFound = true
+			break
+		}
+	}
+
+warn:
+	if !commonOffsetFound {
+		log.Warningf("[%s] Unable to guess the timezone offset", name)
+	}
+
+finish:
+	// Store the offset in the database
+	key := fmt.Sprintf("MIRROR_%d", s.mirrorid)
+	_, err = s.conn.Do("HMSET", key, "tzoffset", seconds)
+	if err != nil {
+		return
+	}
+
+	// Publish update
+	database.Publish(s.conn, database.MIRROR_UPDATE, strconv.Itoa(s.mirrorid))
+
+	if seconds != 0 {
+		log.Noticef("[%s] Timezone offset detected: applied correction of %d seconds", name, seconds)
+	}
+
+	return
 }
 
 type sourcescanner struct {

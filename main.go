@@ -62,6 +62,7 @@ func main() {
 		r.ConnectPubsub()
 		rpcs.SetDatabase(r)
 		c := mirrors.NewCache(r)
+		rpcs.SetCache(c)
 		h := http.HTTPServer(r, c)
 
 		/* Start the background monitor */

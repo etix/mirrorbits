@@ -441,12 +441,12 @@ func (m *monitor) syncLoop() {
 
 			// First try to scan with rsync
 			if mir.RsyncURL != "" {
-				err = scan.Scan(scan.RSYNC, m.redis, mir.RsyncURL, id, m.stop)
+				_, err = scan.Scan(scan.RSYNC, m.redis, m.cache, mir.RsyncURL, id, m.stop)
 			}
 			// If it failed or rsync wasn't supported
 			// fallback to FTP
 			if err != nil && err != scan.ErrScanAborted && mir.FtpURL != "" {
-				err = scan.Scan(scan.FTP, m.redis, mir.FtpURL, id, m.stop)
+				_, err = scan.Scan(scan.FTP, m.redis, m.cache, mir.FtpURL, id, m.stop)
 			}
 
 			if err == scan.ErrScanInProgress {
