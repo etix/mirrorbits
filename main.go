@@ -31,6 +31,7 @@ var (
 )
 
 func main() {
+	core.Parseflags()
 
 	if core.CpuProfile != "" {
 		f, err := os.Create(core.CpuProfile)

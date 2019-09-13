@@ -23,7 +23,7 @@ var (
 	NArg        int
 )
 
-func init() {
+func Parseflags() {
 	flag.BoolVar(&Debug, "debug", false, "Debug mode")
 	flag.StringVar(&CpuProfile, "cpuprofile", "", "write cpu profile to file")
 	flag.UintVar(&RPCPort, "p", 3390, "Server port")
