@@ -82,7 +82,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 				if GetConfig().FixTimezoneOffsets {
 					mModTime = mModTime.Add(time.Duration(m.TZOffset) * time.Second)
 				}
-				if !mModTime.Truncate(time.Second).Equal(fileInfo.ModTime.Truncate(time.Second)) {
+				if !mModTime.Truncate(time.Minute).Equal(fileInfo.ModTime.Truncate(time.Minute)) {
 					m.ExcludeReason = "File mod time mismatch"
 					goto discard
 				}
