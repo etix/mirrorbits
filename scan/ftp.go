@@ -122,10 +122,19 @@ func (f *FTPScanner) walkFtp(c *ftp.ServerConn, files []*filedata, path string, 
 			newf := &filedata{}
 			newf.path = path + e.Name
 			newf.size = int64(e.Size)
+
 			if f.featMDTM {
-				newf.modTime = e.Time
-			} else {
-				newf.modTime = time.Time{}
+				t, _ := c.LastModificationDate(path + e.Name)
+				if !t.IsZero() {
+					newf.modTime = t
+				}
+			}
+			if newf.modTime.IsZero() {
+				if f.featMLST {
+					newf.modTime = e.Time
+				} else {
+					newf.modTime = time.Time{}
+				}
 			}
 			files = append(files, newf)
 		} else if e.Type == ftp.EntryTypeFolder {
