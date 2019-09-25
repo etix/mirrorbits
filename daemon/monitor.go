@@ -353,14 +353,18 @@ func (m *monitor) healthCheckLoop() {
 				return
 			}
 
-			var mirror *mirror
+			var mptr *mirror
+			var mirror mirror
 			var ok bool
 
 			m.mapLock.Lock()
-			if mirror, ok = m.mirrors[id]; !ok {
+			if mptr, ok = m.mirrors[id]; !ok {
 				m.mapLock.Unlock()
 				continue
 			}
+
+			// Copy the mirror struct for read-only access
+			mirror = *mptr
 			m.mapLock.Unlock()
 
 			err := m.healthCheck(mirror.Mirror)
