@@ -187,7 +187,7 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 
 	s.setLastSync(conn, id, typ, precision, true)
 
-	tzoffset, err := s.adjustTZOffset(name)
+	tzoffset, err := s.adjustTZOffset(name, precision)
 	if err != nil {
 		log.Warningf("Unable to check timezone shifts: %s", err)
 	}
@@ -258,7 +258,7 @@ func (s *scan) setLastSync(conn redis.Conn, id int, protocol core.ScannerType, p
 	return err
 }
 
-func (s *scan) adjustTZOffset(name string) (ms int64, err error) {
+func (s *scan) adjustTZOffset(name string, precision core.Precision) (ms int64, err error) {
 	type pair struct {
 		local  filesystem.FileInfo
 		remote filesystem.FileInfo
@@ -316,7 +316,7 @@ func (s *scan) adjustTZOffset(name string) (ms int64, err error) {
 		pairs = append(pairs, p)
 	}
 
-	if len(pairs) < len(filepaths)/2 {
+	if len(pairs) < 10 || len(pairs) < len(filepaths)/2 {
 		// Less than half the files we got have a size
 		// match, this is very suspicious. Skip the
 		// check and reset the offset in the db.
@@ -326,9 +326,9 @@ func (s *scan) adjustTZOffset(name string) (ms int64, err error) {
 	// Compute the diff between local and remote for those files
 	offsetmap = make(map[int64]int)
 	for _, p := range pairs {
-		// Convert to millisecond since unix timestamp
-		local := p.local.ModTime.UnixNano() / int64(time.Millisecond)
-		remote := p.remote.ModTime.UnixNano() / int64(time.Millisecond)
+		// Convert to millisecond since unix timestamp truncating to the available precision
+		local := p.local.ModTime.Truncate(precision.Duration()).UnixNano() / int64(time.Millisecond)
+		remote := p.remote.ModTime.Truncate(precision.Duration()).UnixNano() / int64(time.Millisecond)
 
 		diff := local - remote
 		offsetmap[diff]++
