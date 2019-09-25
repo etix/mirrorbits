@@ -12,6 +12,7 @@ import (
 	"time"
 
 	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/mirrors"
@@ -32,19 +33,9 @@ var (
 	log = logging.MustGetLogger("main")
 )
 
-// ScannerType holds the type of scanner in use
-type ScannerType int8
-
-const (
-	// RSYNC represents an rsync scanner
-	RSYNC ScannerType = iota
-	// FTP represents an ftp scanner
-	FTP
-)
-
 // Scanner is the interface that all scanners must implement
 type Scanner interface {
-	Scan(url, identifier string, conn redis.Conn, stop <-chan struct{}) error
+	Scan(url, identifier string, conn redis.Conn, stop <-chan struct{}) (core.Precision, error)
 }
 
 type filedata struct {
@@ -67,12 +58,12 @@ type scan struct {
 }
 
 type ScanResult struct {
-	MirrorID        int
-	MirrorName      string
-	FilesIndexed    int64
-	KnownIndexed    int64
-	Removed         int64
-	TZOffsetSeconds int64
+	MirrorID     int
+	MirrorName   string
+	FilesIndexed int64
+	KnownIndexed int64
+	Removed      int64
+	TZOffsetMs   int64
 }
 
 // IsScanning returns true is a scan is already in progress for the given mirror
@@ -81,7 +72,7 @@ func IsScanning(conn redis.Conn, id int) (bool, error) {
 }
 
 // Scan starts a scan of the given mirror
-func Scan(typ ScannerType, r *database.Redis, c *mirrors.Cache, url string, id int, stop <-chan struct{}) (*ScanResult, error) {
+func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string, id int, stop <-chan struct{}) (*ScanResult, error) {
 	// Connect to the database
 	conn := r.Get()
 	defer conn.Close()
@@ -95,11 +86,11 @@ func Scan(typ ScannerType, r *database.Redis, c *mirrors.Cache, url string, id i
 
 	var scanner Scanner
 	switch typ {
-	case RSYNC:
+	case core.RSYNC:
 		scanner = &RsyncScanner{
 			scan: s,
 		}
-	case FTP:
+	case core.FTP:
 		scanner = &FTPScanner{
 			scan: s,
 		}
@@ -128,7 +119,7 @@ func Scan(typ ScannerType, r *database.Redis, c *mirrors.Cache, url string, id i
 
 	defer lock.Release()
 
-	s.setLastSync(conn, id, false)
+	s.setLastSync(conn, id, typ, 0, false)
 
 	conn.Send("MULTI")
 
@@ -138,7 +129,7 @@ func Scan(typ ScannerType, r *database.Redis, c *mirrors.Cache, url string, id i
 	// Remove any left over
 	conn.Send("DEL", s.filesTmpKey)
 
-	err = scanner.Scan(url, name, conn, stop)
+	precision, err := scanner.Scan(url, name, conn, stop)
 	if err != nil {
 		// Discard MULTI
 		s.ScannerDiscard()
@@ -194,7 +185,7 @@ func Scan(typ ScannerType, r *database.Redis, c *mirrors.Cache, url string, id i
 		return nil, err
 	}
 
-	s.setLastSync(conn, id, true)
+	s.setLastSync(conn, id, typ, precision, true)
 
 	tzoffset, err := s.adjustTZOffset(name)
 	if err != nil {
@@ -203,12 +194,12 @@ func Scan(typ ScannerType, r *database.Redis, c *mirrors.Cache, url string, id i
 
 	log.Infof("[%s] Indexed %d files (%d known), %d removed", name, s.count, common, len(toremove))
 	return &ScanResult{
-		MirrorID:        id,
-		MirrorName:      name,
-		FilesIndexed:    s.count,
-		KnownIndexed:    common,
-		Removed:         int64(len(toremove)),
-		TZOffsetSeconds: tzoffset,
+		MirrorID:     id,
+		MirrorName:   name,
+		FilesIndexed: s.count,
+		KnownIndexed: common,
+		Removed:      int64(len(toremove)),
+		TZOffsetMs:   tzoffset,
 	}, nil
 }
 
@@ -239,7 +230,7 @@ func (s *scan) ScannerCommit() error {
 	return err
 }
 
-func (s *scan) setLastSync(conn redis.Conn, id int, successful bool) error {
+func (s *scan) setLastSync(conn redis.Conn, id int, protocol core.ScannerType, precision core.Precision, successful bool) error {
 	now := time.Now().UTC().Unix()
 
 	conn.Send("MULTI")
@@ -249,7 +240,14 @@ func (s *scan) setLastSync(conn redis.Conn, id int, successful bool) error {
 
 	// Set the last successful sync time
 	if successful {
-		conn.Send("HSET", fmt.Sprintf("MIRROR_%d", id), "lastSuccessfulSync", now)
+		if precision == 0 {
+			precision = core.Precision(time.Second)
+		}
+
+		conn.Send("HMSET", fmt.Sprintf("MIRROR_%d", id),
+			"lastSuccessfulSync", now,
+			"lastSuccessfulSyncProtocol", protocol,
+			"lastSuccessfulSyncPrecision", precision)
 	}
 
 	_, err := conn.Do("EXEC")
@@ -260,7 +258,7 @@ func (s *scan) setLastSync(conn redis.Conn, id int, successful bool) error {
 	return err
 }
 
-func (s *scan) adjustTZOffset(name string) (seconds int64, err error) {
+func (s *scan) adjustTZOffset(name string) (ms int64, err error) {
 	type pair struct {
 		local  filesystem.FileInfo
 		remote filesystem.FileInfo
@@ -304,6 +302,11 @@ func (s *scan) adjustTZOffset(name string) (seconds int64, err error) {
 			return
 		}
 
+		if p.remote.ModTime.IsZero() {
+			// Invalid mod time
+			continue
+		}
+
 		if p.local.Size != p.remote.Size {
 			// File differ: comparing the modfile will fail
 			continue
@@ -323,9 +326,9 @@ func (s *scan) adjustTZOffset(name string) (seconds int64, err error) {
 	// Compute the diff between local and remote for those files
 	offsetmap = make(map[int64]int)
 	for _, p := range pairs {
-		// Convert to seconds in unix timestamp
-		local := p.local.ModTime.Unix()
-		remote := p.remote.ModTime.Unix()
+		// Convert to millisecond since unix timestamp
+		local := p.local.ModTime.UnixNano() / int64(time.Millisecond)
+		remote := p.remote.ModTime.UnixNano() / int64(time.Millisecond)
 
 		diff := local - remote
 		offsetmap[diff]++
@@ -334,7 +337,7 @@ func (s *scan) adjustTZOffset(name string) (seconds int64, err error) {
 	for k, v := range offsetmap {
 		// Find the common offset (if any) of at least 90% of our subset
 		if v >= int(float64(len(pairs))/100*90) {
-			seconds = k
+			ms = k
 			commonOffsetFound = true
 			break
 		}
@@ -348,7 +351,7 @@ warn:
 finish:
 	// Store the offset in the database
 	key := fmt.Sprintf("MIRROR_%d", s.mirrorid)
-	_, err = s.conn.Do("HMSET", key, "tzoffset", seconds)
+	_, err = s.conn.Do("HMSET", key, "tzoffset", ms)
 	if err != nil {
 		return
 	}
@@ -356,8 +359,8 @@ finish:
 	// Publish update
 	database.Publish(s.conn, database.MIRROR_UPDATE, strconv.Itoa(s.mirrorid))
 
-	if seconds != 0 {
-		log.Noticef("[%s] Timezone offset detected: applied correction of %d seconds", name, seconds)
+	if ms != 0 {
+		log.Noticef("[%s] Timezone offset detected: applied correction of %dms", name, ms)
 	}
 
 	return

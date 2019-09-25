@@ -4,6 +4,7 @@
 package http
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"sort"
@@ -82,8 +83,15 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 				if GetConfig().FixTimezoneOffsets {
 					mModTime = mModTime.Add(time.Duration(m.TZOffset) * time.Second)
 				}
-				if !mModTime.Truncate(time.Minute).Equal(fileInfo.ModTime.Truncate(time.Minute)) {
-					m.ExcludeReason = "File mod time mismatch"
+				mModTime = mModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
+				lModTime := fileInfo.ModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
+				if !mModTime.Equal(lModTime) {
+					m.ExcludeReason = fmt.Sprintf("File mod time mismatch (diff: %s)", lModTime.Sub(mModTime))
+					if m.LastSuccessfulSyncPrecision.Duration() == time.Millisecond {
+						m.ExcludeReason += " ms precision"
+					} else if m.LastSuccessfulSyncPrecision.Duration() == time.Second {
+						m.ExcludeReason += " second precision"
+					}
 					goto discard
 				}
 			}

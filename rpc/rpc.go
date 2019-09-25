@@ -498,17 +498,17 @@ func (c *CLI) ScanMirror(ctx context.Context, in *ScanMirrorRequest) (*ScanMirro
 	if in.Protocol == ScanMirrorRequest_ALL {
 		// Use rsync (if applicable) and fallback to FTP
 		if mirror.RsyncURL != "" {
-			res, err = scan.Scan(scan.RSYNC, c.redis, c.cache, mirror.RsyncURL, mirror.ID, ctx.Done())
+			res, err = scan.Scan(core.RSYNC, c.redis, c.cache, mirror.RsyncURL, mirror.ID, ctx.Done())
 		}
 		if err != nil && mirror.FtpURL != "" {
-			res, err = scan.Scan(scan.FTP, c.redis, c.cache, mirror.FtpURL, mirror.ID, ctx.Done())
+			res, err = scan.Scan(core.FTP, c.redis, c.cache, mirror.FtpURL, mirror.ID, ctx.Done())
 		}
 	} else {
 		// Use the requested protocol
 		if in.Protocol == ScanMirrorRequest_RSYNC && mirror.RsyncURL != "" {
-			res, err = scan.Scan(scan.RSYNC, c.redis, c.cache, mirror.RsyncURL, mirror.ID, ctx.Done())
+			res, err = scan.Scan(core.RSYNC, c.redis, c.cache, mirror.RsyncURL, mirror.ID, ctx.Done())
 		} else if in.Protocol == ScanMirrorRequest_FTP && mirror.FtpURL != "" {
-			res, err = scan.Scan(scan.FTP, c.redis, c.cache, mirror.FtpURL, mirror.ID, ctx.Done())
+			res, err = scan.Scan(core.FTP, c.redis, c.cache, mirror.FtpURL, mirror.ID, ctx.Done())
 		}
 	}
 
@@ -517,10 +517,10 @@ func (c *CLI) ScanMirror(ctx context.Context, in *ScanMirrorRequest) (*ScanMirro
 	}
 
 	reply := &ScanMirrorReply{
-		FilesIndexed:    res.FilesIndexed,
-		KnownIndexed:    res.KnownIndexed,
-		Removed:         res.Removed,
-		TZOffsetSeconds: res.TZOffsetSeconds,
+		FilesIndexed: res.FilesIndexed,
+		KnownIndexed: res.KnownIndexed,
+		Removed:      res.Removed,
+		TZOffsetMs:   res.TZOffsetMs,
 	}
 
 	// Finally enable the mirror if requested

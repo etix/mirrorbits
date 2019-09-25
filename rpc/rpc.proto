@@ -120,7 +120,7 @@ message ScanMirrorReply {
     int64 FilesIndexed = 2;
     int64 KnownIndexed = 3;
     int64 Removed = 4;
-    int64 TZOffsetSeconds = 5;
+    int64 TZOffsetMs = 5;
 }
 
 message StatsFileRequest {

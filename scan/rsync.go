@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/utils"
 	"github.com/gomodule/redigo/redis"
 )
@@ -29,16 +30,16 @@ type RsyncScanner struct {
 }
 
 // Scan starts an rsync scan of the given mirror
-func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <-chan struct{}) error {
+func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <-chan struct{}) (core.Precision, error) {
 	var env []string
 
 	if !strings.HasPrefix(rsyncURL, "rsync://") {
-		return fmt.Errorf("%s does not start with rsync://", rsyncURL)
+		return 0, fmt.Errorf("%s does not start with rsync://", rsyncURL)
 	}
 
 	u, err := url.Parse(rsyncURL)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// Extract the credentials
@@ -64,12 +65,12 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// Pipe stdout
@@ -77,12 +78,12 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <
 	readerErr := bufio.NewReader(stderr)
 
 	if utils.IsStopped(stop) {
-		return ErrScanAborted
+		return 0, ErrScanAborted
 	}
 
 	// Start the process
 	if err := cmd.Start(); err != nil {
-		return err
+		return 0, err
 	}
 
 	log.Infof("[%s] Requesting file list via rsync...", identifier)
@@ -107,7 +108,7 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <
 		var modString string
 
 		if utils.IsStopped(stop) {
-			return ErrScanAborted
+			return 0, ErrScanAborted
 		}
 
 		// Parse one line returned by rsync
@@ -182,14 +183,14 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <
 				err1 = errors.New("rsync: " + err1.Error())
 			}
 		}
-		return err1
+		return 0, err1
 	}
 
 	if err != io.EOF {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return core.Precision(time.Second), nil
 }
 
 func readln(r *bufio.Reader) (string, error) {

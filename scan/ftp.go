@@ -10,6 +10,7 @@ import (
 	"time"
 
 	ftp "github.com/etix/goftp"
+	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/utils"
 	"github.com/gomodule/redigo/redis"
 )
@@ -23,19 +24,20 @@ const (
 type FTPScanner struct {
 	scan *scan
 
-	featMLST bool
-	featMDTM bool
+	featMLST  bool
+	featMDTM  bool
+	precision core.Precision // Used for truncating time for comparison
 }
 
 // Scan starts an ftp scan of the given mirror
-func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop <-chan struct{}) error {
+func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop <-chan struct{}) (core.Precision, error) {
 	if !strings.HasPrefix(scanurl, "ftp://") {
-		return fmt.Errorf("%s does not start with ftp://", scanurl)
+		return 0, fmt.Errorf("%s does not start with ftp://", scanurl)
 	}
 
 	ftpurl, err := url.Parse(scanurl)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	host := ftpurl.Host
@@ -44,12 +46,12 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop <-ch
 	}
 
 	if utils.IsStopped(stop) {
-		return ErrScanAborted
+		return 0, ErrScanAborted
 	}
 
 	c, err := ftp.DialTimeout(host, ftpConnTimeout, ftpRWTimeout)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer c.Quit()
 
@@ -65,7 +67,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop <-ch
 
 	err = c.Login(username, password)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	_, f.featMLST = c.Feature("MLST")
@@ -81,12 +83,12 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop <-ch
 
 	err = c.ChangeDir(ftpurl.Path)
 	if err != nil {
-		return fmt.Errorf("ftp error %s", err.Error())
+		return 0, fmt.Errorf("ftp error %s", err.Error())
 	}
 
 	_, err = c.CurrentDir()
 	if err != nil {
-		return fmt.Errorf("ftp error %s", err.Error())
+		return 0, fmt.Errorf("ftp error %s", err.Error())
 	}
 
 	// Remove the trailing slash
@@ -94,7 +96,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop <-ch
 
 	files, err = f.walkFtp(c, files, prefix+"/", stop)
 	if err != nil {
-		return fmt.Errorf("ftp error %s", err.Error())
+		return 0, fmt.Errorf("ftp error %s", err.Error())
 	}
 
 	count := 0
@@ -104,7 +106,7 @@ func (f *FTPScanner) Scan(scanurl, identifier string, conn redis.Conn, stop <-ch
 		count++
 	}
 
-	return nil
+	return f.precision, nil
 }
 
 // Walk inside an FTP repository
@@ -127,11 +129,25 @@ func (f *FTPScanner) walkFtp(c *ftp.ServerConn, files []*filedata, path string, 
 				t, _ := c.LastModificationDate(path + e.Name)
 				if !t.IsZero() {
 					newf.modTime = t
+
+					if f.precision != core.Precision(time.Millisecond) {
+						// We are not yet sure that we can have millisecond precision
+						if newf.modTime.Truncate(time.Second).Equal(newf.modTime) {
+							// The mod time is precise up to the second (for this file)
+							f.precision = core.Precision(time.Second)
+						} else {
+							// The mod time is precise up to the millisecond
+							f.precision = core.Precision(time.Millisecond)
+						}
+					}
 				}
 			}
 			if newf.modTime.IsZero() {
 				if f.featMLST {
 					newf.modTime = e.Time
+					if f.precision == 0 {
+						f.precision = core.Precision(time.Second)
+					}
 				} else {
 					newf.modTime = time.Time{}
 				}

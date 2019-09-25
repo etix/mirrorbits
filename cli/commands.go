@@ -461,8 +461,8 @@ func (c *cli) CmdScan(args ...string) error {
 			continue
 		} else {
 			fmt.Printf("%d files indexed, %d known and %d removed\n", reply.FilesIndexed, reply.KnownIndexed, reply.Removed)
-			if reply.GetTZOffsetSeconds() != 0 {
-				fmt.Printf("  ∟ Timezone offset detected and corrected: %d seconds\n", reply.TZOffsetSeconds)
+			if reply.GetTZOffsetMs() != 0 {
+				fmt.Printf("  ∟ Timezone offset detected and corrected: %d seconds\n", reply.TZOffsetMs)
 			}
 			if reply.Enabled {
 				fmt.Println("  ∟ Enabled")

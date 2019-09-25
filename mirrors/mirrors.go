@@ -11,6 +11,7 @@ import (
 	"time"
 
 	. "github.com/etix/mirrorbits/config"
+	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/network"
@@ -20,43 +21,45 @@ import (
 
 // Mirror is the structure representing all the information about a mirror
 type Mirror struct {
-	ID                    int       `redis:"ID" yaml:"-"`
-	Name                  string    `redis:"name" yaml:"Name"`
-	HttpURL               string    `redis:"http" yaml:"HttpURL"`
-	RsyncURL              string    `redis:"rsync" yaml:"RsyncURL"`
-	FtpURL                string    `redis:"ftp" yaml:"FtpURL"`
-	SponsorName           string    `redis:"sponsorName" yaml:"SponsorName"`
-	SponsorURL            string    `redis:"sponsorURL" yaml:"SponsorURL"`
-	SponsorLogoURL        string    `redis:"sponsorLogo" yaml:"SponsorLogoURL"`
-	AdminName             string    `redis:"adminName" yaml:"AdminName"`
-	AdminEmail            string    `redis:"adminEmail" yaml:"AdminEmail"`
-	CustomData            string    `redis:"customData" yaml:"CustomData"`
-	ContinentOnly         bool      `redis:"continentOnly" yaml:"ContinentOnly"`
-	CountryOnly           bool      `redis:"countryOnly" yaml:"CountryOnly"`
-	ASOnly                bool      `redis:"asOnly" yaml:"ASOnly"`
-	Score                 int       `redis:"score" yaml:"Score"`
-	Latitude              float32   `redis:"latitude" yaml:"Latitude"`
-	Longitude             float32   `redis:"longitude" yaml:"Longitude"`
-	ContinentCode         string    `redis:"continentCode" yaml:"ContinentCode"`
-	CountryCodes          string    `redis:"countryCodes" yaml:"CountryCodes"`
-	ExcludedCountryCodes  string    `redis:"excludedCountryCodes" yaml:"ExcludedCountryCodes"`
-	Asnum                 uint      `redis:"asnum" yaml:"ASNum"`
-	Comment               string    `redis:"comment" yaml:"-"`
-	Enabled               bool      `redis:"enabled" yaml:"Enabled"`
-	Up                    bool      `redis:"up" json:"-" yaml:"-"`
-	ExcludeReason         string    `redis:"excludeReason" json:",omitempty" yaml:"-"`
-	StateSince            Time      `redis:"stateSince" json:",omitempty" yaml:"-"`
-	AllowRedirects        Redirects `redis:"allowredirects" json:",omitempty" yaml:"AllowRedirects"`
-	TZOffset              int64     `redis:"tzoffset" json:"-" yaml:"-"` // timezone offset in seconds
-	Distance              float32   `redis:"-" yaml:"-"`
-	CountryFields         []string  `redis:"-" json:"-" yaml:"-"`
-	ExcludedCountryFields []string  `redis:"-" json:"-" yaml:"-"`
-	Filepath              string    `redis:"-" json:"-" yaml:"-"`
-	Weight                float32   `redis:"-" json:"-" yaml:"-"`
-	ComputedScore         int       `redis:"-" yaml:"-"`
-	LastSync              Time      `redis:"lastSync" yaml:"-"`
-	LastSuccessfulSync    Time      `redis:"lastSuccessfulSync" yaml:"-"`
-	LastModTime           Time      `redis:"lastModTime" yaml:"-"`
+	ID                          int              `redis:"ID" yaml:"-"`
+	Name                        string           `redis:"name" yaml:"Name"`
+	HttpURL                     string           `redis:"http" yaml:"HttpURL"`
+	RsyncURL                    string           `redis:"rsync" yaml:"RsyncURL"`
+	FtpURL                      string           `redis:"ftp" yaml:"FtpURL"`
+	SponsorName                 string           `redis:"sponsorName" yaml:"SponsorName"`
+	SponsorURL                  string           `redis:"sponsorURL" yaml:"SponsorURL"`
+	SponsorLogoURL              string           `redis:"sponsorLogo" yaml:"SponsorLogoURL"`
+	AdminName                   string           `redis:"adminName" yaml:"AdminName"`
+	AdminEmail                  string           `redis:"adminEmail" yaml:"AdminEmail"`
+	CustomData                  string           `redis:"customData" yaml:"CustomData"`
+	ContinentOnly               bool             `redis:"continentOnly" yaml:"ContinentOnly"`
+	CountryOnly                 bool             `redis:"countryOnly" yaml:"CountryOnly"`
+	ASOnly                      bool             `redis:"asOnly" yaml:"ASOnly"`
+	Score                       int              `redis:"score" yaml:"Score"`
+	Latitude                    float32          `redis:"latitude" yaml:"Latitude"`
+	Longitude                   float32          `redis:"longitude" yaml:"Longitude"`
+	ContinentCode               string           `redis:"continentCode" yaml:"ContinentCode"`
+	CountryCodes                string           `redis:"countryCodes" yaml:"CountryCodes"`
+	ExcludedCountryCodes        string           `redis:"excludedCountryCodes" yaml:"ExcludedCountryCodes"`
+	Asnum                       uint             `redis:"asnum" yaml:"ASNum"`
+	Comment                     string           `redis:"comment" yaml:"-"`
+	Enabled                     bool             `redis:"enabled" yaml:"Enabled"`
+	Up                          bool             `redis:"up" json:"-" yaml:"-"`
+	ExcludeReason               string           `redis:"excludeReason" json:",omitempty" yaml:"-"`
+	StateSince                  Time             `redis:"stateSince" json:",omitempty" yaml:"-"`
+	AllowRedirects              Redirects        `redis:"allowredirects" json:",omitempty" yaml:"AllowRedirects"`
+	TZOffset                    int64            `redis:"tzoffset" json:"-" yaml:"-"` // timezone offset in seconds
+	Distance                    float32          `redis:"-" yaml:"-"`
+	CountryFields               []string         `redis:"-" json:"-" yaml:"-"`
+	ExcludedCountryFields       []string         `redis:"-" json:"-" yaml:"-"`
+	Filepath                    string           `redis:"-" json:"-" yaml:"-"`
+	Weight                      float32          `redis:"-" json:"-" yaml:"-"`
+	ComputedScore               int              `redis:"-" yaml:"-"`
+	LastSync                    Time             `redis:"lastSync" yaml:"-"`
+	LastSuccessfulSync          Time             `redis:"lastSuccessfulSync" yaml:"-"`
+	LastSuccessfulSyncProtocol  core.ScannerType `redis:"lastSuccessfulSyncProtocol" yaml:"-"`
+	LastSuccessfulSyncPrecision core.Precision   `redis:"lastSuccessfulSyncPrecision" yaml:"-"`
+	LastModTime                 Time             `redis:"lastModTime" yaml:"-"`
 
 	FileInfo *filesystem.FileInfo `redis:"-" json:"-" yaml:"-"` // Details of the requested file on this specific mirror
 }
