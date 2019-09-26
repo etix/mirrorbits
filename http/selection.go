@@ -81,7 +81,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 			if !m.FileInfo.ModTime.IsZero() {
 				mModTime := m.FileInfo.ModTime
 				if GetConfig().FixTimezoneOffsets {
-					mModTime = mModTime.Add(time.Duration(m.TZOffset) * time.Second)
+					mModTime = mModTime.Add(time.Duration(m.TZOffset) * time.Millisecond)
 				}
 				mModTime = mModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
 				lModTime := fileInfo.ModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
