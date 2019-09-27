@@ -131,7 +131,7 @@ func (c *CLI) MatchMirror(ctx context.Context, in *MatchRequest) (*MatchReply, e
 	reply := &MatchReply{}
 
 	for id, name := range mirrors {
-		if strings.Contains(name, in.Pattern) {
+		if strings.Contains(strings.ToLower(name), strings.ToLower(in.Pattern)) {
 			reply.Mirrors = append(reply.Mirrors, &MirrorID{
 				ID:   int32(id),
 				Name: name,
