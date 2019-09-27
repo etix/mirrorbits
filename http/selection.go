@@ -86,12 +86,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 				mModTime = mModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
 				lModTime := fileInfo.ModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
 				if !mModTime.Equal(lModTime) {
-					m.ExcludeReason = fmt.Sprintf("File mod time mismatch (diff: %s)", lModTime.Sub(mModTime))
-					if m.LastSuccessfulSyncPrecision.Duration() == time.Millisecond {
-						m.ExcludeReason += " ms precision"
-					} else if m.LastSuccessfulSyncPrecision.Duration() == time.Second {
-						m.ExcludeReason += " second precision"
-					}
+					m.ExcludeReason = fmt.Sprintf("Mod time mismatch (diff: %s)", lModTime.Sub(mModTime))
 					goto discard
 				}
 			}
