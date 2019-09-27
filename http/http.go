@@ -474,6 +474,7 @@ type MirrorStats struct {
 	PercentD   float32
 	PercentB   float32
 	SyncOffset SyncOffset
+	TZOffset   time.Duration
 }
 
 // SyncOffset contains the time offset between the mirror and the local repository
@@ -485,9 +486,10 @@ type SyncOffset struct {
 
 // MirrorStatsPage contains the values needed to generate the mirrorstats page
 type MirrorStatsPage struct {
-	List        []MirrorStats
-	MirrorList  []mirrors.Mirror
-	LocalJSPath string
+	List             []MirrorStats
+	MirrorList       []mirrors.Mirror
+	LocalJSPath      string
+	HasTZAdjustement bool
 }
 
 // byDownloadNumbers is a sorting function
@@ -542,6 +544,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 		return
 	}
 
+	var hasTZAdjustement bool
 	var maxdownloads int64
 	var maxbytes int64
 	var results []MirrorStats
@@ -578,6 +581,11 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 
 		elapsed := time.Since(lastModTime)
 
+		tzoffset, _ := time.ParseDuration(fmt.Sprintf("%dms", mirror.TZOffset))
+		if tzoffset != 0 {
+			hasTZAdjustement = true
+		}
+
 		s := MirrorStats{
 			ID:        id,
 			Name:      mirror.Name,
@@ -588,6 +596,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 				Value:         int(elapsed.Hours()),
 				HumanReadable: utils.FuzzyTimeStr(elapsed),
 			},
+			TZOffset: tzoffset,
 		}
 		results = append(results, s)
 		index += 2
@@ -601,7 +610,7 @@ func (h *HTTP) mirrorStatsHandler(w http.ResponseWriter, r *http.Request, ctx *C
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err = ctx.Templates().mirrorstats.ExecuteTemplate(w, "base", MirrorStatsPage{results, mlist, GetConfig().LocalJSPath})
+	err = ctx.Templates().mirrorstats.ExecuteTemplate(w, "base", MirrorStatsPage{results, mlist, GetConfig().LocalJSPath, hasTZAdjustement})
 	if err != nil {
 		log.Errorf("HTTP error: %s", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)

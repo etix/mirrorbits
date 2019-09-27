@@ -86,11 +86,13 @@
                     <th>Mirror</th>
                     <th>Since 00:00 UTC…</th>
                     <th>Last update</th>
+                    {{if .HasTZAdjustement}}<th>Adjusted TZ</th>{{end}}
                 </tr>
                 {{range $i, $v := .List}}<tr>
                     <td rowspan="2">{{$v.Name}}</td>
                     <td width="500" class="tooltip"><div class="bar-download" style="width: {{$v.PercentD}}%;"><span class="tooltiptext">{{$v.Downloads}}<br>downloads</span></div></td>
                     <td rowspan="2"><span style="color:{{if $v.SyncOffset.Valid}}{{if gt $v.SyncOffset.Value 720}}red{{else if gt $v.SyncOffset.Value 48}}orange{{else}}green{{end}}{{else}}black{{end}}">{{if $v.SyncOffset.Valid}}{{$v.SyncOffset.HumanReadable}}{{else}}unknown{{end}}</span></td>
+                    {{if $.HasTZAdjustement}}<td rowspan="2">{{if ne $v.TZOffset 0}}{{$v.TZOffset}}{{end}}</td>{{end}}
                 </tr>
                 <tr>
                     <td width="500" class="tooltip"><div class="bar-bytes" style="width: {{$v.PercentB}}%;"><span class="tooltiptext">{{sizeof $v.Bytes}}<br>transferred</span></div></td>
