@@ -104,6 +104,7 @@ func (c *cli) CmdHelp() error {
 		{"enable", "Enable a mirror"},
 		{"export", "Export the mirror database"},
 		{"list", "List all mirrors"},
+		{"logs", "Print logs of a mirror"},
 		{"refresh", "Refresh the local repository"},
 		{"reload", "Reload configuration"},
 		{"remove", "Remove a mirror"},
@@ -669,7 +670,7 @@ reopen:
 	if err != nil {
 		log.Fatal("edit error:", err)
 	}
-	_, err = client.UpdateMirror(ctx, m)
+	reply, err := client.UpdateMirror(ctx, m)
 	if err != nil {
 		if err.Error() == rpc.ErrNameAlreadyTaken.Error() {
 			switch reopen(errors.New("Name already taken")) {
@@ -680,6 +681,10 @@ reopen:
 			}
 		}
 		log.Fatal("edit error:", err)
+	}
+
+	if len(reply.Diff) > 0 {
+		fmt.Println(reply.Diff)
 	}
 
 	fmt.Printf("Mirror '%s' edited successfully\n", mirror.Name)
@@ -940,6 +945,45 @@ func (c *cli) CmdStats(args ...string) error {
 			fmt.Fprintln(w, reply.Bytes)
 		}
 		w.Flush()
+	}
+
+	return nil
+}
+
+func (c *cli) CmdLogs(args ...string) error {
+	cmd := SubCmd("logs", "[IDENTIFIER]", "Print logs of a mirror")
+	maxResults := cmd.Uint("l", 500, "Maximum number of logs to return")
+
+	if err := cmd.Parse(args); err != nil {
+		return nil
+	}
+	if cmd.NArg() != 1 {
+		cmd.Usage()
+		return nil
+	}
+
+	id, name := c.matchMirror(cmd.Arg(0))
+
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	resp, err := client.GetMirrorLogs(ctx, &rpc.GetMirrorLogsRequest{
+		ID:         int32(id),
+		MaxResults: int32(*maxResults),
+	})
+	if err != nil {
+		log.Fatal("logs error:", err)
+	}
+
+	if len(resp.Line) == 0 {
+		fmt.Printf("No logs for %s\n", name)
+		return nil
+	}
+
+	fmt.Printf("Printing logs for %s:\n", name)
+
+	for _, l := range resp.Line {
+		fmt.Println(l)
 	}
 
 	return nil

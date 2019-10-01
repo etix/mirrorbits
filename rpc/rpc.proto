@@ -11,13 +11,14 @@ service CLI {
     rpc List (google.protobuf.Empty) returns (MirrorListReply) {}
     rpc MirrorInfo (MirrorIDRequest) returns (Mirror) {}
     rpc AddMirror (Mirror) returns (AddMirrorReply) {}
-    rpc UpdateMirror (Mirror) returns (google.protobuf.Empty) {}
+    rpc UpdateMirror (Mirror) returns (UpdateMirrorReply) {}
     rpc RemoveMirror (MirrorIDRequest) returns (google.protobuf.Empty) {}
     rpc RefreshRepository (RefreshRepositoryRequest) returns (google.protobuf.Empty) {}
     rpc ScanMirror (ScanMirrorRequest) returns (ScanMirrorReply) {}
     rpc StatsFile (StatsFileRequest) returns (StatsFileReply) {}
     rpc StatsMirror (StatsMirrorRequest) returns (StatsMirrorReply) {}
     rpc Ping (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+    rpc GetMirrorLogs (GetMirrorLogsRequest) returns (GetMirrorLogsReply) {}
 
     // Tools
     rpc MatchMirror (MatchRequest) returns (MatchReply) {}
@@ -100,6 +101,10 @@ message AddMirrorReply {
     repeated string Warnings = 6;
 }
 
+message UpdateMirrorReply {
+    string Diff = 1;
+}
+
 message RefreshRepositoryRequest {
     bool Rehash = 1;
 }
@@ -143,4 +148,13 @@ message StatsMirrorReply {
     Mirror Mirror = 1;
     int64 Requests = 2;
     int64 Bytes = 3;
+}
+
+message GetMirrorLogsRequest {
+    int32 ID = 1;
+    int32 MaxResults = 2;
+}
+
+message GetMirrorLogsReply {
+    repeated string line = 1;
 }

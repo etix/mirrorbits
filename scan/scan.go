@@ -121,6 +121,13 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 
 	s.setLastSync(conn, id, typ, 0, false)
 
+	mirrors.PushLog(r, mirrors.NewLogScanStarted(id, typ))
+	defer func(err *error) {
+		if err != nil && *err != nil {
+			mirrors.PushLog(r, mirrors.NewLogError(id, *err))
+		}
+	}(&err)
+
 	conn.Send("MULTI")
 
 	filesKey := fmt.Sprintf("MIRRORFILES_%d", id)
@@ -129,7 +136,8 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 	// Remove any left over
 	conn.Send("DEL", s.filesTmpKey)
 
-	precision, err := scanner.Scan(url, name, conn, stop)
+	var precision core.Precision
+	precision, err = scanner.Scan(url, name, conn, stop)
 	if err != nil {
 		// Discard MULTI
 		s.ScannerDiscard()
@@ -145,7 +153,8 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 	s.ScannerCommit()
 
 	// Get the list of files no more present on this mirror
-	toremove, err := redis.Values(conn.Do("SDIFF", filesKey, s.filesTmpKey))
+	var toremove []interface{}
+	toremove, err = redis.Values(conn.Do("SDIFF", filesKey, s.filesTmpKey))
 	if err != nil {
 		return nil, err
 	}
@@ -187,20 +196,30 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 
 	s.setLastSync(conn, id, typ, precision, true)
 
-	tzoffset, err := s.adjustTZOffset(name, precision)
+	var tzoffset int64
+	tzoffset, err = s.adjustTZOffset(name, precision)
 	if err != nil {
 		log.Warningf("Unable to check timezone shifts: %s", err)
 	}
 
 	log.Infof("[%s] Indexed %d files (%d known), %d removed", name, s.count, common, len(toremove))
-	return &ScanResult{
+	res := &ScanResult{
 		MirrorID:     id,
 		MirrorName:   name,
 		FilesIndexed: s.count,
 		KnownIndexed: common,
 		Removed:      int64(len(toremove)),
 		TZOffsetMs:   tzoffset,
-	}, nil
+	}
+
+	mirrors.PushLog(r, mirrors.NewLogScanCompleted(
+		res.MirrorID,
+		res.FilesIndexed,
+		res.KnownIndexed,
+		res.Removed,
+		res.TZOffsetMs))
+
+	return res, nil
 }
 
 func (s *scan) ScannerAddFile(f filedata) {

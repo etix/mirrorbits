@@ -32,6 +32,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -284,7 +285,7 @@ func (c *CLI) AddMirror(ctx context.Context, in *Mirror) (*AddMirrorReply, error
 	return reply, c.setMirror(mirror)
 }
 
-func (c *CLI) UpdateMirror(ctx context.Context, in *Mirror) (*empty.Empty, error) {
+func (c *CLI) UpdateMirror(ctx context.Context, in *Mirror) (*UpdateMirrorReply, error) {
 	mirror, err := MirrorFromRPC(in)
 	if err != nil {
 		return nil, err
@@ -294,7 +295,44 @@ func (c *CLI) UpdateMirror(ctx context.Context, in *Mirror) (*empty.Empty, error
 		return nil, status.Error(codes.FailedPrecondition, "invalid mirror id")
 	}
 
-	return &empty.Empty{}, c.setMirror(mirror)
+	conn, err := c.redis.Connect()
+	if err != nil {
+		return &UpdateMirrorReply{}, err
+	}
+	defer conn.Close()
+
+	m, err := redis.Values(conn.Do("HGETALL", fmt.Sprintf("MIRROR_%d", mirror.ID)))
+	if err != nil {
+		return nil, err
+	}
+
+	var original mirrors.Mirror
+	err = redis.ScanStruct(m, &original)
+	if err != nil {
+		return nil, err
+	}
+
+	diff := createDiff(&original, mirror)
+
+	return &UpdateMirrorReply{
+		Diff: diff,
+	}, c.setMirror(mirror)
+}
+
+func createDiff(mirror1, mirror2 *mirrors.Mirror) (out string) {
+	yamlo, _ := yaml.Marshal(mirror1)
+	yamln, _ := yaml.Marshal(mirror2)
+
+	splito := strings.Split(string(yamlo), "\n")
+	splitn := strings.Split(string(yamln), "\n")
+
+	for i, l := range splito {
+		if l != splitn[i] {
+			out += fmt.Sprintf("- %s\n+ %s\n", l, splitn[i])
+		}
+	}
+
+	return
 }
 
 func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
@@ -309,7 +347,12 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 		return errors.Wrap(err, "can't fetch the list of mirrors")
 	}
 
+	isUpdate := false
+
 	for id, name := range mirrorsIDs {
+		if id == mirror.ID {
+			isUpdate = true
+		}
 		if mirror.ID != id && name == mirror.Name {
 			return ErrNameAlreadyTaken
 		}
@@ -380,6 +423,14 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 	// Publish update
 	database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(mirror.ID))
 
+	if isUpdate {
+		// This was an update of an existing mirror
+		mirrors.PushLog(c.redis, mirrors.NewLogEdited(mirror.ID))
+	} else {
+		// We just added a new mirror
+		mirrors.PushLog(c.redis, mirrors.NewLogAdded(mirror.ID))
+	}
+
 	return nil
 }
 
@@ -421,7 +472,8 @@ func (c *CLI) RemoveMirror(ctx context.Context, in *MirrorIDRequest) (*empty.Emp
 		fmt.Sprintf("MIRRORFILES_%d", in.ID),
 		fmt.Sprintf("MIRRORFILESTMP_%d", in.ID),
 		fmt.Sprintf("HANDLEDFILES_%d", in.ID),
-		fmt.Sprintf("SCANNING_%d", in.ID))
+		fmt.Sprintf("SCANNING_%d", in.ID),
+		fmt.Sprintf("MIRRORLOGS_%d", in.ID))
 
 	// Remove the last reference
 	conn.Send("HDEL", "MIRRORS", in.ID)
@@ -662,4 +714,17 @@ func (c *CLI) StatsMirror(ctx context.Context, in *StatsMirrorRequest) (*StatsMi
 	}
 
 	return reply, nil
+}
+
+func (c *CLI) GetMirrorLogs(ctx context.Context, in *GetMirrorLogsRequest) (*GetMirrorLogsReply, error) {
+	if in.ID <= 0 {
+		return nil, status.Error(codes.FailedPrecondition, "invalid mirror id")
+	}
+
+	lines, err := mirrors.ReadLogs(c.redis, int(in.ID), int(in.MaxResults))
+	if err != nil {
+		return nil, errors.Wrap(err, "mirror logs error")
+	}
+
+	return &GetMirrorLogsReply{Line: lines}, nil
 }

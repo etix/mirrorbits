@@ -171,6 +171,12 @@ func SetMirrorEnabled(r *database.Redis, id int, state bool) error {
 	// Publish update
 	if err == nil {
 		database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(id))
+
+		if state == true {
+			PushLog(r, NewLogEnabled(id))
+		} else {
+			PushLog(r, NewLogDisabled(id))
+		}
 	}
 
 	return err
@@ -207,9 +213,13 @@ func SetMirrorState(r *database.Redis, id int, state bool, reason string) error 
 
 	_, err = conn.Do("HMSET", args...)
 
-	if err == nil && state != previousState {
+	if err == nil {
 		// Publish update
 		database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(id))
+
+		if state != previousState {
+			PushLog(r, NewLogStateChanged(id, state, reason))
+		}
 	}
 
 	return err
