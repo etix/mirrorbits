@@ -514,8 +514,8 @@ func TestSetMirrorState(t *testing.T) {
 		t.Fatalf("The value stateSince isn't supposed to be set")
 	}
 
-	if mock.Stats(cmdPublish) != 1 {
-		t.Fatalf("Event MIRROR_UPDATE should not be sent")
+	if mock.Stats(cmdPublish) != 2 {
+		t.Fatalf("Event MIRROR_UPDATE should be sent")
 	}
 
 	/* */
