@@ -44,6 +44,7 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
  * [Chaos Computer Club](https://media.ccc.de) (media distribution)
  * [CarbonROM](https://carbonrom.org)
  * [Endless OS](https://endlessos.com/)
+ * [Parrot OS](https://www.parrotsec.org/)
 
 Yet some things might change before the 1.0 release. If you intend to deploy Mirrorbits in a production system it is advised to notify the author first so we can help you to make any transition as seamless as possible!
 
