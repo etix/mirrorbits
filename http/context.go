@@ -75,6 +75,13 @@ func NewContext(w http.ResponseWriter, r *http.Request, t Templates) *Context {
 		}
 	}
 
+	v, ok = r.Header["X-Forwarded-Proto"]
+	if ok {
+		if v[0] == "https" {
+			c.secureOption = WITHTLS
+		}
+	}
+
 	return c
 }
 
