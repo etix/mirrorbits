@@ -1,3 +1,24 @@
+## master
+
+### FEATURES
+
+- Make per-mirror logs available on the CLI: `mirrorbits logs <mirrorname>` (#5)
+- New option (see FixTimezoneOffsets) to detect and automatically fix timezone shifts on mirrors (mostly for those using FTP).
+
+### ENHANCEMENTS
+
+- Enforce checks on modtime based on FTP and rsync capabilities
+- Use `type=notify` in the systemd service file to indicate readiness of the http server
+
+### BUGFIXES
+
+- Fixed a race condition in automatic mirror scan
+- Restore case-insensitive mirror name matching on the CLI
+
+### Changes
+
+- Use Go modules (Go 1.11+)
+
 ## v0.5.1
 
 ### ENHANCEMENTS
