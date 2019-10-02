@@ -24,7 +24,7 @@ PROTOC_GEN_GO := $(GOPATH)/bin/protoc-gen-go
 export PATH := $(GOPATH)/bin:$(PATH)
 
 PKG_CONFIG ?= /usr/bin/pkg-config
-SERVICEDIR_SYSTEMD ?= $(@shell $(PKG_CONFIG) systemd --variable=systemdsystemunitdir)
+SERVICEDIR_SYSTEMD ?= $(shell $(PKG_CONFIG) systemd --variable=systemdsystemunitdir)
 
 all: build
 
