@@ -1,6 +1,7 @@
 module github.com/etix/mirrorbits
 
 require (
+	github.com/coreos/go-systemd v0.0.0-20190719114852-fd7a80b32e1f
 	github.com/etix/goftp v0.0.0-20170217140226-0c13163a1028
 	github.com/golang/protobuf v1.3.2
 	github.com/gomodule/redigo v0.0.0-20181026001555-e8fc0692a7e2

@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	systemd "github.com/coreos/go-systemd/daemon"
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/database"
@@ -183,6 +184,13 @@ func (h *HTTP) RunServer() (err error) {
 	h.serverStopChan = h.server.StopChan()
 
 	log.Infof("Service listening on %s", GetConfig().ListenAddress)
+
+	// Since main blocks here until completion, tell systemd we're ready.
+	// This is a no-op if NOTIFY_SOCKET isn't set.
+	if os.Getenv("NOTIFY_SOCKET") != "" {
+		log.Debug("Notifying systemd of readiness")
+		systemd.SdNotify(false, systemd.SdNotifyReady)
+	}
 
 	/* Serve until we receive a SIGTERM */
 	return h.server.Serve(*h.Listener)
