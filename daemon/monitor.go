@@ -529,7 +529,11 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 		if opErr, ok := err.(*net.OpError); ok {
 			log.Debugf("Op: %s | Net: %s | Addr: %s | Err: %s | Temporary: %t", opErr.Op, opErr.Net, opErr.Addr, opErr.Error(), opErr.Temporary())
 		}
-		mirrors.MarkMirrorDown(m.redis, mirror.ID, "Unreachable")
+		if strings.Contains(err.Error(), errRedirect.Error()) {
+			mirrors.MarkMirrorDown(m.redis, mirror.ID, "Unauthorized redirect")
+		} else {
+			mirrors.MarkMirrorDown(m.redis, mirror.ID, "Unreachable")
+		}
 		log.Errorf(format+"Error: %s (%dms)", mirror.Name, err.Error(), elapsed/time.Millisecond)
 		return err
 	}
