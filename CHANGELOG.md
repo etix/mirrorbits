@@ -9,6 +9,7 @@
 
 - Enforce checks on modtime based on FTP and rsync capabilities
 - Use `type=notify` in the systemd service file to indicate readiness of the http server
+- Make unauthorized redirect errors more visible
 
 ### BUGFIXES
 
