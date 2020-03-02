@@ -41,6 +41,40 @@ func (r *Redis) GetListOfMirrors() (map[int]string, error) {
 	return mirrors, nil
 }
 
+func (r *Redis) GetListOfCountries() ([]string, error) {
+	conn, err := r.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	values, err := redis.Values(conn.Do("SMEMBERS", "COUNTRIES"))
+	if err != nil {
+		return nil, err
+	}
+
+	countries := make([]string, len(values))
+	for i, v := range values {
+		value, okValue := v.([]byte)
+		if !okValue {
+			return nil, errors.New("invalid type for countries")
+		}
+		countries[i] = string(value)
+	}
+
+	return countries, nil
+}
+
+func (r *Redis) AddCountry(country string) error {
+	conn, err := r.Connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	_, err = conn.Do("SADD", "COUNTRIES", country)
+	return err
+}
+
 type NetReadyError struct {
 	error
 }

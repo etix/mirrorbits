@@ -14,6 +14,7 @@ import (
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/mirrors"
+	"github.com/etix/mirrorbits/network"
 )
 
 /*
@@ -51,6 +52,7 @@ type Stats struct {
 type countItem struct {
 	mirrorID int
 	filepath string
+	country  string
 	size     int64
 	time     time.Time
 }
@@ -75,7 +77,7 @@ func (s *Stats) Terminate() {
 }
 
 // CountDownload is a lightweight method used to count a new download for a specific file and mirror
-func (s *Stats) CountDownload(m mirrors.Mirror, fileinfo filesystem.FileInfo) error {
+func (s *Stats) CountDownload(m mirrors.Mirror, fileinfo filesystem.FileInfo, clientInfo network.GeoIPRecord) error {
 	if m.Name == "" {
 		return errUnknownMirror
 	}
@@ -83,7 +85,7 @@ func (s *Stats) CountDownload(m mirrors.Mirror, fileinfo filesystem.FileInfo) er
 		return errEmptyFileError
 	}
 
-	s.countChan <- countItem{m.ID, fileinfo.Path, fileinfo.Size, time.Now().UTC()}
+	s.countChan <- countItem{m.ID, fileinfo.Path, clientInfo.Country, fileinfo.Size, time.Now().UTC()}
 	return nil
 }
 
@@ -100,9 +102,15 @@ func (s *Stats) processCountDownload() {
 			return
 		case c := <-s.countChan:
 			date := c.time.Format("2006_01_02|") // Includes separator
+			mirrorID := strconv.Itoa(c.mirrorID)
+			if c.country == "" {
+				c.country = "Unknown"
+			}
 			s.mapStats["f"+date+c.filepath]++
-			s.mapStats["m"+date+strconv.Itoa(c.mirrorID)]++
-			s.mapStats["s"+date+strconv.Itoa(c.mirrorID)] += c.size
+			s.mapStats["m"+date+mirrorID]++
+			s.mapStats["s"+date+mirrorID] += c.size
+			s.mapStats["c"+date+c.country]++
+			s.mapStats["S"+date+c.country] += c.size
 		case <-pushTicker.C:
 			s.pushStats()
 		}
@@ -168,6 +176,24 @@ func (s *Stats) pushStats() {
 			// Bytes
 
 			mkey := fmt.Sprintf("STATS_MIRROR_BYTES_%s", date)
+
+			for i := 0; i < 4; i++ {
+				rconn.Send("HINCRBY", mkey, object, v)
+				mkey = mkey[:strings.LastIndex(mkey, "_")]
+			}
+		} else if typ == "c" {
+			// Country
+
+			mkey := fmt.Sprintf("STATS_COUNTRY_%s", date)
+
+			for i := 0; i < 4; i++ {
+				rconn.Send("HINCRBY", mkey, object, v)
+				mkey = mkey[:strings.LastIndex(mkey, "_")]
+			}
+		} else if typ == "S" {
+			// Country Bytes
+
+			mkey := fmt.Sprintf("STATS_COUNTRY_BYTE_%s", date)
 
 			for i := 0; i < 4; i++ {
 				rconn.Send("HINCRBY", mkey, object, v)
