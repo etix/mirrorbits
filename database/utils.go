@@ -41,6 +41,30 @@ func (r *Redis) GetListOfMirrors() (map[int]string, error) {
 	return mirrors, nil
 }
 
+func (r *Redis) GetListOfFiles() ([]string, error) {
+	conn, err := r.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	values, err := redis.Values(conn.Do("SMEMBERS", "FILES"))
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]string, len(values))
+	for i, v := range values {
+		value, okValue := v.([]byte)
+		if !okValue {
+			return nil, errors.New("invalid type for file")
+		}
+		files[i] = string(value)
+	}
+
+	return files, nil
+}
+
 func (r *Redis) GetListOfCountries() ([]string, error) {
 	conn, err := r.Connect()
 	if err != nil {

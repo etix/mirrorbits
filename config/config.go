@@ -60,6 +60,7 @@ func defaultConfig() Configuration {
 		DisableOnMissingFile:    false,
 		RPCListenAddress:        "localhost:3390",
 		RPCPassword:             "",
+		MetricsEnabled:          false,
 	}
 }
 
@@ -95,6 +96,8 @@ type Configuration struct {
 
 	RPCListenAddress string `yaml:"RPCListenAddress"`
 	RPCPassword      string `yaml:"RPCPassword"`
+
+	MetricsEnabled bool `yaml:"MetricsEnabled"`
 }
 
 type fallback struct {
