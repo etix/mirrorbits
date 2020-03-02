@@ -65,6 +65,30 @@ func (r *Redis) GetListOfFiles() ([]string, error) {
 	return files, nil
 }
 
+func (r *Redis) GetListOfTrackedFiles() ([]string, error) {
+	conn, err := r.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	values, err := redis.Values(conn.Do("SMEMBERS", "TRACKED_FILES"))
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]string, len(values))
+	for i, v := range values {
+		value, okValue := v.([]byte)
+		if !okValue {
+			return nil, errors.New("invalid type for file")
+		}
+		files[i] = string(value)
+	}
+
+	return files, nil
+}
+
 func (r *Redis) GetListOfCountries() ([]string, error) {
 	conn, err := r.Connect()
 	if err != nil {
@@ -87,6 +111,30 @@ func (r *Redis) GetListOfCountries() ([]string, error) {
 	}
 
 	return countries, nil
+}
+
+func (r *Redis) GetListOfTrackFilesFields(file string) ([]string, error) {
+	conn, err := r.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	values, err := redis.Values(conn.Do("HKEYS", "STATS_TRACKED_"+file))
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]string, len(values))
+	for i, v := range values {
+		value, okValue := v.([]byte)
+		if !okValue {
+			return nil, errors.New("invalid type for file")
+		}
+		files[i] = string(value)
+	}
+
+	return files, nil
 }
 
 func (r *Redis) AddCountry(country string) error {

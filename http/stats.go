@@ -55,6 +55,7 @@ type countItem struct {
 	country  string
 	size     int64
 	time     time.Time
+	tracked  bool
 }
 
 // NewStats returns an instance of the stats counter
@@ -77,7 +78,7 @@ func (s *Stats) Terminate() {
 }
 
 // CountDownload is a lightweight method used to count a new download for a specific file and mirror
-func (s *Stats) CountDownload(m mirrors.Mirror, fileinfo filesystem.FileInfo, clientInfo network.GeoIPRecord) error {
+func (s *Stats) CountDownload(m mirrors.Mirror, fileinfo filesystem.FileInfo, clientInfo network.GeoIPRecord, isTracked bool) error {
 	if m.Name == "" {
 		return errUnknownMirror
 	}
@@ -85,7 +86,7 @@ func (s *Stats) CountDownload(m mirrors.Mirror, fileinfo filesystem.FileInfo, cl
 		return errEmptyFileError
 	}
 
-	s.countChan <- countItem{m.ID, fileinfo.Path, clientInfo.Country, fileinfo.Size, time.Now().UTC()}
+	s.countChan <- countItem{m.ID, fileinfo.Path, clientInfo.Country, fileinfo.Size, time.Now().UTC(), isTracked}
 	return nil
 }
 
@@ -111,6 +112,9 @@ func (s *Stats) processCountDownload() {
 			s.mapStats["s"+date+mirrorID] += c.size
 			s.mapStats["c"+date+c.country]++
 			s.mapStats["S"+date+c.country] += c.size
+			if c.tracked {
+				s.mapStats["F"+date+c.filepath+"|"+c.country+"_"+mirrorID]++
+			}
 		case <-pushTicker.C:
 			s.pushStats()
 		}
@@ -197,6 +201,18 @@ func (s *Stats) pushStats() {
 
 			for i := 0; i < 4; i++ {
 				rconn.Send("HINCRBY", mkey, object, v)
+				mkey = mkey[:strings.LastIndex(mkey, "_")]
+			}
+		} else if typ == "F" {
+			// File downloads per country
+
+			sep := strings.LastIndex(object, "|")
+			file := object[:sep]
+			key := object[sep+1:]
+			mkey := fmt.Sprintf("STATS_TRACKED_%s_%s", file, date)
+
+			for i := 0; i < 4; i++ {
+				rconn.Send("HINCRBY", mkey, key, v)
 				mkey = mkey[:strings.LastIndex(mkey, "_")]
 			}
 		} else {

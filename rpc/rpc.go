@@ -803,3 +803,74 @@ func (c *CLI) GetMirrorLogs(ctx context.Context, in *GetMirrorLogsRequest) (*Get
 
 	return &GetMirrorLogsReply{Line: lines}, nil
 }
+
+func (c *CLI) AddMetric(ctx context.Context, in *Metric) (*empty.Empty, error) {
+	conn, err := c.redis.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	exists, err := redis.Int(conn.Do("SISMEMBER", "FILES", in.Filename))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to check for file presence")
+	} else if exists == 0 {
+		return nil, status.Error(codes.FailedPrecondition,
+			"file does not exist")
+	}
+
+	exists, err = redis.Int(conn.Do("SADD", "TRACKED_FILES", in.Filename))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to add file to metrics")
+	} else if exists == 0 {
+		return nil, status.Error(codes.AlreadyExists,
+			"file already is in metrics")
+	}
+
+	return &empty.Empty{}, nil
+}
+
+func (c *CLI) DelMetric(ctx context.Context, in *Metric) (*empty.Empty, error) {
+	conn, err := c.redis.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	exists, err := redis.Int(conn.Do("SISMEMBER", "TRACKED_FILES", in.Filename))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to check for file presence")
+	} else if exists == 0 {
+		return nil, status.Error(codes.FailedPrecondition,
+			"file is not part of tracked files")
+	}
+
+	_, err = conn.Do("SREM", "TRACKED_FILES", in.Filename)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to remove file from tracked files")
+	}
+
+	return &empty.Empty{}, nil
+}
+
+func (c *CLI) ListMetrics(ctx context.Context, in *Metric) (*MetricsList, error) {
+	conn, err := c.redis.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	values, err := redis.Values(conn.Do("SSCAN", "TRACKED_FILES",
+		"0", "MATCH", in.Filename, "COUNT", 1000))
+	if err != nil {
+		return nil, err
+	}
+
+	byteValues, err := redis.ByteSlices(values[1], err)
+	files := make([]string, len(byteValues))
+	for i, v := range byteValues {
+		files[i] = string(v)
+	}
+
+	return &MetricsList{Filename: files}, nil
+}

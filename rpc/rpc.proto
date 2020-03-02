@@ -20,6 +20,9 @@ service CLI {
     rpc StatsMirror (StatsMirrorRequest) returns (StatsMirrorReply) {}
     rpc Ping (google.protobuf.Empty) returns (google.protobuf.Empty) {}
     rpc GetMirrorLogs (GetMirrorLogsRequest) returns (GetMirrorLogsReply) {}
+    rpc AddMetric (Metric) returns (google.protobuf.Empty) {}
+    rpc DelMetric (Metric) returns (google.protobuf.Empty) {}
+    rpc ListMetrics (Metric) returns (MetricsList) {}
 
     // Tools
     rpc MatchMirror (MatchRequest) returns (MatchReply) {}
@@ -164,4 +167,12 @@ message GetMirrorLogsRequest {
 
 message GetMirrorLogsReply {
     repeated string line = 1;
+}
+
+message Metric {
+    string Filename = 1;
+}
+
+message MetricsList {
+    repeated string Filename = 1;
 }
