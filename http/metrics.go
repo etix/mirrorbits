@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/database"
 	"github.com/gomodule/redigo/redis"
 )
@@ -330,6 +331,43 @@ func (m *Metrics) getMetrics(httpRedis *database.Redis) {
 		index++
 		output += "\n"
 	}
+
+	// Get daily stats for top 10
+	retention := config.GetConfig().MetricsTopFilesRetention
+	for nbDays := 0; nbDays < retention; nbDays++ {
+		day := today.AddDate(0, 0, nbDays*-1)
+		rconn.Send("MULTI")
+		for _, file := range fileList {
+			mkey := fmt.Sprintf("STATS_TOP_%s_%s", file,
+				day.Format("2006_01_02"))
+			rconn.Send("HGETALL", mkey)
+		}
+		stats, err = redis.Values(rconn.Do("EXEC"))
+		if err != nil {
+			log.Error("Cannot fetch file per country stats: " + err.Error())
+			return
+		}
+		for index, stat := range stats {
+			hashSlice, _ := redis.ByteSlices(stat, err)
+			for i := 0; i < len(hashSlice); i += 2 {
+				field, _ := redis.String(hashSlice[i], err)
+				value, _ := redis.Int(hashSlice[i+1], err)
+				sep := strings.Index(field, "_")
+				country := field[:sep]
+				mirrorID, err := strconv.Atoi(field[sep+1:])
+				if err != nil {
+					log.Error("Failed to convert mirror ID: ", err)
+					return
+				}
+				mirror := mirrorsMap[mirrorID]
+				output += fmt.Sprintf("stats_top"+
+					"{file=\"%s\",country=\"%s\",mirror=\"%s\"} %d\n",
+					fileList[index], country, mirror, value,
+				)
+			}
+		}
+	}
+
 	m.lock.Lock()
 	m.metricsResponse = output
 	m.lock.Unlock()

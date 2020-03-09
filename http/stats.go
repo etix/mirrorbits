@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/mirrors"
@@ -139,8 +140,8 @@ func (s *Stats) pushStats() {
 		return
 	}
 
+	topFileRetention := config.GetConfig().MetricsTopFilesRetention
 	rconn.Send("MULTI")
-
 	for k, v := range s.mapStats {
 		if v == 0 {
 			continue
@@ -214,6 +215,18 @@ func (s *Stats) pushStats() {
 			for i := 0; i < 4; i++ {
 				rconn.Send("HINCRBY", mkey, key, v)
 				mkey = mkey[:strings.LastIndex(mkey, "_")]
+			}
+			if topFileRetention != 0 {
+				mkey = fmt.Sprintf("STATS_TOP_%s_%s", file, date)
+				rconn.Send("HINCRBY", mkey, key, v)
+				t, err := time.Parse("2006_01_02", date)
+				if err != nil {
+					log.Error("Failed to parse date: ", err.Error())
+					return
+				}
+				t = t.AddDate(0, 0, topFileRetention)
+				topExpireDate := t.Format("2006_01_02")
+				rconn.Send("EXPIREAT", mkey, topExpireDate)
 			}
 		} else {
 			log.Warning("Stats: unknown type", typ)
