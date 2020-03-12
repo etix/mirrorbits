@@ -62,6 +62,7 @@ func defaultConfig() Configuration {
 		RPCPassword:              "",
 		MetricsEnabled:           false,
 		MetricsTopFilesRetention: 0,
+		MetricsAutoTrackedFiles:  false,
 	}
 }
 
@@ -100,6 +101,7 @@ type Configuration struct {
 
 	MetricsEnabled           bool `yaml:"MetricsEnabled"`
 	MetricsTopFilesRetention int  `yaml:"MetricsTopFilesRetention"`
+	MetricsAutoTrackedFiles  bool `yaml:"MetricsAutoTrackedFiles"`
 }
 
 type fallback struct {

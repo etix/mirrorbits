@@ -356,6 +356,9 @@ func (c *cli) CmdMetrics(args ...string) error {
 	_ = cmd.String("add", "", "Add a file to the metrics route")
 	_ = cmd.String("list", "*", "List files in metrics + Optionnal pattern to filter results")
 	_ = cmd.String("delete", "", "Delete a file from the metrics route")
+	_ = cmd.Bool("auto-enable", true, "Enable automatic addition of new files to tracked files")
+	_ = cmd.Bool("auto-disable", false, "Disable automatic addition of new files to tracked files")
+	_ = cmd.Bool("auto-status", true, "Print boolean of automatic addition of new files to tracked files")
 
 	// Can't use cmd.Parse(args) because it doesn't handle -command without
 	// an argument following which is needed for list
@@ -373,6 +376,12 @@ func (c *cli) CmdMetrics(args ...string) error {
 		c.CmdAddmetric(args[1])
 	} else if args[0] == "-delete" && len(args) == 2 {
 		c.CmdDelmetric(args[1])
+	} else if args[0] == "-auto-enable" {
+		c.CmdEnableauto()
+	} else if args[0] == "-auto-disable" {
+		c.CmdDisableauto()
+	} else if args[0] == "-auto-status" {
+		c.CmdStatusauto()
 	} else {
 		cmd.Usage()
 		return nil
@@ -438,6 +447,37 @@ func (c *cli) CmdListmetrics(pattern string) error {
 		for _, file := range fileList.Filename {
 			fmt.Println(file)
 		}
+	}
+
+	return nil
+}
+
+func (c *cli) CmdEnableauto() error {
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	client.EnableAuto(ctx, &empty.Empty{})
+	return nil
+}
+
+func (c *cli) CmdDisableauto() error {
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	client.DisableAuto(ctx, &empty.Empty{})
+	return nil
+}
+
+func (c *cli) CmdStatusauto() error {
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	status, _ := client.GetStatusAuto(ctx, &empty.Empty{})
+
+	if status.Status {
+		log.Info("Auto tracked files is enabled")
+	} else {
+		log.Info("Auto tracked files is disabled")
 	}
 
 	return nil

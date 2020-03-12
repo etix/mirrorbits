@@ -805,52 +805,11 @@ func (c *CLI) GetMirrorLogs(ctx context.Context, in *GetMirrorLogsRequest) (*Get
 }
 
 func (c *CLI) AddMetric(ctx context.Context, in *Metric) (*empty.Empty, error) {
-	conn, err := c.redis.Connect()
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
-	exists, err := redis.Int(conn.Do("SISMEMBER", "FILES", in.Filename))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to check for file presence")
-	} else if exists == 0 {
-		return nil, status.Error(codes.FailedPrecondition,
-			"file does not exist")
-	}
-
-	exists, err = redis.Int(conn.Do("SADD", "TRACKED_FILES", in.Filename))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to add file to metrics")
-	} else if exists == 0 {
-		return nil, status.Error(codes.AlreadyExists,
-			"file already is in metrics")
-	}
-
-	return &empty.Empty{}, nil
+	return &empty.Empty{}, c.redis.AddTrackedFile(in.Filename)
 }
 
 func (c *CLI) DelMetric(ctx context.Context, in *Metric) (*empty.Empty, error) {
-	conn, err := c.redis.Connect()
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close()
-
-	exists, err := redis.Int(conn.Do("SISMEMBER", "TRACKED_FILES", in.Filename))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to check for file presence")
-	} else if exists == 0 {
-		return nil, status.Error(codes.FailedPrecondition,
-			"file is not part of tracked files")
-	}
-
-	_, err = conn.Do("SREM", "TRACKED_FILES", in.Filename)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to remove file from tracked files")
-	}
-
-	return &empty.Empty{}, nil
+	return &empty.Empty{}, c.redis.DeleteTrackedFile(in.Filename)
 }
 
 func (c *CLI) ListMetrics(ctx context.Context, in *Metric) (*MetricsList, error) {
@@ -873,4 +832,18 @@ func (c *CLI) ListMetrics(ctx context.Context, in *Metric) (*MetricsList, error)
 	}
 
 	return &MetricsList{Filename: files}, nil
+}
+
+func (c *CLI) EnableAuto(context.Context, *empty.Empty) (*empty.Empty, error) {
+	GetConfig().MetricsAutoTrackedFiles = true
+	return &empty.Empty{}, nil
+}
+
+func (c *CLI) DisableAuto(context.Context, *empty.Empty) (*empty.Empty, error) {
+	GetConfig().MetricsAutoTrackedFiles = false
+	return &empty.Empty{}, nil
+}
+
+func (c *CLI) GetStatusAuto(context.Context, *empty.Empty) (*Status, error) {
+	return &Status{Status: GetConfig().MetricsAutoTrackedFiles}, nil
 }

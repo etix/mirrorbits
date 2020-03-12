@@ -23,6 +23,9 @@ service CLI {
     rpc AddMetric (Metric) returns (google.protobuf.Empty) {}
     rpc DelMetric (Metric) returns (google.protobuf.Empty) {}
     rpc ListMetrics (Metric) returns (MetricsList) {}
+    rpc EnableAuto (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+    rpc DisableAuto (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+    rpc GetStatusAuto (google.protobuf.Empty) returns (Status) {}
 
     // Tools
     rpc MatchMirror (MatchRequest) returns (MatchReply) {}
@@ -175,4 +178,8 @@ message Metric {
 
 message MetricsList {
     repeated string Filename = 1;
+}
+
+message Status {
+    bool Status = 1;
 }
