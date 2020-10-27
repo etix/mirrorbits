@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019 Ludovic Fauvet
+// Copyright (c) 2014-2020 Ludovic Fauvet
 // Licensed under the MIT license
 
 // Mirrorbits is a geographic download redirector for distributing files efficiently across a set of mirrors.
