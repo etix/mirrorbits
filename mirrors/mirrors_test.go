@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019 Ludovic Fauvet
+// Copyright (c) 2014-2020 Ludovic Fauvet
 // Licensed under the MIT license
 
 package mirrors
@@ -13,7 +13,7 @@ import (
 
 	"github.com/etix/mirrorbits/database"
 	"github.com/etix/mirrorbits/network"
-	. "github.com/etix/mirrorbits/testing"
+	"github.com/etix/mirrorbits/testing"
 	"github.com/gomodule/redigo/redis"
 	"github.com/rafaeljusto/redigomock"
 )
