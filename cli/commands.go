@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2019 Ludovic Fauvet
+// Copyright (c) 2014-2020 Ludovic Fauvet
 // Licensed under the MIT license
 
 package cli
@@ -38,7 +38,7 @@ import (
 
 const (
 	commentSeparator  = "##### Comments go below this line #####"
-	defaultRPCTimeout = time.Second * 10
+	defaultRPCTimeout = time.Second * 20
 )
 
 var (
