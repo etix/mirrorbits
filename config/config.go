@@ -54,11 +54,14 @@ func defaultConfig() Configuration {
 			SHA256: true,
 			MD5:    false,
 		},
-		DisallowRedirects:       false,
-		WeightDistributionRange: 1.5,
-		DisableOnMissingFile:    false,
-		RPCListenAddress:        "localhost:3390",
-		RPCPassword:             "",
+		DisallowRedirects:        false,
+		WeightDistributionRange:  1.5,
+		DisableOnMissingFile:     false,
+		RPCListenAddress:         "localhost:3390",
+		RPCPassword:              "",
+		MetricsEnabled:           false,
+		MetricsTopFilesRetention: 0,
+		MetricsAutoTrackedFiles:  false,
 	}
 }
 
@@ -93,6 +96,10 @@ type Configuration struct {
 
 	RPCListenAddress string `yaml:"RPCListenAddress"`
 	RPCPassword      string `yaml:"RPCPassword"`
+
+	MetricsEnabled           bool `yaml:"MetricsEnabled"`
+	MetricsTopFilesRetention int  `yaml:"MetricsTopFilesRetention"`
+	MetricsAutoTrackedFiles  bool `yaml:"MetricsAutoTrackedFiles"`
 }
 
 type fallback struct {
@@ -164,6 +171,9 @@ func ReloadConfig() error {
 	}
 	if c.RepositoryScanInterval < 0 {
 		c.RepositoryScanInterval = 0
+	}
+	if c.MetricsTopFilesRetention < 0 {
+		c.MetricsTopFilesRetention = 0
 	}
 
 	if config != nil &&

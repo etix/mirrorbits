@@ -19,6 +19,7 @@ import (
 	"time"
 
 	systemd "github.com/coreos/go-systemd/daemon"
+	"github.com/etix/mirrorbits/config"
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/database"
@@ -50,6 +51,7 @@ type HTTP struct {
 	Restarting     bool
 	stopped        bool
 	stoppedMutex   sync.Mutex
+	metrics        *Metrics
 }
 
 // Templates is a struct embedding instances of the precompiled templates
@@ -72,6 +74,11 @@ func HTTPServer(redis *database.Redis, cache *mirrors.Cache) *HTTP {
 	h.stats = NewStats(redis)
 	h.engine = DefaultEngine{}
 	http.Handle("/", NewGzipHandler(h.requestDispatcher))
+
+	if config.GetConfig().MetricsEnabled {
+		h.metrics = NewMetrics(redis)
+		http.Handle("/metrics", NewGzipHandler(h.metricsHandler))
+	}
 
 	// Load the GeoIP databases
 	if err := h.geoip.LoadGeoIP(); err != nil {
@@ -233,7 +240,13 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 
 	fileInfo := filesystem.NewFileInfo(urlPath)
 
-	remoteIP := network.ExtractRemoteIP(r.Header.Get("X-Forwarded-For"))
+	var remoteIP string
+	// This http header should only be used in the context of testing geoip
+	if r.Header.Get("X-Fake-Ip") != "" {
+		remoteIP = network.ExtractRemoteIP(r.Header.Get("X-Fake-Ip"))
+	} else {
+		remoteIP = network.ExtractRemoteIP(r.Header.Get("X-Forwarded-For"))
+	}
 	if len(remoteIP) == 0 {
 		remoteIP = network.RemoteIPFromAddr(r.RemoteAddr)
 	}
@@ -246,6 +259,14 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	}
 
 	clientInfo := h.geoip.GetRecord(remoteIP) //TODO return a pointer?
+
+	if clientInfo.Country != "" {
+		err = h.redis.AddCountry(clientInfo.Country)
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	mlist, excluded, err := h.engine.Selection(ctx, h.cache, &fileInfo, clientInfo)
 
@@ -316,10 +337,15 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		http.Error(w, err.Error(), status)
 	}
 
+	isTracked, err := h.metrics.IsFileTracked(fileInfo.Path)
+	if err != nil {
+		log.Error("There was a problem fetching the tracked file list: ", err)
+	}
+
 	if !ctx.IsMirrorlist() {
 		logs.LogDownload(resultRenderer.Type(), status, results, err)
 		if len(mlist) > 0 {
-			h.stats.CountDownload(mlist[0], fileInfo)
+			h.stats.CountDownload(mlist[0], fileInfo, clientInfo, isTracked)
 		}
 	}
 

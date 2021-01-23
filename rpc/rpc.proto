@@ -19,6 +19,12 @@ service CLI {
     rpc StatsMirror (StatsMirrorRequest) returns (StatsMirrorReply) {}
     rpc Ping (google.protobuf.Empty) returns (google.protobuf.Empty) {}
     rpc GetMirrorLogs (GetMirrorLogsRequest) returns (GetMirrorLogsReply) {}
+    rpc AddMetric (Metric) returns (google.protobuf.Empty) {}
+    rpc DelMetric (Metric) returns (google.protobuf.Empty) {}
+    rpc ListMetrics (Metric) returns (MetricsList) {}
+    rpc EnableAuto (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+    rpc DisableAuto (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+    rpc GetStatusAuto (google.protobuf.Empty) returns (StatusAuto) {}
 
     // Tools
     rpc MatchMirror (MatchRequest) returns (MatchReply) {}
@@ -157,4 +163,16 @@ message GetMirrorLogsRequest {
 
 message GetMirrorLogsReply {
     repeated string line = 1;
+}
+
+message Metric {
+    string Filename = 1;
+}
+
+message MetricsList {
+    repeated string Filename = 1;
+}
+
+message StatusAuto {
+    bool Status = 1;
 }
