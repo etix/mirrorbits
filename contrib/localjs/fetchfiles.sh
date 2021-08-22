@@ -42,7 +42,7 @@ downloadfile ()
 {
 	curl=`which curl`
 	if [ ${#curl} -ge 4 ] ; then
-		$curl --output "$2" "$1"
+		$curl -L --output "$2" "$1"
 		return
 	fi
 	wget=`which wget`
