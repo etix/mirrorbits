@@ -37,7 +37,7 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
 **Yes!** Mirrorbits has served **billions** of files already and is known to be running in production at
  * [VideoLAN](http://www.videolan.org/) to distribute [VLC media player](http://www.videolan.org/vlc/) since April 2014 ([Demo](https://get.videolan.org/index.html?mirrorstats))
  * [Kodi](http://kodi.tv/) (previously XBMC) ([Demo](https://mirrors.kodi.tv/index.html?mirrorstats)
- * [LineageOS](http://lineageos.org) (previously CyanogenMod)
+ * [LineageOS](http://lineageos.org/) (previously CyanogenMod) since January 2017 ([Demo](https://mirrorbits.lineageos.org/index.html?mirrorstats))
  * [Chaos Computer Club](https://media.ccc.de) (media distribution)
  * [CarbonROM](https://carbonrom.org)
  * [Endless OS](https://endlessos.com/)
