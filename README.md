@@ -38,7 +38,7 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
  * [VideoLAN](http://www.videolan.org/) to distribute [VLC media player](http://www.videolan.org/vlc/) since April 2014 ([Demo](https://get.videolan.org/index.html?mirrorstats))
  * [Kodi](http://kodi.tv/) (previously XBMC) ([Demo](https://mirrors.kodi.tv/index.html?mirrorstats)
  * [LineageOS](http://lineageos.org/) (previously CyanogenMod) since January 2017 ([Demo](https://mirrorbits.lineageos.org/index.html?mirrorstats))
- * [Chaos Computer Club](https://media.ccc.de) (media distribution)
+ * [Chaos Computer Club](https://media.ccc.de/)to distribute media ([Demo](https://cdn.media.ccc.de/index.html?mirrorstats))
  * [CarbonROM](https://carbonrom.org)
  * [Endless OS](https://endlessos.com/)
  * [Parrot OS](https://www.parrotsec.org/)
