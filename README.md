@@ -39,7 +39,7 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
  * [Kodi](http://kodi.tv/) (previously XBMC) ([Demo](https://mirrors.kodi.tv/index.html?mirrorstats)
  * [LineageOS](http://lineageos.org/) (previously CyanogenMod) since January 2017 ([Demo](https://mirrorbits.lineageos.org/index.html?mirrorstats))
  * [Chaos Computer Club](https://media.ccc.de/)to distribute media ([Demo](https://cdn.media.ccc.de/index.html?mirrorstats))
- * [CarbonROM](https://carbonrom.org)
+ * [CarbonROM](https://carbonrom.org/) ([Demo](https://mirrorbits.carbonrom.org/index.html?mirrorstats))
  * [Endless OS](https://endlessos.com/)
  * [Parrot OS](https://www.parrotsec.org/)
  * [Jenkins](https://www.jenkins.io/) to distribute Jenkins releases since February 2020
