@@ -103,133 +103,132 @@
 {{end}}
 
 {{define "body"}}
-
-<div style="display: flex; flex-wrap: wrap;">
-    <div style="flex-basis: 250px; flex-grow: 1; margin: 8px;">
-        <h3>Client</h3>
-        <div>You are connecting with IP address <i>{{.IP}}</i>, which belongs to autonomous system <i>{{.ClientInfo.ASName}} (ASN{{.ClientInfo.ASNum}})</i>.<br />
-        {{if .ClientInfo.IsValid}}We believe you are {{if .ClientInfo.City}}near <i>{{.ClientInfo.City}}</i> in {{else}}somewhere in {{end}}<i>{{.ClientInfo.Country}}</i> and have selected mirrors based on this.{{else}}We were not able to use your IP to approximate your location, so have chosen the mirrors at random.{{end}}</div>
-    </div>
-
-    <div style="flex-basis: 325px; flex-grow: 1; margin: 8px;">
-        <h3>File</h3>
-        <div>The file <b>{{.FileInfo.Path}}</b> has a size of {{sizeof .FileInfo.Size}} ({{.FileInfo.Size}} bytes) and was last modified on {{dateutc .FileInfo.ModTime}}.</div>
-        <div>
-            <br/>Known hashes:
-            <table class="alt">
-                <tr><td>MD5</td><td style="font-family: monospace; word-break: break-all;">{{if .FileInfo.Md5}}{{.FileInfo.Md5}}{{else}}N/A{{end}}</td></tr>
-                <tr><td>SHA1</td><td style="font-family: monospace; word-break: break-all;">{{if .FileInfo.Sha1}}{{.FileInfo.Sha1}}{{else}}N/A{{end}}</td></tr>
-                <tr><td>SHA256</td><td style="font-family: monospace; word-break: break-all;">{{if .FileInfo.Sha256}}{{.FileInfo.Sha256}}{{else}}N/A{{end}}</td></tr>
-            </table>
+    <div style="display: flex; flex-wrap: wrap;">
+        <div style="flex-basis: 250px; flex-grow: 1; margin: 8px;">
+            <h3>Client</h3>
+            <div>You are connecting with IP address <i>{{.IP}}</i>, which belongs to autonomous system <i>{{.ClientInfo.ASName}} (ASN{{.ClientInfo.ASNum}})</i>.<br />
+            {{if .ClientInfo.IsValid}}We believe you are {{if .ClientInfo.City}}near <i>{{.ClientInfo.City}}</i> in {{else}}somewhere in {{end}}<i>{{.ClientInfo.Country}}</i> and have selected mirrors based on this.{{else}}We were not able to use your IP to approximate your location, so have chosen the mirrors at random.{{end}}</div>
         </div>
-        <br/>
+
+        <div style="flex-basis: 325px; flex-grow: 1; margin: 8px;">
+            <h3>File</h3>
+            <div>The file <b>{{.FileInfo.Path}}</b> has a size of {{sizeof .FileInfo.Size}} ({{.FileInfo.Size}} bytes) and was last modified on {{dateutc .FileInfo.ModTime}}.</div>
+            <div>
+                <br/>Known hashes:
+                <table class="alt">
+                    <tr><td>MD5</td><td style="font-family: monospace; word-break: break-all;">{{if .FileInfo.Md5}}{{.FileInfo.Md5}}{{else}}N/A{{end}}</td></tr>
+                    <tr><td>SHA1</td><td style="font-family: monospace; word-break: break-all;">{{if .FileInfo.Sha1}}{{.FileInfo.Sha1}}{{else}}N/A{{end}}</td></tr>
+                    <tr><td>SHA256</td><td style="font-family: monospace; word-break: break-all;">{{if .FileInfo.Sha256}}{{.FileInfo.Sha256}}{{else}}N/A{{end}}</td></tr>
+                </table>
+            </div>
+            <br/>
+        </div>
     </div>
-</div>
 
-<div style="display: flex; flex-wrap: wrap; justify-content: space-around;">
-    <div id="map" style="width:600; height:320;"></div>
-    <div id="chart_div" style="width:600; height:320;"></div>
-</div>
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-around;">
+        <div id="map" style="width:600; height:320;"></div>
+        <div id="chart_div" style="width:600; height:320;"></div>
+    </div>
 
-<script>
-    var map = L.map('map').setView([20,37], 2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: 'Data &copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>, map rendering <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'
-    }).addTo(map);
+    <script>
+        var map = L.map('map').setView([20,37], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: 'Data &copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>, map rendering <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>'
+        }).addTo(map);
 
-    var mapdata = {
-        "mirrors" : [
-        {{range $i, $v := .MirrorList}}{{if lt $i 19 }}
-        {
-            "lat" : {{$v.Latitude}},
-            "lon" : {{$v.Longitude}},
-            "nr" : {{add $i 1}},
-            "color" : {{if $v.Weight}}"green"{{else}}"blue"{{end}}
-        },
-        {{end}}{{end}}
-        ],
-        "clientpos" : {
-            {{if .ClientInfo.IsValid }}
-            "lat" : {{.ClientInfo.Latitude}},
-            "lon" : {{.ClientInfo.Longitude}}
-            {{else}}
-            "lat" : 0.0,
-            "lon" : 0.0
-            {{end}}
+        var mapdata = {
+            "mirrors" : [
+            {{range $i, $v := .MirrorList}}{{if lt $i 19 }}
+            {
+                "lat" : {{$v.Latitude}},
+                "lon" : {{$v.Longitude}},
+                "nr" : {{add $i 1}},
+                "color" : {{if $v.Weight}}"green"{{else}}"blue"{{end}}
+            },
+            {{end}}{{end}}
+            ],
+            "clientpos" : {
+                {{if .ClientInfo.IsValid }}
+                "lat" : {{.ClientInfo.Latitude}},
+                "lon" : {{.ClientInfo.Longitude}}
+                {{else}}
+                "lat" : 0.0,
+                "lon" : 0.0
+                {{end}}
+            }
+        };
+        var latlngbounds = new L.latLngBounds(); // For calculating the boundaries we zoom to on map load
+        if ((mapdata.clientpos.lat != 0.0) || (mapdata.clientpos.lon != 0.0)) {
+            var nxtmarker = new L.marker([mapdata.clientpos.lat, mapdata.clientpos.lon]);
+            nxtmarker.addTo(map);
+            latlngbounds.extend([mapdata.clientpos.lat, mapdata.clientpos.lon]);
+            if (mapdata.mirrors.length > 0) {
+                var polyline = L.polyline( [
+                                             [ mapdata.clientpos.lat, mapdata.clientpos.lon ],
+                                             [ mapdata.mirrors[0].lat, mapdata.mirrors[0].lon ]
+                                           ],
+                                           {color: 'blue', opacity: 0.6});
+                polyline.addTo(map);
+                // No need to update the bounds - that happens when the mirrors dot is added below.
+            }
         }
-    };
-    var latlngbounds = new L.latLngBounds(); // For calculating the boundaries we zoom to on map load
-    if ((mapdata.clientpos.lat != 0.0) || (mapdata.clientpos.lon != 0.0)) {
-        var nxtmarker = new L.marker([mapdata.clientpos.lat, mapdata.clientpos.lon]);
-        nxtmarker.addTo(map);
-        latlngbounds.extend([mapdata.clientpos.lat, mapdata.clientpos.lon]);
-        if (mapdata.mirrors.length > 0) {
-            var polyline = L.polyline( [
-                                         [ mapdata.clientpos.lat, mapdata.clientpos.lon ],
-                                         [ mapdata.mirrors[0].lat, mapdata.mirrors[0].lon ]
-                                       ],
-                                       {color: 'blue', opacity: 0.6});
-            polyline.addTo(map);
-            // No need to update the bounds - that happens when the mirrors dot is added below.
+        var showaftercutoff = 3; // How many mirrors without weight to use for calculating bounds
+        for (i in mapdata.mirrors) {
+            var myIcon = L.divIcon({
+                className: 'numberboxinmap' + mapdata.mirrors[i].color,
+                html: "" + mapdata.mirrors[i].nr,
+                iconSize: null,
+                iconAnchor: [8, 20]
+            });
+            var nxtmarker = new L.marker([mapdata.mirrors[i].lat, mapdata.mirrors[i].lon], {icon: myIcon});
+            nxtmarker.addTo(map);
+            if (mapdata.mirrors[i].color != "green") {
+                showaftercutoff--;
+            }
+            if (showaftercutoff > 0) {
+                latlngbounds.extend([mapdata.mirrors[i].lat, mapdata.mirrors[i].lon]);
+            }
         }
-    }
-    var showaftercutoff = 3; // How many mirrors without weight to use for calculating bounds
-    for (i in mapdata.mirrors) {
-        var myIcon = L.divIcon({
-            className: 'numberboxinmap' + mapdata.mirrors[i].color,
-            html: "" + mapdata.mirrors[i].nr,
-            iconSize: null,
-            iconAnchor: [8, 20]
-        });
-        var nxtmarker = new L.marker([mapdata.mirrors[i].lat, mapdata.mirrors[i].lon], {icon: myIcon});
-        nxtmarker.addTo(map);
-        if (mapdata.mirrors[i].color != "green") {
-            showaftercutoff--;
-        }
-        if (showaftercutoff > 0) {
-            latlngbounds.extend([mapdata.mirrors[i].lat, mapdata.mirrors[i].lon]);
-        }
-    }
-    latlngbounds.pad(1);
-    map.fitBounds(latlngbounds);
+        latlngbounds.pad(1);
+        map.fitBounds(latlngbounds);
+    </script>
 
-</script>
+    <div>
+        <br/>
+        <h3>Mirrors</h3>
 
-<div>
-    <br/>
-    <h3>Mirrors</h3>
-
-    {{if .Fallback}}<p style="color:red">Warning: file not served by any mirror, fallbacks to the rescue.</p>{{end}}
+        {{if .Fallback}}<p style="color:red">Warning: file not served by any mirror, fallbacks to the rescue.</p>{{end}}
 
     {{if .MirrorList}}
-    <table border="0" cellpadding="2" class="alt" style="width: 95%; text-align:left;">
-    <thead><tr>
-        <th style="width: 3%;">Rank</th><th style="width: 20%;">Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center; width: 10%;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center;">Selection</th>
-    </tr></thead>
-    <tbody>
-    {{range $i, $v := .MirrorList}}
-    <tr{{if not $v.Weight}} style="color: grey;"{{end}}>
-        <td style="text-align: right;">{{add $i 1}}.</td><td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.Name}}{{end}}</td><td style="text-align: right;"><a href="{{concaturl $v.HttpURL $.FileInfo.Path}}">{{$v.HttpURL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align: right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{if $v.Weight}}{{if ge $v.Weight 1.0}}{{printf "%.0f" $v.Weight}}{{else}}<1{{end}}%{{else}}n/a{{end}}</td>
-    </tr>
-    {{end}}
-    </tbody>
-    </table>
+        <table border="0" cellpadding="2" class="alt" style="width: 95%; text-align:left;">
+        <thead><tr>
+            <th style="width: 3%;">Rank</th><th style="width: 20%;">Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center; width: 10%;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center;">Selection</th>
+        </tr></thead>
+        <tbody>
+        {{range $i, $v := .MirrorList}}
+        <tr{{if not $v.Weight}} style="color: grey;"{{end}}>
+            <td style="text-align: right;">{{add $i 1}}.</td><td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.Name}}{{end}}</td><td style="text-align: right;"><a href="{{concaturl $v.HttpURL $.FileInfo.Path}}">{{$v.HttpURL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align: right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{if $v.Weight}}{{if ge $v.Weight 1.0}}{{printf "%.0f" $v.Weight}}{{else}}<1{{end}}%{{else}}n/a{{end}}</td>
+        </tr>
+        {{end}}
+        </tbody>
+        </table>
     {{else}}
-    <i>No mirrors for this file</i>
+        <i>No mirrors for this file</i>
     {{end}}
 
     {{if .ExcludedList}}
-    <h3>Excluded Mirrors</h3>
-    <table border="0" cellpadding="2" class="alt" style="width: 95%; text-align:left;">
-    <thead><tr><th style="width: 23%;">Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center; width: 10%;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center; width: 20%;">Exclude Reason</th></tr></thead>
-    <tbody>
-    {{range $i, $v := .ExcludedList}}
-        <tr>
-            <td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.Name}}{{end}}<td style="text-align: right;"><a href="{{$v.HttpURL}}">{{$v.HttpURL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align:right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{$v.ExcludeReason}}</td>
-        </tr>
-    {{end}}
-    </tbody>
-    </table>
-    {{end}}
-</div>
+        <h3>Excluded Mirrors</h3>
+        <table border="0" cellpadding="2" class="alt" style="width: 95%; text-align:left;">
+        <thead><tr>
+            <th style="width: 23%;">Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center; width: 10%;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center; width: 20%;">Exclude Reason</th></tr></thead>
+        <tbody>
+        {{range $i, $v := .ExcludedList}}
+            <tr>
+                <td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.Name}}{{end}}<td style="text-align: right;"><a href="{{$v.HttpURL}}">{{$v.HttpURL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align:right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{$v.ExcludeReason}}</td>
+            </tr>
+        {{end}}
+        </tbody>
+        </table>
+        {{end}}
+    </div>
 {{end}}
