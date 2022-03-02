@@ -42,7 +42,7 @@ downloadfile ()
 {
 	curl=`which curl`
 	if [ ${#curl} -ge 4 ] ; then
-		$curl --output "$2" "$1"
+		$curl -L --output "$2" "$1"
 		return
 	fi
 	wget=`which wget`
@@ -98,11 +98,8 @@ if [ ! -e "${localdir}/fonts" ] ; then
 	mkdir -p "${localdir}/fonts"
 fi
 downloadfile "https://google-webfonts-helper.herokuapp.com/api/fonts/lato?download=zip&subsets=latin&variants=900,regular" "${localdir}/fonts/lato-font-900and400.zip"
-# Make sure the webserver cannot access the file for licensing reasons, as
-# that would count as distribution and require proper attribution which
-# we cannot guarantee.
-chmod go-rwx "${localdir}/fonts/lato-font-900and400.zip"
 unzip "${localdir}/fonts/lato-font-900and400.zip" -d "${localdir}/fonts/"
+rm -f "${localdir}/fonts/lato-font-900and400.zip"
 
 # For fontawesome, we download and unpack the whole ZIP as well.
 # Downloading individual files will not work here, as depending on the
@@ -118,8 +115,8 @@ if [ -e "${localdir}/font-awesome/4.7.0" ] ; then
 	echo "To force redownload and extraction, remove '${localdir}/font-awesome/4.7.0'"
 else
 	downloadfile "https://fontawesome.com/v4.7.0/assets/font-awesome-4.7.0.zip" "${localdir}/font-awesome-4.7.0.zip"
-	chmod go-rwx "${localdir}/font-awesome-4.7.0.zip"
 	unzip "${localdir}/font-awesome-4.7.0.zip" -d "${localdir}/font-awesome"
+	rm -f "${localdir}/font-awesome-4.7.0.zip"
 	mv "${localdir}/font-awesome/font-awesome-4.7.0" "${localdir}/font-awesome/4.7.0"
 fi
 
