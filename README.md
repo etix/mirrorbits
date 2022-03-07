@@ -35,12 +35,12 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
 ## Is it production ready?
 
 **Yes!** Mirrorbits has served **billions** of files already and is known to be running in production at:
-* [CarbonROM](https://carbonrom.org/) ([Demo](https://mirrorbits.carbonrom.org/index.html?mirrorstats))
-* [Chaos Computer Club](https://media.ccc.de/)to distribute media ([Demo](https://cdn.media.ccc.de/index.html?mirrorstats))
-* [Jenkins](https://www.jenkins.io/) to distribute Jenkins releases since February 2020 ([Demo](https://get.jenkins.io/index.html?mirrorlist))
-* [Kodi](http://kodi.tv/) (previously XBMC) ([Demo](https://mirrors.kodi.tv/index.html?mirrorstats)
-* [LineageOS](http://lineageos.org/) (previously CyanogenMod) since January 2017 ([Demo](https://mirrorbits.lineageos.org/index.html?mirrorstats))
-* [VideoLAN](http://www.videolan.org/) to distribute [VLC media player](http://www.videolan.org/vlc/) since April 2014 ([Demo](https://get.videolan.org/index.html?mirrorstats))
+* [CarbonROM](https://carbonrom.org/)
+* [Chaos Computer Club](https://media.ccc.de/) to distribute media
+* [Jenkins](https://www.jenkins.io/) to distribute Jenkins releases since [February 2020](https://github.com/jenkins-infra/docker-mirrorbits)
+* [Kodi](http://kodi.tv/) (previously XBMC) since [July 2015](https://forum.kodi.tv/showthread.php?tid=233824)
+* [LineageOS](http://lineageos.org/) (previously CyanogenMod) since January 2017
+* [VideoLAN](http://www.videolan.org/) to distribute [VLC media player](http://www.videolan.org/vlc/) since [April 2014](https://blog.l0cal.com/2014/07/11/mirrorbits-is-now-on-github/)
 
 Yet some things might change before the 1.0 release. If you intend to deploy Mirrorbits in a production system it is advised to notify the author first so we can help you to make any transition as seamless as possible!
 
