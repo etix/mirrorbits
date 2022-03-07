@@ -37,6 +37,7 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
 **Yes!** Mirrorbits has served **billions** of files already and is known to be running in production at:
 * [CarbonROM](https://carbonrom.org/)
 * [Chaos Computer Club](https://media.ccc.de/) to distribute media
+* [Jellyfin](https://jellyfin.org/) since [April 2021](https://jellyfin.org/posts/mirrorbits-cdn/)
 * [Jenkins](https://www.jenkins.io/) to distribute Jenkins releases since [February 2020](https://github.com/jenkins-infra/docker-mirrorbits)
 * [Kodi](http://kodi.tv/) (previously XBMC) since [July 2015](https://forum.kodi.tv/showthread.php?tid=233824)
 * [LineageOS](http://lineageos.org/) (previously CyanogenMod) since January 2017
