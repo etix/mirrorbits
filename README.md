@@ -34,20 +34,23 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
 
 ## Is it production ready?
 
-**Yes!** Mirrorbits has served **billions** of files already and is known to be running in production at
- * [VideoLAN](http://www.videolan.org) to distribute [VLC media player](http://www.videolan.org/vlc/) since April 2014
- * [Popcorn Time](https://popcorntime.io)
- * [SuperRepo](https://superrepo.org)
- * [Kodi](http://kodi.tv) (aka XBMC)
- * [OSMC](https://osmc.tv)
- * [LineageOS](http://lineageos.org) (previously CyanogenMod)
- * [Chaos Computer Club](https://media.ccc.de) (media distribution)
- * [CarbonROM](https://carbonrom.org)
- * [Endless OS](https://endlessos.com/)
- * [Parrot OS](https://www.parrotsec.org/)
- * [Jenkins](https://www.jenkins.io/) to distribute Jenkins releases since February 2020
+**Yes!** Mirrorbits has served **billions** of files already and is known to be running in production at:
+* [CarbonROM](https://carbonrom.org/)
+* [Chaos Computer Club](https://media.ccc.de/) to distribute media
+* [Jellyfin](https://jellyfin.org/) since [April 2021](https://jellyfin.org/posts/mirrorbits-cdn/)
+* [Jenkins](https://www.jenkins.io/) to distribute Jenkins releases since [February 2020](https://github.com/jenkins-infra/docker-mirrorbits)
+* [Kodi](http://kodi.tv/) (previously XBMC) since [July 2015](https://forum.kodi.tv/showthread.php?tid=233824)
+* [LineageOS](http://lineageos.org/) (previously CyanogenMod) since January 2017
+* [VideoLAN](http://www.videolan.org/) to distribute [VLC media player](http://www.videolan.org/vlc/) since [April 2014](https://blog.l0cal.com/2014/07/11/mirrorbits-is-now-on-github/)
 
 Yet some things might change before the 1.0 release. If you intend to deploy Mirrorbits in a production system it is advised to notify the author first so we can help you to make any transition as seamless as possible!
+
+_Previous projects which have used Mirrorbits:_
+* [Endless OS](https://endlessos.com/)
+* [OSMC](https://osmc.tv)
+* [Parrot OS](https://www.parrotsec.org)
+* [Popcorn Time](https://popcorntime.io)
+* [SuperRepo](https://superrepo.org)
 
 # Quick start
 
