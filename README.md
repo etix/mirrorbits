@@ -45,6 +45,13 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
 
 Yet some things might change before the 1.0 release. If you intend to deploy Mirrorbits in a production system it is advised to notify the author first so we can help you to make any transition as seamless as possible!
 
+_Previous projects which have used Mirrorbits:_
+* Endless OS
+* OSMC
+* Parrot OS
+* Popcorn Time
+* SuperRepo
+
 # Quick start
 
 ## Prerequisites
