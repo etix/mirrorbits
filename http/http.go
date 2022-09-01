@@ -4,6 +4,8 @@
 package http
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -319,7 +321,33 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	if !ctx.IsMirrorlist() {
 		logs.LogDownload(resultRenderer.Type(), status, results, err)
 		if len(mlist) > 0 {
-			h.stats.CountDownload(mlist[0], fileInfo)
+			if r.Header.Get("Range") == "" {
+				h.stats.CountDownload(mlist[0], fileInfo)
+			} else {
+				downloaderID := remoteIP+"/"+r.Header.Get("User-Agent")
+				hash := sha256.New()
+				hash.Write([]byte(downloaderID))
+				chk := hex.EncodeToString(hash.Sum(nil))
+
+				rconn := h.redis.Get()
+				defer rconn.Close()
+
+				tempKey := "DOWNLOADED_"+chk+"_"+urlPath
+
+				prev, _ := redis.String(rconn.Do("GET", tempKey))
+				if prev == "" {
+					// Only count partial requests as a new download if
+					// we haven't had any recently from the same client
+					// (i.e. same (IP, user-agent) hash). This prevents
+					// from counting multiple times a single client
+					// downloading a single file in pieces, such as
+					// torrent clients when files are used as web seeds.
+					h.stats.CountDownload(mlist[0], fileInfo)
+				}
+
+				// Set the key anyway to reset the timer.
+				rconn.Send("SET", tempKey, 1, "EX", 600)
+			}
 		}
 	}
 
