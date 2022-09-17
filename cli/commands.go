@@ -201,7 +201,7 @@ func (c *cli) CmdList(args ...string) error {
 			}
 		}
 		if *down == true {
-			if mirror.Up == true {
+			if mirror.Up == true || mirror.Enabled == false {
 				continue
 			}
 		}
