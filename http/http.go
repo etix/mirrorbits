@@ -32,6 +32,18 @@ import (
 	"gopkg.in/tylerb/graceful.v1"
 )
 
+// condResult is the result of an HTTP request precondition check.
+// See https://tools.ietf.org/html/rfc7232 section 3.
+type condResult int
+
+const (
+	condNone condResult = iota
+	condTrue
+	condFalse
+)
+
+var unixEpochTime = time.Unix(0, 0)
+
 var (
 	log = logging.MustGetLogger("main")
 )
@@ -217,6 +229,47 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// isZeroTime reports whether t is obviously unspecified (either zero or Unix()=0).
+func isZeroTime(t time.Time) bool {
+	return t.IsZero() || t.Equal(unixEpochTime)
+}
+
+func checkIfModifiedSince(r *http.Request, modtime time.Time) condResult {
+	if r.Method != "GET" && r.Method != "HEAD" {
+		return condNone
+	}
+	ims := r.Header.Get("If-Modified-Since")
+	if ims == "" || isZeroTime(modtime) {
+		return condNone
+	}
+	t, err := http.ParseTime(ims)
+	if err != nil {
+		return condNone
+	}
+	// The Last-Modified header truncates sub-second precision so
+	// the modtime needs to be truncated too.
+	modtime = modtime.Truncate(time.Second)
+	if modtime.Before(t) || modtime.Equal(t) {
+		return condFalse
+	}
+	return condTrue
+}
+
+func writeNotModified(w http.ResponseWriter) {
+	// RFC 7232 section 4.1:
+	// a sender SHOULD NOT generate representation metadata other than the
+	// above listed fields unless said metadata exists for the purpose of
+	// guiding cache updates (e.g., Last-Modified might be useful if the
+	// response does not have an ETag field).
+	h := w.Header()
+	delete(h, "Content-Type")
+	delete(h, "Content-Length")
+	if h.Get("Etag") != "" {
+		delete(h, "Last-Modified")
+	}
+	w.WriteHeader(http.StatusNotModified)
+}
+
 func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Context) {
 	//XXX it would be safer to recover in case of panic
 
@@ -236,6 +289,11 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	if err != nil {
 		log.Errorf("Error while fetching Fileinfo: %s", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if checkIfModifiedSince(r, fileInfo.ModTime) == condFalse {
+		writeNotModified(w)
 		return
 	}
 
