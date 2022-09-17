@@ -44,6 +44,7 @@ type Redis struct {
 	knownMasterLock sync.Mutex
 	stop            chan bool
 	ready           chan struct{}
+	version         string
 }
 
 // NewRedis returns a new instance of the redis database
@@ -85,7 +86,7 @@ func NewRedisCustomPool(pool redisPool) *Redis {
 					r.setFailureState(true)
 				}
 
-				if r.checkVersion(conn) == ErrRedisUpgradeRequired {
+				if r.CheckVersion() == ErrRedisUpgradeRequired {
 					log.Fatalf("Unsupported Redis version, please upgrade to Redis >= %s", core.RedisMinimumVersion)
 				}
 
@@ -144,22 +145,24 @@ func (r *Redis) ConnectPubsub() {
 
 // CheckVersion checks if the redis server version is supported
 func (r *Redis) CheckVersion() error {
-	c := r.UnblockedGet()
-	defer c.Close()
-	return r.checkVersion(c)
+	if ! r.IsAtLeastVersion(core.RedisMinimumVersion) {
+		return ErrRedisUpgradeRequired
+	}
+	return nil
 }
 
-func (r *Redis) checkVersion(conn redis.Conn) error {
+func (r *Redis) IsAtLeastVersion(version string) bool {
+	return parseVersion(r.version) >= parseVersion(version)
+}
+
+func (r *Redis) askVersion (conn redis.Conn) (string, error) {
 	if conn == nil {
-		return ErrUnreachable
+		return "", ErrUnreachable
 	}
+
 	info, err := parseInfo(conn.Do("INFO", "server"))
-	if err == nil {
-		if parseVersion(info["redis_version"]) < parseVersion(core.RedisMinimumVersion) {
-			return ErrRedisUpgradeRequired
-		}
-	}
-	return err
+
+	return info["redis_version"], err
 }
 
 // Connect initiates a new connection to the redis server
@@ -280,6 +283,9 @@ single:
 		return nil, ErrUnreachable
 	}
 	r.printConnectedMaster(GetConfig().RedisAddress)
+
+	r.version, err = r.askVersion(c)
+
 	return c, err
 
 }
