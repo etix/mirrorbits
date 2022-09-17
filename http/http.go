@@ -334,7 +334,14 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 
 				tempKey := "DOWNLOADED_"+chk+"_"+urlPath
 
-				prev, _ := redis.String(rconn.Do("GET", tempKey))
+				prev := ""
+				timeout := 600
+				if h.redis.IsAtLeastVersion("6.2.0") {
+					// Get and set the key in one command.
+					prev, _ = redis.String(rconn.Do("SET", tempKey, 1, "GET", "EX", timeout))
+				} else {
+					prev, _ = redis.String(rconn.Do("GET", tempKey))
+				}
 				if prev == "" {
 					// Only count partial requests as a new download if
 					// we haven't had any recently from the same client
@@ -345,8 +352,10 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 					h.stats.CountDownload(mlist[0], fileInfo)
 				}
 
-				// Set the key anyway to reset the timer.
-				rconn.Send("SET", tempKey, 1, "EX", 600)
+				if ! h.redis.IsAtLeastVersion("6.2.0") {
+					// Set the key anyway to reset the timer.
+					rconn.Send("SET", tempKey, 1, "EX", timeout)
+				}
 			}
 		}
 	}
