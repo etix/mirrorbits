@@ -41,6 +41,7 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
 * [Jenkins](https://www.jenkins.io/) to distribute Jenkins releases since [February 2020](https://github.com/jenkins-infra/docker-mirrorbits)
 * [Kodi](http://kodi.tv/) (previously XBMC) since [July 2015](https://forum.kodi.tv/showthread.php?tid=233824)
 * [LineageOS](http://lineageos.org/) (previously CyanogenMod) since January 2017
+* [MariaDB](https://mariadb.org/) to distribute packages (deb/rpm) for Linux distributions since [December 2021](https://mariadb.org/mirrorbits/)
 * [OSMC](https://osmc.tv)
 * [VideoLAN](http://www.videolan.org/) to distribute [VLC media player](http://www.videolan.org/vlc/) since [April 2014](https://blog.l0cal.com/2014/07/11/mirrorbits-is-now-on-github/)
 * [Endless OS](https://endlessos.org/os)
@@ -140,7 +141,7 @@ Mirror statistics are available by querying mirrorbits with the `?mirrorstats` a
 
 ## Clustering / High availability
 
-Multiple instances of mirrorbits can be started simultanously on different servers, discovery of other nodes should be automatic as long as all the instances are connected to the same redis server. In addition to the clustering it is advised to use redis-sentinel to monitor the database and gracefuly handle failover.
+Multiple instances of mirrorbits can be started simultaneously on different servers, discovery of other nodes should be automatic as long as all the instances are connected to the same redis server. In addition to the clustering it is advised to use redis-sentinel to monitor the database and gracefully handle failover.
 
 ## Upgrading
 
