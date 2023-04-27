@@ -43,11 +43,11 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
 * [LineageOS](http://lineageos.org/) (previously CyanogenMod) since January 2017
 * [OSMC](https://osmc.tv)
 * [VideoLAN](http://www.videolan.org/) to distribute [VLC media player](http://www.videolan.org/vlc/) since [April 2014](https://blog.l0cal.com/2014/07/11/mirrorbits-is-now-on-github/)
+* [Endless OS](https://endlessos.org/os)
 
 Yet some things might change before the 1.0 release. If you intend to deploy Mirrorbits in a production system it is advised to notify the author first so we can help you to make any transition as seamless as possible!
 
 _Previous projects which have used Mirrorbits:_
-* [Endless OS](https://endlessos.com/)
 * [Parrot OS](https://www.parrotsec.org)
 * [Popcorn Time](https://popcorntime.io)
 * [SuperRepo](https://superrepo.org)
