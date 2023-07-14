@@ -101,13 +101,13 @@ func TestRefreshNodeList(t *testing.T) {
 	c.refreshNodeList("test-4242", "test-4242")
 
 	if len(c.nodes) != 1 {
-		t.Fatalf("Node meh-4242 should have left")
+		t.Fatalf("Node meh-4242 should have left (%d != 1)", len(c.nodes))
 	}
 
 	c.refreshNodeList("meh-4242", "test-4242")
 
 	if len(c.nodes) != 2 {
-		t.Fatalf("Node meh-4242 should have joined")
+		t.Fatalf("Node meh-4242 should have joined (%d != 2)", len(c.nodes))
 	}
 }
 
