@@ -41,32 +41,32 @@ set -e
 cd /usr/share/GeoIP/ 2>/dev/null || cd /var/lib/GeoIP
 
 rm -f GeoIP.dat.gz
-$prg http://geolite.maxmind.com/download/geoip/database/GeoLiteCountry/GeoIP.dat.gz
+$prg https://geolite.maxmind.com/download/geoip/database/GeoLiteCountry/GeoIP.dat.gz
 gunzip -c GeoIP.dat.gz > GeoIP.dat.updated.new
 mv GeoIP.dat.updated.new GeoIP.dat.updated
 
 rm -f GeoLiteCity.dat.gz
-$prg http://geolite.maxmind.com/download/geoip/database/GeoLiteCity.dat.gz
+$prg https://geolite.maxmind.com/download/geoip/database/GeoLiteCity.dat.gz
 gunzip -c GeoLiteCity.dat.gz > GeoLiteCity.dat.updated.new
 mv GeoLiteCity.dat.updated.new GeoLiteCity.dat.updated
 
 rm -f GeoLiteCityv6.dat.gz
-$prg http://geolite.maxmind.com/download/geoip/database/GeoLiteCityv6-beta/GeoLiteCityv6.dat.gz
+$prg https://geolite.maxmind.com/download/geoip/database/GeoLiteCityv6-beta/GeoLiteCityv6.dat.gz
 gunzip -c GeoLiteCityv6.dat.gz > GeoLiteCityv6.dat.updated.new
 mv GeoLiteCityv6.dat.updated.new GeoLiteCityv6.dat.updated
 
 rm -f GeoIPv6.dat.gz
-$prg http://geolite.maxmind.com/download/geoip/database/GeoIPv6.dat.gz
+$prg https://geolite.maxmind.com/download/geoip/database/GeoIPv6.dat.gz
 gunzip -c GeoIPv6.dat.gz > GeoIPv6.dat.updated.new
 mv GeoIPv6.dat.updated.new GeoIPv6.dat.updated
 
 rm -f GeoIPASNum.dat.gz
-$prg http://download.maxmind.com/download/geoip/database/asnum/GeoIPASNum.dat.gz
+$prg https://download.maxmind.com/download/geoip/database/asnum/GeoIPASNum.dat.gz
 gunzip -c GeoIPASNum.dat.gz > GeoIPASNum.dat.updated.new
 mv GeoIPASNum.dat.updated.new GeoIPASNum.dat.updated
 
 rm -f GeoIPASNumv6.dat.gz
-$prg http://download.maxmind.com/download/geoip/database/asnum/GeoIPASNumv6.dat.gz
+$prg https://download.maxmind.com/download/geoip/database/asnum/GeoIPASNumv6.dat.gz
 gunzip -c GeoIPASNumv6.dat.gz > GeoIPASNumv6.dat.updated.new
 mv GeoIPASNumv6.dat.updated.new GeoIPASNumv6.dat.updated
 
