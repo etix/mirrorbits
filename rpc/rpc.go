@@ -234,6 +234,81 @@ func (c *CLI) MirrorInfo(ctx context.Context, in *MirrorIDRequest) (*Mirror, err
 	return rpcm, nil
 }
 
+func (c *CLI) GeoUpdateMirror(ctx context.Context, in *MirrorIDRequest) (*GeoUpdateMirrorReply, error) {
+	if in.ID <= 0 {
+		return nil, status.Error(codes.FailedPrecondition, "invalid mirror id")
+	}
+
+	conn, err := c.redis.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	m, err := redis.Values(conn.Do("HGETALL", fmt.Sprintf("MIRROR_%d", in.ID)))
+	if err != nil {
+		return nil, err
+	}
+
+	var mirror mirrors.Mirror
+	err = redis.ScanStruct(m, &mirror)
+	if err != nil {
+		return nil, err
+	}
+
+	u, err := url.Parse(mirror.HttpURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't parse http url")
+	}
+
+	reply := &GeoUpdateMirrorReply{}
+
+	ip, err := network.LookupMirrorIP(u.Host)
+	if err == network.ErrMultipleAddresses {
+		reply.Warnings = append(reply.Warnings,
+			"Warning: the hostname returned more than one address. Assuming they're sharing the same location.")
+	} else if err != nil {
+		return nil, errors.Wrap(err, "IP lookup failed")
+	}
+
+	geo := network.NewGeoIP()
+	if err := geo.LoadGeoIP(); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	geoRec := geo.GetRecord(ip)
+	if geoRec.IsValid() {
+		original := mirror
+		mirror.Latitude = geoRec.Latitude
+		mirror.Longitude = geoRec.Longitude
+		mirror.Asnum = geoRec.ASNum
+		// We need to sanitize, as we're going to do a diff below,
+		// and the mirror fields are sanitized.
+		continent := utils.SanitizeLocationCodes(geoRec.ContinentCode)
+		country := utils.SanitizeLocationCodes(geoRec.CountryCode)
+		// ContinentCode is the easy one.
+		mirror.ContinentCode = continent
+		// CountryCodes needs special care: it might have been modified
+		// by user in order to list the countries that this mirror is
+		// expected to serve. Therefore we check if the country from
+		// the GeoIP record is included in the mirror country(ies), and
+		// if that's the case we don't touch it.
+		if !utils.IsInSlice(country, strings.Fields(mirror.CountryCodes)) {
+			mirror.CountryCodes = country
+		}
+		reply.Mirror, err = MirrorToRPC(&mirror)
+		if err != nil {
+			return nil, err
+		}
+		reply.Diff = createDiff(&original, &mirror)
+	} else {
+		reply.Warnings = append(reply.Warnings,
+			"Warning: unable to guess the geographic location of this mirror")
+	}
+
+	return reply, nil
+}
+
 func (c *CLI) AddMirror(ctx context.Context, in *Mirror) (*AddMirrorReply, error) {
 	mirror, err := MirrorFromRPC(in)
 	if err != nil {
