@@ -1,0 +1,109 @@
+#!/bin/bash
+
+# Copyright (c) 2023 Arnaud Rebillout <arnaudr@kali.org>
+# Distributed under the same license as mirrorbits.
+
+set -euo pipefail
+
+USAGE="Usage: $(basename $0) [-f] <period>:<retention>... [REDIS_CLI_ARGS...]
+
+Delete old Mirrorbits stats.
+
+This script deletes old Mirrorbits stats,  by using the Redis client,  and
+directly deleting the keys in the Redis database. It asks for confirmation
+before acting, unless you provide -f in argument.
+
+Mirrorbits maintains daily, monthly and yearly stats. The pairs
+<period>:<retention> define how many stats to keep for each period.
+
+For example, the command:
+
+    $(basename $0) daily:30 monthly:12 -n 2
+
+will keep only the last 30 daily stats and the last 12 monthly stats.  Older
+stats will be deleted. Yearly stats are left untouched, as we didn't prodive
+any yearly:<retention> argument. Finally, trailing arguments are handed over
+to the redis-cli command, hence '-n 2' makes redis-cli act on db number 2.
+"
+
+ARGS=
+FORCE=0
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        -f|--force) FORCE=1 ;;
+        -h|--help) echo "$USAGE"; exit 0 ;;
+	-*) break ;;
+        *) ARGS="$ARGS $1" ;;
+    esac
+    shift
+done
+
+REDIS="redis-cli $@"
+
+# Get all the STATS_* keys
+echo "Scanning the redis db for STATS_* keys, this might take a while ..."
+if redis-cli --help 2>&1 | grep -q -- " --count "; then
+    KEYS=$($REDIS --scan --count 1000 --pattern "STATS_*")
+else
+    KEYS=$($REDIS --scan --pattern "STATS_*")
+fi
+
+# Keep only the daily/monthly/yearly stats
+FILE_KEYS=$(echo "$KEYS" | grep "^STATS_FILE_[0-9]")
+MIRROR_KEYS=$(echo "$KEYS" | grep "^STATS_MIRROR_[0-9]")
+MIRROR_BYTES_KEYS=$(echo "$KEYS" | grep "^STATS_MIRROR_BYTES_[0-9]")
+
+# Iterate over arguments
+NO_KEY_TO_DELETE=1
+for arg in $ARGS; do
+    period=$(echo $arg | cut -d: -f1)
+    retention=$(echo $arg | cut -d: -f2)
+
+    case $period in
+        daily)   pattern="[A-Z]_[0-9]{4}_[01][0-9]_[0-3][0-9]$" ;;
+        monthly) pattern="[A-Z]_[0-9]{4}_[01][0-9]$" ;;
+        yearly)  pattern="[A-Z]_[0-9]{4}$" ;;
+        *)
+            echo "Invalid period '$period', skipping." >&2
+            continue
+    esac
+
+    if ! echo "$retention" | grep -qx "[0-9]\+"; then
+        echo "Invalid retention '$retention', skipping." >&2
+        continue
+    fi
+
+    for v in FILE_KEYS MIRROR_KEYS MIRROR_BYTES_KEYS; do
+        keys=$(echo "${!v}" | grep -E "$pattern" | LC_ALL=C sort -u)
+        toremove=$(echo "$keys" | head -n -$retention)
+        if [ -z "$toremove" ]; then
+            continue
+        fi
+        NO_KEY_TO_DELETE=0
+	echo "The following keys will be removed:"
+	echo $toremove | fold -s -w 80
+        if [ $FORCE = 0 ]; then
+            echo
+            read -r -p "Proceed? [Y/n] "
+            if [ -z "$REPLY" ]; then REPLY=Y; fi
+            if [ "${REPLY,,}" != y ]; then
+                echo "Skipped"
+                continue
+            fi
+        fi
+        # Remove by blocks of 100 keys
+        while [ -n "$toremove" ]; do
+            keys=$(echo "$toremove" | head -n 100)
+            first=$(echo "$keys" | head -n 1)
+            last=$(echo "$keys" | tail -n 1)
+            echo "Removing keys from $first to $last ..."
+            $REDIS DEL $keys
+            toremove=$(echo "$toremove" | tail -n +101)
+        done
+    done
+done
+
+if [ $NO_KEY_TO_DELETE = 1 ]; then
+    echo "No key to delete, nothing was done."
+fi
