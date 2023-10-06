@@ -114,6 +114,7 @@ func main() {
 						h.Stop(1 * time.Second)
 					}
 					h.Reload()
+					logs.ReloadLogs()
 				case syscall.SIGUSR1:
 					log.Notice("SIGUSR1 Received: Re-opening logs...")
 					logs.ReloadLogs()
