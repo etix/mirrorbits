@@ -504,16 +504,24 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 
 	defer lock.Release()
 
-	conn.Send("MULTI")
-
 	// Remove any left over
-	conn.Send("DEL", "FILES_TMP")
+	_, err = conn.Do("DEL", "FILES_TMP")
+	if err != nil {
+		return err
+	}
 
 	// Add all the files to a temporary key
-	count := 0
-	for _, e := range sourceFiles {
+	conn.Send("MULTI")
+	for count, e := range sourceFiles {
 		conn.Send("SADD", "FILES_TMP", e.path)
-		count++
+
+		if count > 0 && count % database.RedisMultiMaxSize == 0 {
+			_, err := conn.Do("EXEC")
+			if err != nil {
+				return err
+			}
+			conn.Send("MULTI")
+		}
 	}
 
 	_, err = conn.Do("EXEC")
@@ -529,7 +537,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 
 	// Create/Update the files' hash keys with the fresh infos
 	conn.Send("MULTI")
-	for _, e := range sourceFiles {
+	for count, e := range sourceFiles {
 		conn.Send("HMSET", fmt.Sprintf("FILE_%s", e.path),
 			"size", e.size,
 			"modTime", e.modTime,
@@ -539,28 +547,52 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 
 		// Publish update
 		database.SendPublish(conn, database.FILE_UPDATE, e.path)
-	}
 
-	// Remove old keys
-	if len(toremove) > 0 {
-		for _, e := range toremove {
-			conn.Send("DEL", fmt.Sprintf("FILE_%s", e))
-
-			// Publish update
-			database.SendPublish(conn, database.FILE_UPDATE, fmt.Sprintf("%s", e))
+		if count > 0 && count % database.RedisMultiMaxSize == 0 {
+			_, err := conn.Do("EXEC")
+			if err != nil {
+				return err
+			}
+			conn.Send("MULTI")
 		}
 	}
-
-	// Finally rename the temporary sets containing the list
-	// of files to the production key
-	conn.Send("RENAME", "FILES_TMP", "FILES")
 
 	_, err = conn.Do("EXEC")
 	if err != nil {
 		return err
 	}
 
-	log.Infof("[source] Scanned %d files", count)
+	// Remove old keys
+	if len(toremove) > 0 {
+		conn.Send("MULTI")
+		for count, e := range toremove {
+			conn.Send("DEL", fmt.Sprintf("FILE_%s", e))
+
+			// Publish update
+			database.SendPublish(conn, database.FILE_UPDATE, fmt.Sprintf("%s", e))
+
+			if count > 0 && count % database.RedisMultiMaxSize == 0 {
+				_, err = conn.Do("EXEC")
+				if err != nil {
+					return err
+				}
+				conn.Send("MULTI")
+			}
+		}
+		_, err = conn.Do("EXEC")
+		if err != nil {
+			return err
+		}
+	}
+
+	// Finally rename the temporary sets containing the list
+	// of files to the production key
+	_, err = conn.Do("RENAME", "FILES_TMP", "FILES")
+	if err != nil {
+		return err
+	}
+
+	log.Infof("[source] Scanned %d files", len(sourceFiles))
 
 	return nil
 }
