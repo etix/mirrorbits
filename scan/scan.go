@@ -54,6 +54,7 @@ type scan struct {
 	conn        redis.Conn
 	mirrorid    int
 	filesTmpKey string
+	files       []filedata
 	count       int64
 }
 
@@ -82,6 +83,7 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 		mirrorid: id,
 		conn:     conn,
 		cache:    c,
+		files:    make([]filedata, 0, 1000),
 	}
 
 	var scanner Scanner
@@ -128,28 +130,24 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 		}
 	}(&err)
 
-	conn.Send("MULTI")
-
 	filesKey := fmt.Sprintf("MIRRORFILES_%d", id)
 	s.filesTmpKey = fmt.Sprintf("MIRRORFILESTMP_%d", id)
 
 	// Remove any left over
-	conn.Send("DEL", s.filesTmpKey)
+	_, err = conn.Do("DEL", s.filesTmpKey)
+	if err != nil {
+		return nil, err
+	}
 
+	// Scan the mirror
 	var precision core.Precision
 	precision, err = scanner.Scan(url, name, conn, stop)
 	if err != nil {
-		// Discard MULTI
-		s.ScannerDiscard()
-
-		// Remove the temporary key
-		conn.Do("DEL", s.filesTmpKey)
-
 		log.Errorf("[%s] %s", name, err.Error())
 		return nil, err
 	}
 
-	// Exec multi
+	// Commit changes
 	s.ScannerCommit()
 
 	// Get the list of files no more present on this mirror
@@ -224,28 +222,30 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 
 func (s *scan) ScannerAddFile(f filedata) {
 	s.count++
-
-	// Add all the files to a temporary key
-	s.conn.Send("SADD", s.filesTmpKey, f.path)
-
-	// Mark the file as being supported by this mirror
-	rk := fmt.Sprintf("FILEMIRRORS_%s", f.path)
-	s.conn.Send("SADD", rk, s.mirrorid)
-
-	// Save the size of the current file found on this mirror
-	ik := fmt.Sprintf("FILEINFO_%d_%s", s.mirrorid, f.path)
-	s.conn.Send("HMSET", ik, "size", f.size, "modTime", f.modTime)
-
-	// Publish update
-	database.SendPublish(s.conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", s.mirrorid, f.path))
-}
-
-func (s *scan) ScannerDiscard() {
-	s.conn.Do("DISCARD")
+	s.files = append(s.files, f)
 }
 
 func (s *scan) ScannerCommit() error {
+	s.conn.Send("MULTI")
+
+	for _, f := range s.files {
+		// Add all the files to a temporary key
+		s.conn.Send("SADD", s.filesTmpKey, f.path)
+
+		// Mark the file as being supported by this mirror
+		rk := fmt.Sprintf("FILEMIRRORS_%s", f.path)
+		s.conn.Send("SADD", rk, s.mirrorid)
+
+		// Save the size of the current file found on this mirror
+		ik := fmt.Sprintf("FILEINFO_%d_%s", s.mirrorid, f.path)
+		s.conn.Send("HMSET", ik, "size", f.size, "modTime", f.modTime)
+
+		// Publish update
+		database.SendPublish(s.conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", s.mirrorid, f.path))
+	}
+
 	_, err := s.conn.Do("EXEC")
+
 	return err
 }
 
