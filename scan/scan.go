@@ -159,13 +159,21 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 	// Remove this mirror from the given file SET
 	if len(toremove) > 0 {
 		conn.Send("MULTI")
-		for _, e := range toremove {
+		for count, e := range toremove {
 			log.Debugf("[%s] Removing %s from mirror", name, e)
 			conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", e), id)
 			conn.Send("DEL", fmt.Sprintf("FILEINFO_%d_%s", id, e))
+
 			// Publish update
 			database.SendPublish(conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", id, e))
 
+			if count > 0 && count % database.RedisMultiMaxSize == 0 {
+				_, err = conn.Do("EXEC")
+				if err != nil {
+					return nil, err
+				}
+				conn.Send("MULTI")
+			}
 		}
 		_, err = conn.Do("EXEC")
 		if err != nil {
@@ -226,7 +234,7 @@ func (s *scan) ScannerAddFile(f filedata) {
 func (s *scan) ScannerCommit() error {
 	s.conn.Send("MULTI")
 
-	for _, f := range s.files {
+	for count, f := range s.files {
 		// Add all the files to a temporary key
 		s.conn.Send("SADD", s.filesTmpKey, f.path)
 
@@ -240,6 +248,15 @@ func (s *scan) ScannerCommit() error {
 
 		// Publish update
 		database.SendPublish(s.conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", s.mirrorid, f.path))
+
+		// Execute the transaction if enough files were added
+		if count > 0 && count % database.RedisMultiMaxSize == 0 {
+			_, err := s.conn.Do("EXEC")
+			if err != nil {
+				return err
+			}
+			s.conn.Send("MULTI")
+		}
 	}
 
 	_, err := s.conn.Do("EXEC")
