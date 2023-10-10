@@ -146,6 +146,8 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 		return nil, err
 	}
 
+	log.Infof("[%s] Indexing the files...", name)
+
 	// Commit changes
 	s.ScannerCommit()
 
@@ -607,7 +609,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 		return err
 	}
 
-	log.Infof("[source] Scanned %d files", len(sourceFiles))
+	log.Infof("[source] Scanned %d files, %d removed", len(sourceFiles), len(toremove))
 
 	return nil
 }
