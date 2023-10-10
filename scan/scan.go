@@ -55,7 +55,6 @@ type scan struct {
 	mirrorid    int
 	filesTmpKey string
 	files       []filedata
-	count       int64
 }
 
 type ScanResult struct {
@@ -176,7 +175,7 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 
 	// Finally rename the temporary sets containing the list
 	// of files for this mirror to the production key
-	if s.count > 0 {
+	if len(s.files) > 0 {
 		_, err = conn.Do("RENAME", s.filesTmpKey, filesKey)
 		if err != nil {
 			return nil, err
@@ -200,11 +199,11 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 		log.Warningf("Unable to check timezone shifts: %s", err)
 	}
 
-	log.Infof("[%s] Indexed %d files (%d known), %d removed", name, s.count, common, len(toremove))
+	log.Infof("[%s] Indexed %d files (%d known), %d removed", name, len(s.files), common, len(toremove))
 	res := &ScanResult{
 		MirrorID:     id,
 		MirrorName:   name,
-		FilesIndexed: s.count,
+		FilesIndexed: int64(len(s.files)),
 		KnownIndexed: common,
 		Removed:      int64(len(toremove)),
 		TZOffsetMs:   tzoffset,
@@ -221,7 +220,6 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 }
 
 func (s *scan) ScannerAddFile(f filedata) {
-	s.count++
 	s.files = append(s.files, f)
 }
 
