@@ -523,6 +523,9 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 
 	// Do a diff between the sets to get the removed files
 	toremove, err := redis.Values(conn.Do("SDIFF", "FILES", "FILES_TMP"))
+	if err != nil {
+		return err
+	}
 
 	// Create/Update the files' hash keys with the fresh infos
 	conn.Send("MULTI")
