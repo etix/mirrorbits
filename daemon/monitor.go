@@ -265,14 +265,17 @@ func (m *monitor) MonitorLoop() {
 					// Ignore disabled mirrors
 					continue
 				}
-				if v.NeedHealthCheck() && !v.IsChecking() && m.cluster.IsHandled(id) {
+				if !m.cluster.IsHandled(id) {
+					continue
+				}
+				if v.NeedHealthCheck() && !v.IsChecking() {
 					select {
 					case m.healthCheckChan <- id:
 						m.mirrors[id].checking = true
 					default:
 					}
 				}
-				if v.NeedSync() && !v.IsScanning() && m.cluster.IsHandled(id) {
+				if v.NeedSync() && !v.IsScanning() {
 					select {
 					case m.syncChan <- id:
 						m.mirrors[id].scanning = true
