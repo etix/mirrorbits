@@ -532,10 +532,14 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 		if opErr, ok := err.(*net.OpError); ok {
 			log.Debugf("Op: %s | Net: %s | Addr: %s | Err: %s | Temporary: %t", opErr.Op, opErr.Net, opErr.Addr, opErr.Error(), opErr.Temporary())
 		}
+		var err2 error
 		if strings.Contains(err.Error(), errRedirect.Error()) {
-			mirrors.MarkMirrorDown(m.redis, mirror.ID, "Unauthorized redirect")
+			err2 = mirrors.MarkMirrorDown(m.redis, mirror.ID, "Unauthorized redirect")
 		} else {
-			mirrors.MarkMirrorDown(m.redis, mirror.ID, "Unreachable")
+			err2 = mirrors.MarkMirrorDown(m.redis, mirror.ID, "Unreachable")
+		}
+		if err2 != nil {
+			log.Errorf(format+"Unable to mark mirror as down: %s", mirror.Name, err2)
 		}
 		log.Errorf(format+"Error: %s (%dms)", mirror.Name, err.Error(), elapsed/time.Millisecond)
 		return err
