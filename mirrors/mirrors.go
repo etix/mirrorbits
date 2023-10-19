@@ -19,6 +19,27 @@ import (
 	"github.com/gomodule/redigo/redis"
 )
 
+type Protocol uint
+
+const (
+	UNDEFINED Protocol = iota
+	HTTP
+	HTTPS
+)
+
+func (p Protocol) String() string {
+	switch p {
+	case UNDEFINED:
+		return "undefined"
+	case HTTP:
+		return "HTTP"
+	case HTTPS:
+		return "HTTPS"
+	default:
+		return "unknown"
+	}
+}
+
 // Mirror is the structure representing all the information about a mirror
 type Mirror struct {
 	ID                          int              `redis:"ID" yaml:"-"`
@@ -203,30 +224,51 @@ func SetMirrorEnabled(r *database.Redis, id int, state bool) error {
 	return err
 }
 
-// MarkMirrorUp marks the given mirror as up
-func MarkMirrorUp(r *database.Redis, id int) error {
-	return SetMirrorState(r, id, true, "")
+// MarkMirrorUp marks the given mirror as up for a given protocol
+func MarkMirrorUp(r *database.Redis, id int, proto Protocol) error {
+	return SetMirrorState(r, id, proto, true, "")
 }
 
-// MarkMirrorDown marks the given mirror as down
-func MarkMirrorDown(r *database.Redis, id int, reason string) error {
-	return SetMirrorState(r, id, false, reason)
+// MarkMirrorDown marks the given mirror as down for a given protocol
+func MarkMirrorDown(r *database.Redis, id int, proto Protocol, reason string) error {
+	return SetMirrorState(r, id, proto, false, reason)
 }
 
-// SetMirrorState sets the state of a mirror to up or down with an optional reason
-func SetMirrorState(r *database.Redis, id int, state bool, reason string) error {
+// SetMirrorState sets the state of a mirror to up or down,
+// over HTTP or HTTPS, with an optional reason.
+func SetMirrorState(r *database.Redis, id int, proto Protocol, state bool, reason string) error {
 	conn := r.Get()
 	defer conn.Close()
 
 	key := fmt.Sprintf("MIRROR_%d", id)
 
-	previousState, err := redis.Bool(conn.Do("HGET", key, "up"))
+	var urlField, upField, reasonField string
+
+	switch proto {
+	case HTTP:
+		urlField, upField, reasonField = "http", "httpUp", "httpDownReason"
+	case HTTPS:
+		urlField, upField, reasonField = "https", "httpsUp", "httpsDownReason"
+	default:
+		return fmt.Errorf("Unknown protocol: %s", proto)
+	}
+
+	previousState, err := redis.Bool(conn.Do("HGET", key, upField))
 	if err != nil && err != redis.ErrNil {
 		return err
 	}
 
+	// Refuse to set the state to up if the URL is empty
+	url, err := redis.String(conn.Do("HGET", key, urlField))
+	if err != nil {
+		return err
+	}
+	if url == "" && state == true {
+		return fmt.Errorf("Can't set mirror up for protocol %s: no URL", proto)
+	}
+
 	var args []interface{}
-	args = append(args, key, "up", state, "excludeReason", reason)
+	args = append(args, key, upField, state, reasonField, reason)
 
 	if state != previousState {
 		args = append(args, "stateSince", time.Now().Unix())
@@ -239,7 +281,7 @@ func SetMirrorState(r *database.Redis, id int, state bool, reason string) error 
 		database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(id))
 
 		if state != previousState {
-			PushLog(r, NewLogStateChanged(id, state, reason))
+			PushLog(r, NewLogStateChanged(id, proto, state, reason))
 		}
 	}
 

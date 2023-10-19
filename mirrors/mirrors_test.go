@@ -458,7 +458,10 @@ func TestSetMirrorEnabled(t *testing.T) {
 func TestMarkMirrorUp(t *testing.T) {
 	_, conn := PrepareRedisTest()
 
-	if err := MarkMirrorUp(conn, 1); err == nil {
+	if err := MarkMirrorUp(conn, 1, HTTP); err == nil {
+		t.Fatalf("Error expected but nil returned")
+	}
+	if err := MarkMirrorUp(conn, 1, HTTPS); err == nil {
 		t.Fatalf("Error expected but nil returned")
 	}
 }
@@ -466,7 +469,10 @@ func TestMarkMirrorUp(t *testing.T) {
 func TestMarkMirrorDown(t *testing.T) {
 	_, conn := PrepareRedisTest()
 
-	if err := MarkMirrorDown(conn, 1, "test1"); err == nil {
+	if err := MarkMirrorDown(conn, 1, HTTP, "test1"); err == nil {
+		t.Fatalf("Error expected but nil returned")
+	}
+	if err := MarkMirrorDown(conn, 1, HTTPS, "test1"); err == nil {
 		t.Fatalf("Error expected but nil returned")
 	}
 }
@@ -474,7 +480,7 @@ func TestMarkMirrorDown(t *testing.T) {
 func TestSetMirrorState(t *testing.T) {
 	mock, conn := PrepareRedisTest()
 
-	if err := SetMirrorState(conn, 1, true, "test1"); err == nil {
+	if err := SetMirrorState(conn, 1, HTTP, true, "test1"); err == nil {
 		t.Fatalf("Error expected but nil returned")
 	}
 
@@ -487,7 +493,7 @@ func TestSetMirrorState(t *testing.T) {
 	cmdStateSince := mock.Command("HMSET", "MIRROR_1", "httpUp", true, "httpDownReason", "test1", "stateSince", redigomock.NewAnyInt()).Expect("ok")
 	cmdState := mock.Command("HMSET", "MIRROR_1", "httpUp", true, "httpDownReason", "test2").Expect("ok")
 
-	if err := SetMirrorState(conn, 1, true, "test1"); err != nil {
+	if err := SetMirrorState(conn, 1, HTTP, true, "test1"); err != nil {
 		t.Fatalf("Unexpected error: %s", err)
 	}
 
@@ -511,7 +517,7 @@ func TestSetMirrorState(t *testing.T) {
 
 	/* Set HTTP mirror up a second time */
 
-	if err := SetMirrorState(conn, 1, true, "test2"); err != nil {
+	if err := SetMirrorState(conn, 1, HTTP, true, "test2"); err != nil {
 		t.Fatalf("Unexpected error: %s", err)
 	}
 
@@ -529,7 +535,7 @@ func TestSetMirrorState(t *testing.T) {
 	cmdHttpUrl = mock.Command("HGET", "MIRROR_1", "http").Expect("http://m1.mirror")
 	cmdStateSince = mock.Command("HMSET", "MIRROR_1", "httpUp", false, "httpDownReason", "test3", "stateSince", redigomock.NewAnyInt()).Expect("ok")
 
-	if err := SetMirrorState(conn, 1, false, "test3"); err != nil {
+	if err := SetMirrorState(conn, 1, HTTP, false, "test3"); err != nil {
 		t.Fatalf("Unexpected error: %s", err)
 	}
 
