@@ -139,6 +139,7 @@ func (d ByDate) Less(i, j int) bool { return d[i].StateSince.Seconds > d[j].Stat
 func (c *cli) CmdList(args ...string) error {
 	cmd := SubCmd("list", "", "Get the list of mirrors")
 	http := cmd.Bool("http", false, "Print HTTP addresses")
+	https := cmd.Bool("https", false, "Print HTTPS addresses")
 	rsync := cmd.Bool("rsync", false, "Print rsync addresses")
 	ftp := cmd.Bool("ftp", false, "Print FTP addresses")
 	location := cmd.Bool("location", false, "Print the country and continent code")
@@ -174,6 +175,9 @@ func (c *cli) CmdList(args ...string) error {
 	}
 	if *http == true {
 		fmt.Fprint(w, "\tHTTP ")
+	}
+	if *https == true {
+		fmt.Fprint(w, "\tHTTPS ")
 	}
 	if *rsync == true {
 		fmt.Fprint(w, "\tRSYNC ")
@@ -215,6 +219,9 @@ func (c *cli) CmdList(args ...string) error {
 		}
 		if *http == true {
 			fmt.Fprintf(w, "\t%s ", mirror.HttpURL)
+		}
+		if *https == true {
+			fmt.Fprintf(w, "\t%s ", mirror.HttpsURL)
 		}
 		if *rsync == true {
 			fmt.Fprintf(w, "\t%s ", mirror.RsyncURL)
