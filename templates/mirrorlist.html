@@ -206,8 +206,10 @@
         </tr></thead>
         <tbody>
         {{range $i, $v := .MirrorList}}
+	{{$URL := or $v.HttpURL $v.HttpsURL}}
+	{{if eq $v.SelectedProtocol 2}}{{$URL = $v.HttpsURL}}{{end}}
         <tr{{if not $v.Weight}} style="color: grey;"{{end}}>
-            <td style="text-align: right;">{{add $i 1}}.</td><td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.Name}}{{end}}</td><td style="text-align: right;"><a href="{{concaturl $v.HttpURL $.FileInfo.Path}}">{{$v.HttpURL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align: right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{if $v.Weight}}{{if ge $v.Weight 1.0}}{{printf "%.0f" $v.Weight}}{{else}}<1{{end}}%{{else}}n/a{{end}}</td>
+            <td style="text-align: right;">{{add $i 1}}.</td><td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.Name}}{{end}}</td><td style="text-align: right;"><a href="{{concaturl $URL $.FileInfo.Path}}">{{$URL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align: right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{if $v.Weight}}{{if ge $v.Weight 1.0}}{{printf "%.0f" $v.Weight}}{{else}}<1{{end}}%{{else}}n/a{{end}}</td>
         </tr>
         {{end}}
         </tbody>
@@ -223,8 +225,10 @@
             <th style="width: 23%;">Mirror Name</th><th style="text-align: right;">URL</th><th style="text-align: center; width: 10%;">Country</th><th style="text-align: center;">Continent</th><th style="text-align: right;">Distance</th><th style="text-align: center; width: 20%;">Exclude Reason</th></tr></thead>
         <tbody>
         {{range $i, $v := .ExcludedList}}
+	{{$URL := or $v.HttpURL $v.HttpsURL}}
+	{{if eq $v.SelectedProtocol 2}}{{$URL = $v.HttpsURL}}{{end}}
             <tr>
-                <td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.Name}}{{end}}<td style="text-align: right;"><a href="{{$v.HttpURL}}">{{$v.HttpURL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align:right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{$v.ExcludeReason}}</td>
+                <td>{{if $v.SponsorName}}{{$v.SponsorName}}{{else}}{{$v.Name}}{{end}}<td style="text-align: right;"><a href="{{$URL}}">{{$URL}}</a></td><td style="text-align: center;">{{$v.CountryCodes}}</td><td style="text-align: center;">{{$v.ContinentCode}}</td><td style="text-align:right;">{{printf "%.0f" $v.Distance}} Km</td><td style="text-align: center;">{{$v.ExcludeReason}}</td>
             </tr>
         {{end}}
         </tbody>
