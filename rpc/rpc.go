@@ -377,6 +377,9 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 	if mirror.HttpURL != "" {
 		mirror.HttpURL = utils.NormalizeURL(mirror.HttpURL)
 	}
+	if mirror.HttpsURL != "" {
+		mirror.HttpsURL = utils.NormalizeURL(mirror.HttpsURL)
+	}
 	if mirror.RsyncURL != "" {
 		mirror.RsyncURL = utils.NormalizeURL(mirror.RsyncURL)
 	}
@@ -390,6 +393,7 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 		"ID", mirror.ID,
 		"name", mirror.Name,
 		"http", mirror.HttpURL,
+		"https", mirror.HttpsURL,
 		"rsync", mirror.RsyncURL,
 		"ftp", mirror.FtpURL,
 		"sponsorName", mirror.SponsorName,

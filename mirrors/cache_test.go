@@ -228,6 +228,7 @@ func TestCache_fetchMirror(t *testing.T) {
 		ID:             1,
 		Name:           "m1",
 		HttpURL:        "http://m1.mirror",
+		HttpsURL:       "https://m1.mirror",
 		RsyncURL:       "rsync://m1.mirror",
 		FtpURL:         "ftp://m1.mirror",
 		SponsorName:    "m1sponsor",
@@ -247,7 +248,8 @@ func TestCache_fetchMirror(t *testing.T) {
 		Asnum:          444,
 		Comment:        "m1comment",
 		Enabled:        true,
-		Up:             true,
+		HttpUp:         true,
+		HttpsUp:        true,
 	}
 
 	_, err := c.fetchMirror(testmirror.ID)
@@ -259,6 +261,7 @@ func TestCache_fetchMirror(t *testing.T) {
 		"ID":            strconv.Itoa(testmirror.ID),
 		"name":          testmirror.Name,
 		"http":          testmirror.HttpURL,
+		"https":         testmirror.HttpsURL,
 		"rsync":         testmirror.RsyncURL,
 		"ftp":           testmirror.FtpURL,
 		"sponsorName":   testmirror.SponsorName,
@@ -278,7 +281,8 @@ func TestCache_fetchMirror(t *testing.T) {
 		"asnum":         strconv.FormatInt(int64(testmirror.Asnum), 10),
 		"comment":       testmirror.Comment,
 		"enabled":       strconv.FormatBool(testmirror.Enabled),
-		"up":            strconv.FormatBool(testmirror.Up),
+		"httpUp":        strconv.FormatBool(testmirror.HttpUp),
+		"httpsUp":       strconv.FormatBool(testmirror.HttpsUp),
 	})
 
 	m, err := c.fetchMirror(testmirror.ID)

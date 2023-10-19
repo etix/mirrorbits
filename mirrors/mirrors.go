@@ -24,6 +24,7 @@ type Mirror struct {
 	ID                          int              `redis:"ID" yaml:"-"`
 	Name                        string           `redis:"name" yaml:"Name"`
 	HttpURL                     string           `redis:"http" yaml:"HttpURL"`
+	HttpsURL                    string           `redis:"https" yaml:"HttpsURL"`
 	RsyncURL                    string           `redis:"rsync" yaml:"RsyncURL"`
 	FtpURL                      string           `redis:"ftp" yaml:"FtpURL"`
 	SponsorName                 string           `redis:"sponsorName" yaml:"SponsorName"`
@@ -44,8 +45,10 @@ type Mirror struct {
 	Asnum                       uint             `redis:"asnum" yaml:"ASNum"`
 	Comment                     string           `redis:"comment" yaml:"-"`
 	Enabled                     bool             `redis:"enabled" yaml:"Enabled"`
-	Up                          bool             `redis:"up" json:"-" yaml:"-"`
-	ExcludeReason               string           `redis:"excludeReason" json:",omitempty" yaml:"-"`
+	HttpUp                      bool             `redis:"httpUp" json:"-" yaml:"-"`
+	HttpsUp                     bool             `redis:"httpsUp" json:"-" yaml:"-"`
+	HttpDownReason              string           `redis:"httpDownReason" json:",omitempty" yaml:"-"`
+	HttpsDownReason             string           `redis:"httpsDownReason" json:",omitempty" yaml:"-"`
 	StateSince                  Time             `redis:"stateSince" json:",omitempty" yaml:"-"`
 	AllowRedirects              Redirects        `redis:"allowredirects" json:",omitempty" yaml:"AllowRedirects"`
 	TZOffset                    int64            `redis:"tzoffset" json:"-" yaml:"-"` // timezone offset in ms
@@ -62,6 +65,7 @@ type Mirror struct {
 	LastModTime                 Time             `redis:"lastModTime" yaml:"-"`
 
 	FileInfo *filesystem.FileInfo `redis:"-" json:"-" yaml:"-"` // Details of the requested file on this specific mirror
+	ExcludeReason string `redis:"-" json:",omitempty" yaml:"-"` // Reason why the mirror was excluded
 }
 
 // Prepare must be called after retrieval from the database to reformat some values
