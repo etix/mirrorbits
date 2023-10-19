@@ -1,5 +1,15 @@
 ## master
 
+### BREAKING CHANGES
+
+- Mirrorbits now supports dual HTTP/HTTPS for a mirror, meaning that it's now possible to define a HTTP URL **AND** a HTTPS URL. Some consequences of this change might affect you:
+  - cli, command `add`: the flag `-http` only accepts a HTTP URL now. Use the flag `-https` to set a HTTPS URL.
+  - cli, command `list`: the flag `-http` only prints HTTP URLs now. Use the flag `-https` to print HTTPS URL as well.
+  - cli, command `logs`: the lines starting with `Mirror is (up|down)` now starts  with `(HTTP|HTTPS) mirror is (up|down)`. The change is only effective for new logs, so if you have scripts that parse those logs, you must support both formats.
+  - templates: both `mirrorlist.html` and `mirrorstats.html` were updated. You **must** use these new templates (or, if you modified the templates, re-apply your modifications on the new templates).
+  - upon restart, the database will go through an upgrade. The format for the keys `MIRROR_*` and `MIRRORLOGS_*` was modified.
+  - fallbacks: mirrorbits now respects the protocol requested, regardless of the protocol specified in the config file. So make sure your fallback mirrors support both HTTP and HTTPS.
+
 ### FEATURES
 
 - Make per-mirror logs available on the CLI: `mirrorbits logs <mirrorname>` (#5)
