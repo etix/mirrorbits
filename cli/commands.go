@@ -304,6 +304,7 @@ func StatusString(m *rpc.Mirror) string {
 func (c *cli) CmdAdd(args ...string) error {
 	cmd := SubCmd("add", "[OPTIONS] IDENTIFIER", "Add a new mirror")
 	http := cmd.String("http", "", "HTTP base URL")
+	https := cmd.String("https", "", "HTTPS base URL")
 	rsync := cmd.String("rsync", "", "RSYNC base URL (for scanning only)")
 	ftp := cmd.String("ftp", "", "FTP base URL (for scanning only)")
 	sponsorName := cmd.String("sponsor-name", "", "Name of the sponsor")
@@ -331,24 +332,56 @@ func (c *cli) CmdAdd(args ...string) error {
 		os.Exit(-1)
 	}
 
-	if *http == "" {
-		fmt.Fprintf(os.Stderr, "You *must* pass at least an HTTP URL\n")
+	if *http == "" && *https == "" {
+		fmt.Fprintf(os.Stderr, "You *must* pass at least either an HTTP or HTTPS URL\n")
 		os.Exit(-1)
 	}
 
-	if !strings.HasPrefix(*http, "http://") && !strings.HasPrefix(*http, "https://") {
-		*http = "http://" + *http
+	httpHost := ""
+
+	if *http != "" {
+		if strings.HasPrefix(*http, "https://") {
+			fmt.Fprintf(os.Stderr, "Protocol mismatch: don't pass a HTTPS URL with -http\n")
+			os.Exit(-1)
+		}
+		if !strings.HasPrefix(*http, "http://") {
+			*http = "http://" + *http
+		}
+		u, err := url.Parse(*http)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Can't parse http url\n")
+			os.Exit(-1)
+		}
+		httpHost = u.Host
 	}
 
-	_, err := url.Parse(*http)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Can't parse url\n")
+	httpsHost := ""
+
+	if *https != "" {
+		if strings.HasPrefix(*https, "http://") {
+			fmt.Fprintf(os.Stderr, "Protocol mismatch: don't pass a HTTP URL with -https\n")
+			os.Exit(-1)
+		}
+		if !strings.HasPrefix(*https, "https://") {
+			*https = "https://" + *https
+		}
+		u, err := url.Parse(*https)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Can't parse https url\n")
+			os.Exit(-1)
+		}
+		httpsHost = u.Host
+	}
+
+	if httpHost != "" && httpsHost != "" && httpHost != httpsHost {
+		fmt.Fprintf(os.Stderr, "HTTP URL and HTTPS URL *must* point to the same host\n")
 		os.Exit(-1)
 	}
 
 	mirror := &mirrors.Mirror{
 		Name:           cmd.Arg(0),
 		HttpURL:        *http,
+		HttpsURL:       *https,
 		RsyncURL:       *rsync,
 		FtpURL:         *ftp,
 		SponsorName:    *sponsorName,
