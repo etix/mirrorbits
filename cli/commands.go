@@ -868,6 +868,7 @@ func (c *cli) CmdExport(args ...string) error {
 	cmd := SubCmd("export", "[format]", "Export the mirror database.\n\nAvailable formats: mirmon")
 	rsync := cmd.Bool("rsync", true, "Export rsync URLs")
 	http := cmd.Bool("http", true, "Export http URLs")
+	https := cmd.Bool("https", true, "Export https URLs")
 	ftp := cmd.Bool("ftp", true, "Export ftp URLs")
 	disabled := cmd.Bool("disabled", true, "Export disabled mirrors")
 
@@ -910,6 +911,9 @@ func (c *cli) CmdExport(args ...string) error {
 		}
 		if *http == true && m.HttpURL != "" {
 			urls = append(urls, m.HttpURL)
+		}
+		if *https == true && m.HttpsURL != "" {
+			urls = append(urls, m.HttpsURL)
 		}
 		if *ftp == true && m.FtpURL != "" {
 			urls = append(urls, m.FtpURL)
