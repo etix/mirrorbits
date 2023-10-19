@@ -205,7 +205,7 @@ func (c *cli) CmdList(args ...string) error {
 			}
 		}
 		if *down == true {
-			if mirror.Up == true || mirror.Enabled == false {
+			if IsUp(mirror) || mirror.Enabled == false {
 				continue
 			}
 		}
@@ -240,10 +240,8 @@ func (c *cli) CmdList(args ...string) error {
 		if *state == true {
 			if mirror.Enabled == false {
 				fmt.Fprintf(w, "\tdisabled")
-			} else if mirror.Up == true {
-				fmt.Fprintf(w, "\tup")
 			} else {
-				fmt.Fprintf(w, "\tdown")
+				fmt.Fprintf(w, "\t%s", StatusString(mirror))
 			}
 			fmt.Fprintf(w, " \t(%s)", stateSince.Format(time.RFC1123))
 		}
@@ -253,6 +251,54 @@ func (c *cli) CmdList(args ...string) error {
 	w.Flush()
 
 	return nil
+}
+
+func IsUp(m *rpc.Mirror) bool {
+	// Up over both HTTP and HTTPS?
+	if m.HttpUp == true && m.HttpsUp == true {
+		return true
+	}
+	// Up over HTTP, no HTTPS URL?
+	if m.HttpUp == true && m.HttpsURL == "" {
+		return true
+	}
+	// Up over HTTPS, no HTTP URL?
+	if m.HttpsUp == true && m.HttpURL == "" {
+		return true
+	}
+	return false
+}
+
+func StatusString(m *rpc.Mirror) string {
+	var http string
+	var https string
+
+	if m.HttpUp {
+		http = "up"
+	} else {
+		http = "down"
+	}
+
+	if m.HttpsUp {
+		https = "up"
+	} else {
+		https = "down"
+	}
+
+	// Same status for HTTP and HTTPS?
+	if m.HttpUp == m.HttpsUp {
+		return http
+	}
+	// Only HTTPS URL is set?
+	if m.HttpURL == "" {
+		return https
+	}
+	// Only HTTP URL is set?
+	if m.HttpsURL == "" {
+		return http
+	}
+	// Both HTTP and HTTPS URLs are set, and status differ
+	return fmt.Sprintf("%s/%s", http, https)
 }
 
 func (c *cli) CmdAdd(args ...string) error {
@@ -939,10 +985,8 @@ func (c *cli) CmdStats(args ...string) error {
 		fmt.Fprintf(w, "Identifier:\t%s\n", name)
 		if !reply.Mirror.Enabled {
 			fmt.Fprintf(w, "Status:\tdisabled\n")
-		} else if reply.Mirror.Up {
-			fmt.Fprintf(w, "Status:\tup\n")
 		} else {
-			fmt.Fprintf(w, "Status:\tdown\n")
+			fmt.Fprintf(w, "Status:\t%s\n", StatusString(reply.Mirror))
 		}
 		fmt.Fprintf(w, "Download requests:\t%d\n", reply.Requests)
 		fmt.Fprint(w, "Bytes transferred:\t")
