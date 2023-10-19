@@ -244,9 +244,14 @@ func (c *CLI) AddMirror(ctx context.Context, in *Mirror) (*AddMirrorReply, error
 		return nil, status.Error(codes.FailedPrecondition, "unexpected ID")
 	}
 
-	u, err := url.Parse(mirror.HttpURL)
+	var u *url.URL
+	if mirror.HttpURL != "" {
+		u, err = url.Parse(mirror.HttpURL)
+	} else {
+		u, err = url.Parse(mirror.HttpsURL)
+	}
 	if err != nil {
-		return nil, errors.Wrap(err, "can't parse http url")
+		return nil, errors.Wrap(err, "can't parse url")
 	}
 
 	reply := &AddMirrorReply{}
