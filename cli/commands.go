@@ -750,6 +750,17 @@ reopen:
 
 	mirror.Comment = comment
 
+	// Do some sanity checks
+	err = ValidateMirror(mirror)
+	if err != nil {
+		switch reopen(err) {
+		case true:
+			goto reopen
+		case false:
+			return nil
+		}
+	}
+
 	ctx, cancel = context.WithTimeout(context.Background(), defaultRPCTimeout)
 	defer cancel()
 	m, err := rpc.MirrorToRPC(mirror)
@@ -774,6 +785,44 @@ reopen:
 	}
 
 	fmt.Printf("Mirror '%s' edited successfully\n", mirror.Name)
+
+	return nil
+}
+
+func ValidateMirror(m *mirrors.Mirror) error {
+	if m.HttpURL == "" && m.HttpsURL == "" {
+		return errors.New("Either HttpURL or HttpsURL must be set")
+	}
+
+	httpHost := ""
+
+	if m.HttpURL != "" {
+		if !strings.HasPrefix(m.HttpURL, "http://") {
+			return errors.New("HttpURL must start with http://")
+		}
+		u, err := url.Parse(m.HttpURL)
+		if err != nil {
+			return errors.Wrap(err, "Can't parse url")
+		}
+		httpHost = u.Host
+	}
+
+	httpsHost := ""
+
+	if m.HttpsURL != "" {
+		if !strings.HasPrefix(m.HttpsURL, "https://") {
+			return errors.New("HttpsURL must start with https://")
+		}
+		u, err := url.Parse(m.HttpsURL)
+		if err != nil {
+			return errors.Wrap(err, "Can't parse url")
+		}
+		httpsHost = u.Host
+	}
+
+	if httpHost != "" && httpsHost != "" && httpHost != httpsHost {
+		return errors.New("HttpURL and HttpsURL must point to the same host")
+	}
 
 	return nil
 }
