@@ -8,16 +8,35 @@
 
 before:
   hooks:
-    # You may remove this if you don't use go modules.
-    - go mod tidy
+    # - make rpc/rpc.pb.go
+    - go mod download
 
 builds:
   - env:
       - CGO_ENABLED=0
+      - GO111MODULE=on
+      - GOVERSION=go1.21.3
+      - PACKAGE=github.com/etix/mirrorbits
+      - VERSION={{ .Tag }}
+      - BUILD={{ .ShortCommit }}-{{ .Branch }}
+      - TEMPLATES=templates/
     goos:
       - linux
-      - windows
       - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -X "{{.Env.PACKAGE}}/core.VERSION={{.Env.VERSION}}"
+      - -X "{{ .Env.PACKAGE }}/core.BUILD={{ .Env.BUILD }}"
+      - -X "{{ .Env.PACKAGE }}/config.TEMPLATES_PATH={{ .Env.TEMPLATES }}"
+    # hooks:
+    #   pre:
+    #     - make rpc/rpc.pb.go
+    # Set the modified timestamp on the output binary, typically
+    # you would do this to ensure a build was reproducible. Pass
+    # empty string to skip modifying the output.
+    mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
   - format: tar.gz
@@ -33,6 +52,10 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
+    files:
+      - templates/*
+      - mirrorbits.conf
+      - README.md
 
 changelog:
   sort: asc
@@ -40,3 +63,10 @@ changelog:
     exclude:
       - "^docs:"
       - "^test:"
+
+# dockers:
+#   - image_templates:
+#       - etix/mirrorbits
+
+sboms:
+  - artifacts: archive
