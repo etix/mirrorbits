@@ -42,13 +42,13 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
 * [Kodi](http://kodi.tv/) (previously XBMC) since [July 2015](https://forum.kodi.tv/showthread.php?tid=233824)
 * [LineageOS](http://lineageos.org/) (previously CyanogenMod) since January 2017
 * [MariaDB](https://mariadb.org/) to distribute packages (deb/rpm) for Linux distributions since [December 2021](https://mariadb.org/mirrorbits/)
+* [OSMC](https://osmc.tv)
 * [VideoLAN](http://www.videolan.org/) to distribute [VLC media player](http://www.videolan.org/vlc/) since [April 2014](https://blog.l0cal.com/2014/07/11/mirrorbits-is-now-on-github/)
+* [Endless OS](https://endlessos.org/os)
 
 Yet some things might change before the 1.0 release. If you intend to deploy Mirrorbits in a production system it is advised to notify the author first so we can help you to make any transition as seamless as possible!
 
 _Previous projects which have used Mirrorbits:_
-* [Endless OS](https://endlessos.com/)
-* [OSMC](https://osmc.tv)
 * [Parrot OS](https://www.parrotsec.org)
 * [Popcorn Time](https://popcorntime.io)
 * [SuperRepo](https://superrepo.org)
@@ -160,7 +160,7 @@ proxy_set_header X-Forwarded-For $remote_addr;
 
 # We're social!
 
-The best place to discuss about mirrorbits is to join the #VideoLAN IRC channel on Freenode.  
+The best place to discuss about mirrorbits is to join the [#VideoLAN IRC channel on Libera.chat](https://www.videolan.org/webirc/).
 For the latest news, you can follow [@mirrorbits](http://twitter.com/mirrorbits) on Twitter.
 
 # License MIT
