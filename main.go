@@ -24,6 +24,7 @@ import (
 	"github.com/etix/mirrorbits/rpc"
 	"github.com/op/go-logging"
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -31,6 +32,10 @@ var (
 )
 
 func main() {
+	// Prevent yaml.Marshal from wrapping long lines, cf:
+	// https://pkg.go.dev/gopkg.in/yaml.v2#FutureLineWrap
+	yaml.FutureLineWrap()
+
 	core.Parseflags()
 
 	if core.CpuProfile != "" {
