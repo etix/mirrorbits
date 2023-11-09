@@ -1,0 +1,17 @@
+/var/log/mirrorbits/*.log {
+	daily
+ 	rotate 14
+	missingok
+	notifempty
+	compress
+	delaycompress
+	postrotate
+		if [ -e /run/systemd/system ]; then
+			if systemctl -q is-active mirrorbits; then
+				systemctl kill -s USR1 mirrorbits
+			fi
+		else
+			killall -s USR1 mirrorbits || true
+		fi
+	endscript
+}
