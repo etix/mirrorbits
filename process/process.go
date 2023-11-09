@@ -143,7 +143,7 @@ func KillParent(ppid int) error {
 }
 
 // GetPidLocation finds the location to store our pid file
-// and fallback to /var/run if none found
+// and fallback to /run if none found
 func GetPidLocation() string {
 	if core.PidFile == "" { // Runtime
 		rdir := os.Getenv("XDG_RUNTIME_DIR")
