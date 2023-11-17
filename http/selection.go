@@ -64,11 +64,11 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 			}
 			goto discard
 		}
-		if ctx.SecureOption() == WITHTLS && !m.IsHTTPS() {
+		if ctx.SecureOption() == WITHTLS && !strings.HasPrefix(m.HttpURL, "https://") {
 			m.ExcludeReason = "Not HTTPS"
 			goto discard
 		}
-		if ctx.SecureOption() == WITHOUTTLS && m.IsHTTPS() {
+		if ctx.SecureOption() == WITHOUTTLS && strings.HasPrefix(m.HttpURL, "https://") {
 			m.ExcludeReason = "Not HTTP"
 			goto discard
 		}

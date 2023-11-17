@@ -95,11 +95,6 @@ func (m *Mirror) Prepare() {
 	m.ExcludedCountryFields = strings.Fields(m.ExcludedCountryCodes)
 }
 
-// IsHTTPS returns true if the mirror has an HTTPS address
-func (m *Mirror) IsHTTPS() bool {
-	return strings.HasPrefix(m.HttpURL, "https://")
-}
-
 // IsUp returns true if the mirror is up
 func (m *Mirror) IsUp() bool {
 	// Up over both HTTP and HTTPS?
