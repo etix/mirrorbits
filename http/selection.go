@@ -47,31 +47,70 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 	var closestMirror float32
 	var farthestMirror float32
 	for _, m := range mlist {
-		// Does it support http? Is it well formated?
-		if !strings.HasPrefix(m.HttpURL, "http://") && !strings.HasPrefix(m.HttpURL, "https://") {
-			m.ExcludeReason = "Invalid URL"
-			goto discard
-		}
 		// Is it enabled?
 		if !m.Enabled {
 			m.ExcludeReason = "Disabled"
 			goto discard
 		}
-		// Is it up?
-		if !m.Up {
-			if m.ExcludeReason == "" {
-				m.ExcludeReason = "Down"
+
+		// Is the procol requested supported?
+		switch ctx.SecureOption() {
+		case WITHTLS:
+			// HTTPS explicitly requested
+			if m.HttpsURL != "" {
+				ok, reason := checkHTTPS(&m)
+				if ok {
+					m.SelectedProtocol = mirrors.HTTPS
+					break
+				}
+				m.ExcludeReason = reason
+			} else {
+				m.ExcludeReason = "No HTTPS URL"
+			}
+			goto discard
+		case WITHOUTTLS:
+			// HTTP explicitly requested
+			if m.HttpURL != "" {
+				ok, reason := checkHTTP(&m)
+				if ok {
+					m.SelectedProtocol = mirrors.HTTP
+					break
+				}
+				m.ExcludeReason = reason
+			} else {
+				m.ExcludeReason = "No HTTP URL"
+			}
+			goto discard
+		default:
+			// Any protocol will do
+			var ok bool
+			var reason1, reason2 string
+			if m.HttpURL != "" {
+				ok, reason1 = checkHTTP(&m)
+				if ok {
+					m.SelectedProtocol = mirrors.HTTP
+					break
+				}
+			} else {
+				reason1 = "No HTTP URL"
+			}
+			if m.HttpsURL != "" {
+				ok, reason2 = checkHTTPS(&m)
+				if ok {
+					m.SelectedProtocol = mirrors.HTTPS
+					break
+				}
+			} else {
+				reason2 = "No HTTPS URL"
+			}
+			if reason1 == reason2 {
+				m.ExcludeReason = reason1
+			} else {
+				m.ExcludeReason = reason1 + " / " + reason2
 			}
 			goto discard
 		}
-		if ctx.SecureOption() == WITHTLS && !strings.HasPrefix(m.HttpURL, "https://") {
-			m.ExcludeReason = "Not HTTPS"
-			goto discard
-		}
-		if ctx.SecureOption() == WITHOUTTLS && strings.HasPrefix(m.HttpURL, "https://") {
-			m.ExcludeReason = "Not HTTP"
-			goto discard
-		}
+
 		// Is it the same size / modtime as source?
 		if m.FileInfo != nil {
 			if m.FileInfo.Size != fileInfo.Size {
@@ -255,4 +294,36 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 		mlist[0].Weight = 100
 	}
 	return
+}
+
+// checkHTTP returns (true, "") if the mirror can redirect over HTTP,
+// or (false, "reason why") if it can't.
+func checkHTTP(mirror *mirrors.Mirror) (ok bool, reason string) {
+	if !strings.HasPrefix(mirror.HttpURL, "http://") {
+		return false, "Invalid URL"
+	}
+	if !mirror.HttpUp {
+		if mirror.HttpDownReason == "" {
+			return false, "Down"
+		} else {
+			return false, mirror.HttpDownReason
+		}
+	}
+	return true, ""
+}
+
+// checkHTTPS returns (true, "") if the mirror can redirect over HTTPS,
+// or (false, "reason why") if it can't.
+func checkHTTPS(mirror *mirrors.Mirror) (ok bool, reason string) {
+	if !strings.HasPrefix(mirror.HttpsURL, "https://") {
+		return false, "Invalid URL"
+	}
+	if !mirror.HttpsUp {
+		if mirror.HttpsDownReason == "" {
+			return false, "Down"
+		} else {
+			return false, mirror.HttpsDownReason
+		}
+	}
+	return true, ""
 }

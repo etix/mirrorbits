@@ -87,6 +87,7 @@ type Mirror struct {
 
 	FileInfo *filesystem.FileInfo `redis:"-" json:"-" yaml:"-"` // Details of the requested file on this specific mirror
 	ExcludeReason string `redis:"-" json:",omitempty" yaml:"-"` // Reason why the mirror was excluded
+	SelectedProtocol Protocol `redis:"-" yaml:"-"` // Protocol selected for redirection
 }
 
 // Prepare must be called after retrieval from the database to reformat some values
