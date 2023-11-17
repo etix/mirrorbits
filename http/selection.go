@@ -46,7 +46,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 	excluded = make([]mirrors.Mirror, 0, len(mlist))
 	var closestMirror float32
 	var farthestMirror float32
-	for i, m := range mlist {
+	for _, m := range mlist {
 		// Does it support http? Is it well formated?
 		if !strings.HasPrefix(m.HttpURL, "http://") && !strings.HasPrefix(m.HttpURL, "https://") {
 			m.ExcludeReason = "Invalid URL"
@@ -125,7 +125,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 		if m.Distance > farthestMirror {
 			farthestMirror = m.Distance
 		}
-		mlist[safeIndex] = mlist[i]
+		mlist[safeIndex] = m
 		safeIndex++
 		continue
 	discard:
