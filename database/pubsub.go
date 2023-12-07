@@ -145,12 +145,8 @@ func (p *Pubsub) handleMessage(channel string, data []byte) {
 
 	listeners := p.extSubscribers[channel]
 	for _, listener := range listeners {
-		select {
-		case listener <- string(data):
-		default:
-			// Don't block if the listener is not available
-			// and drop the message.
-		}
+		// Block if the listener is not available
+		listener <- string(data)
 	}
 }
 
