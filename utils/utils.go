@@ -165,6 +165,11 @@ func FormattedDateUTC(t time.Time) string {
 	return t.UTC().Format(time.RFC1123)
 }
 
+// IsZero returns whether the date represents the zero time instant
+func IsZero(t time.Time) bool {
+	return t.IsZero()
+}
+
 // TimeKeyCoverage returns a slice of strings covering the date range
 // used in the redis backend.
 func TimeKeyCoverage(start, end time.Time) (dates []string) {

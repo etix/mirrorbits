@@ -112,7 +112,13 @@
 
         <div style="flex-basis: 325px; flex-grow: 1; margin: 8px;">
             <h3>File</h3>
-            <div>The file <b>{{.FileInfo.Path}}</b> has a size of {{sizeof .FileInfo.Size}} ({{.FileInfo.Size}} bytes) and was last modified on {{dateutc .FileInfo.ModTime}}.</div>
+            <div>
+            {{if not (iszero .FileInfo.ModTime)}}
+                The file <b>{{.FileInfo.Path}}</b> has a size of {{sizeof .FileInfo.Size}} ({{.FileInfo.Size}} bytes) and was last modified on {{dateutc .FileInfo.ModTime}}.
+            {{else}}
+                The file <b>{{.FileInfo.Path}}</b> has not been scanned yet, size and modification time are unknown.
+            {{end}}
+            </div>
             <div>
                 <br/>Known hashes:
                 <table class="alt">
