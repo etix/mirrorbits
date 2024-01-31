@@ -12,7 +12,7 @@ import (
 
 	"github.com/etix/mirrorbits/core"
 	"github.com/op/go-logging"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 var (
