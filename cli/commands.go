@@ -990,6 +990,16 @@ func (c *cli) CmdLogs(args ...string) error {
 }
 
 func (c *cli) CmdReload(args ...string) error {
+	cmd := SubCmd("reload", "", "Reload configuration")
+
+	if err := cmd.Parse(args); err != nil {
+		return nil
+	}
+	if cmd.NArg() != 0 {
+		cmd.Usage()
+		return nil
+	}
+
 	client := c.GetRPC()
 	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
 	defer cancel()
@@ -1002,6 +1012,16 @@ func (c *cli) CmdReload(args ...string) error {
 }
 
 func (c *cli) CmdUpgrade(args ...string) error {
+	cmd := SubCmd("upgrade", "", "Seamless binary upgrade")
+
+	if err := cmd.Parse(args); err != nil {
+		return nil
+	}
+	if cmd.NArg() != 0 {
+		cmd.Usage()
+		return nil
+	}
+
 	client := c.GetRPC()
 	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
 	defer cancel()
@@ -1014,6 +1034,16 @@ func (c *cli) CmdUpgrade(args ...string) error {
 }
 
 func (c *cli) CmdVersion(args ...string) error {
+	cmd := SubCmd("version", "", "Print version information")
+
+	if err := cmd.Parse(args); err != nil {
+		return nil
+	}
+	if cmd.NArg() != 0 {
+		cmd.Usage()
+		return nil
+	}
+
 	fmt.Printf("Client:\n")
 	core.PrintVersion(core.GetVersionInfo())
 	fmt.Println()
