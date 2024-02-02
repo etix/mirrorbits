@@ -1005,7 +1005,7 @@ func (c *cli) CmdReload(args ...string) error {
 	defer cancel()
 	_, err := client.Reload(ctx, &empty.Empty{})
 	if err != nil {
-		log.Fatal("upgrade error:", err)
+		log.Fatal("reload error:", err)
 	}
 
 	return nil
