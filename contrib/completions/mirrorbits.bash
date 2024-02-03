@@ -132,9 +132,7 @@ _mirrorbits() {
                 COMPREPLY=( $( compgen -W '-help -rehash' -- "$cur" ) )
                 ;;
             reload|upgrade|version)
-                # XXX Not supported yet
-                #COMPREPLY=( $( compgen -W '-help' -- "$cur" ) )
-                COMPREPLY=()
+                COMPREPLY=( $( compgen -W '-help' -- "$cur" ) )
                 ;;
             remove)
                 case $cur in
