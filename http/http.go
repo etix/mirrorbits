@@ -231,7 +231,13 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		return
 	}
 
-	fileInfo := filesystem.NewFileInfo(urlPath)
+	// Get details about the requested file
+	fileInfo, err := h.cache.GetFileInfo(urlPath)
+	if err != nil {
+		log.Errorf("Error while fetching Fileinfo: %s", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	remoteIP := network.ExtractRemoteIP(r.Header.Get("X-Forwarded-For"))
 	if len(remoteIP) == 0 {

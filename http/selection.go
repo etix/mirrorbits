@@ -29,12 +29,6 @@ type DefaultEngine struct{}
 
 // Selection returns an ordered list of selected mirror, a list of rejected mirrors and and an error code
 func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (mlist mirrors.Mirrors, excluded mirrors.Mirrors, err error) {
-	// Get details about the requested file
-	*fileInfo, err = cache.GetFileInfo(fileInfo.Path)
-	if err != nil {
-		return
-	}
-
 	// Prepare and return the list of all potential mirrors
 	mlist, err = cache.GetMirrors(fileInfo.Path, clientInfo)
 	if err != nil {
