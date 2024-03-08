@@ -14,7 +14,6 @@ import (
 	"github.com/etix/mirrorbits/filesystem"
 	"github.com/etix/mirrorbits/network"
 	. "github.com/etix/mirrorbits/testing"
-	"github.com/gomodule/redigo/redis"
 	_ "github.com/rafaeljusto/redigomock"
 )
 
@@ -174,10 +173,11 @@ func TestCache_GetFileInfo(t *testing.T) {
 	}
 
 	_, err = c.GetFileInfo(testfile.Path)
-	if err == redis.ErrNil {
-		t.Fatalf("Cache not used, request expected to be done once")
-	} else if err != nil {
+	if err != nil {
 		t.Fatalf("Unexpected error: %s", err.Error())
+	}
+	if mock.Stats(cmdGetFileinfo) > 1 {
+		t.Fatalf("Cache not used, request expected to be done once")
 	}
 }
 
