@@ -67,6 +67,28 @@ func TestCache_Clear(t *testing.T) {
 	}
 }
 
+func assertFileInfoEqual(t *testing.T, actual *filesystem.FileInfo, expected *filesystem.FileInfo) {
+	t.Helper()
+	if actual.Path != expected.Path {
+		t.Fatalf("Path doesn't match, expected %#v got %#v", expected.Path, actual.Path)
+	}
+	if actual.Size != expected.Size {
+		t.Fatalf("Size doesn't match, expected %#v got %#v", expected.Size, actual.Size)
+	}
+	if !actual.ModTime.Equal(expected.ModTime) {
+		t.Fatalf("ModTime doesn't match, expected %s got %s", expected.ModTime.String(), actual.ModTime.String())
+	}
+	if actual.Sha1 != expected.Sha1 {
+		t.Fatalf("Sha1 doesn't match, expected %#v got %#v", expected.Sha1, actual.Sha1)
+	}
+	if actual.Sha256 != expected.Sha256 {
+		t.Fatalf("Sha256 doesn't match, expected %#v got %#v", expected.Sha256, actual.Sha256)
+	}
+	if actual.Md5 != expected.Md5 {
+		t.Fatalf("Md5 doesn't match, expected %#v got %#v", expected.Md5, actual.Md5)
+	}
+}
+
 func TestCache_fetchFileInfo(t *testing.T) {
 	mock, conn := PrepareRedisTest()
 	conn.ConnectPubsub()
@@ -104,24 +126,7 @@ func TestCache_fetchFileInfo(t *testing.T) {
 		t.Fatalf("HMGET not executed")
 	}
 
-	if f.Path != testfile.Path {
-		t.Fatalf("Path doesn't match, expected %#v got %#v", testfile.Path, f.Path)
-	}
-	if f.Size != testfile.Size {
-		t.Fatalf("Size doesn't match, expected %#v got %#v", testfile.Size, f.Size)
-	}
-	if !f.ModTime.Equal(testfile.ModTime) {
-		t.Fatalf("ModTime doesn't match, expected %s got %s", testfile.ModTime.String(), f.ModTime.String())
-	}
-	if f.Sha1 != testfile.Sha1 {
-		t.Fatalf("Sha1 doesn't match, expected %#v got %#v", testfile.Sha1, f.Sha1)
-	}
-	if f.Sha256 != testfile.Sha256 {
-		t.Fatalf("Sha256 doesn't match, expected %#v got %#v", testfile.Sha256, f.Sha256)
-	}
-	if f.Md5 != testfile.Md5 {
-		t.Fatalf("Md5 doesn't match, expected %#v got %#v", testfile.Md5, f.Md5)
-	}
+	assertFileInfoEqual(t, &f, &testfile)
 
 	_, ok := c.fiCache.Get(testfile.Path)
 	if !ok {
@@ -166,19 +171,17 @@ func TestCache_GetFileInfo(t *testing.T) {
 		t.Fatalf("HMGET not executed")
 	}
 
-	// Results are already checked by TestCache_fetchFileInfo
-	// We only need to check one of them
-	if !f.ModTime.Equal(testfile.ModTime) {
-		t.Fatalf("One or more values do not match")
-	}
+	assertFileInfoEqual(t, &f, &testfile)
 
-	_, err = c.GetFileInfo(testfile.Path)
+	f, err = c.GetFileInfo(testfile.Path)
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}
 	if mock.Stats(cmdGetFileinfo) > 1 {
 		t.Fatalf("Cache not used, request expected to be done once")
 	}
+
+	assertFileInfoEqual(t, &f, &testfile)
 }
 
 func TestCache_fetchFileMirrors(t *testing.T) {
