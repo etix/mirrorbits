@@ -134,6 +134,53 @@ func TestCache_fetchFileInfo(t *testing.T) {
 	}
 }
 
+func TestCache_fetchFileInfo_non_existing(t *testing.T) {
+	mock, conn := PrepareRedisTest()
+	conn.ConnectPubsub()
+
+	c := NewCache(conn)
+
+	testfile := filesystem.FileInfo{
+		Path:    "/test/file.tgz",
+		Size:    0,
+		ModTime: time.Time{},
+		Sha1:    "",
+		Sha256:  "",
+		Md5:     "",
+	}
+
+	f, err := c.fetchFileInfo(testfile.Path)
+	if err == nil {
+		t.Fatalf("Error expected, mock command not yet registered")
+	}
+
+	cmdGetFileinfo := mock.Command("HMGET", "FILE_"+testfile.Path, "size", "modTime", "sha1", "sha256", "md5").Expect([]interface{}{
+		[]byte(""),
+		[]byte(""),
+		[]byte(""),
+		[]byte(""),
+		[]byte(""),
+	})
+
+	f, err = c.fetchFileInfo(testfile.Path)
+	// fetchFileInfo on a non-existing file doesn't yield Redis.ErrNil
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err.Error())
+	}
+
+	if mock.Stats(cmdGetFileinfo) < 1 {
+		t.Fatalf("HMGET not executed")
+	}
+
+	assertFileInfoEqual(t, &f, &testfile)
+
+	// Non-existing file are also stored in cache
+	_, ok := c.fiCache.Get(testfile.Path)
+	if !ok {
+		t.Fatalf("Not stored in cache")
+	}
+}
+
 func TestCache_GetFileInfo(t *testing.T) {
 	mock, conn := PrepareRedisTest()
 	conn.ConnectPubsub()
@@ -177,6 +224,58 @@ func TestCache_GetFileInfo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %s", err.Error())
 	}
+	if mock.Stats(cmdGetFileinfo) > 1 {
+		t.Fatalf("Cache not used, request expected to be done once")
+	}
+
+	assertFileInfoEqual(t, &f, &testfile)
+}
+
+func TestCache_GetFileInfo_non_existing(t *testing.T) {
+	mock, conn := PrepareRedisTest()
+	conn.ConnectPubsub()
+
+	c := NewCache(conn)
+
+	testfile := filesystem.FileInfo{
+		Path:    "/test/file.tgz",
+		Size:    0,
+		ModTime: time.Time{},
+		Sha1:    "",
+		Sha256:  "",
+		Md5:     "",
+	}
+
+	_, err := c.GetFileInfo(testfile.Path)
+	if err == nil {
+		t.Fatalf("Error expected, mock command not yet registered")
+	}
+
+	cmdGetFileinfo := mock.Command("HMGET", "FILE_"+testfile.Path, "size", "modTime", "sha1", "sha256", "md5").Expect([]interface{}{
+		[]byte(""),
+		[]byte(""),
+		[]byte(""),
+		[]byte(""),
+		[]byte(""),
+	})
+
+	f, err := c.GetFileInfo(testfile.Path)
+	// GetFileInfo on a non-existing file doesn't yield Redis.ErrNil
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err.Error())
+	}
+
+	if mock.Stats(cmdGetFileinfo) < 1 {
+		t.Fatalf("HMGET not executed")
+	}
+
+	assertFileInfoEqual(t, &f, &testfile)
+
+	f, err = c.GetFileInfo(testfile.Path)
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err.Error())
+	}
+	// Non-existing file are also stored in cache
 	if mock.Stats(cmdGetFileinfo) > 1 {
 		t.Fatalf("Cache not used, request expected to be done once")
 	}
