@@ -443,11 +443,9 @@ func (h *HTTP) checksumHandler(w http.ResponseWriter, r *http.Request, ctx *Cont
 		return
 	}
 
+	// Get details about the requested file
 	fileInfo, err := h.cache.GetFileInfo(urlPath)
-	if err == redis.ErrNil {
-		http.NotFound(w, r)
-		return
-	} else if err != nil {
+	if err != nil {
 		log.Errorf("Error while fetching Fileinfo: %s", err.Error())
 		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 		return
