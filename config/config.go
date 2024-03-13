@@ -81,6 +81,7 @@ type Configuration struct {
 	CheckInterval           int        `yaml:"CheckInterval"`
 	RepositoryScanInterval  int        `yaml:"RepositoryScanInterval"`
 	MaxLinkHeaders          int        `yaml:"MaxLinkHeaders"`
+	RelaxModTimeRules       []relaxrule `yaml:"RelaxModTimeRules"`
 	FixTimezoneOffsets      bool       `yaml:"FixTimezoneOffsets"`
 	Hashes                  hashing    `yaml:"Hashes"`
 	DisallowRedirects       bool       `yaml:"DisallowRedirects"`
@@ -109,6 +110,11 @@ type hashing struct {
 	SHA1   bool `yaml:"SHA1"`
 	SHA256 bool `yaml:"SHA256"`
 	MD5    bool `yaml:"MD5"`
+}
+
+type relaxrule struct {
+	Prefix      string `yaml:"Prefix"`
+	MaxOutdated int    `yaml:"MaxOutdated"`
 }
 
 // LoadConfig loads the configuration file if it has not yet been loaded
@@ -164,6 +170,17 @@ func ReloadConfig() error {
 	}
 	if c.RepositoryScanInterval < 0 {
 		c.RepositoryScanInterval = 0
+	}
+	for _, r := range c.RelaxModTimeRules {
+		if len(r.Prefix) == 0 {
+			return fmt.Errorf("RelaxModTimeRules.Prefix must be set")
+		}
+		if r.Prefix[0] != '/' {
+			return fmt.Errorf("RelaxModTimeRules.Prefix must start with a /")
+		}
+		if r.MaxOutdated <= 0 {
+			return fmt.Errorf("RelaxModTimeRules.MaxOutdated must be > 0")
+		}
 	}
 
 	if config != nil &&

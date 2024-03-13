@@ -41,6 +41,19 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 		return
 	}
 
+	// Check if a relax modtime rule applies
+	checksize := true
+	maxoutdated := time.Duration(0)
+	relaxrules := GetConfig().RelaxModTimeRules
+	for _, r := range relaxrules {
+		if !strings.HasPrefix(fileInfo.Path, r.Prefix) {
+			continue
+		}
+		maxoutdated = time.Duration(r.MaxOutdated) * time.Minute
+		checksize = false
+		break
+	}
+
 	// Filter
 	safeIndex := 0
 	excluded = make([]mirrors.Mirror, 0, len(mlist))
@@ -74,7 +87,7 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 		}
 		// Is it the same size / modtime as source?
 		if m.FileInfo != nil {
-			if m.FileInfo.Size != fileInfo.Size {
+			if checksize && m.FileInfo.Size != fileInfo.Size {
 				m.ExcludeReason = "File size mismatch"
 				goto discard
 			}
@@ -85,8 +98,9 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 				}
 				mModTime = mModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
 				lModTime := fileInfo.ModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
-				if !mModTime.Equal(lModTime) {
-					m.ExcludeReason = fmt.Sprintf("Mod time mismatch (diff: %s)", lModTime.Sub(mModTime))
+				diff := lModTime.Sub(mModTime)
+				if diff < 0 || diff > maxoutdated {
+					m.ExcludeReason = fmt.Sprintf("Mod time mismatch (diff: %s)", diff)
 					goto discard
 				}
 			}
