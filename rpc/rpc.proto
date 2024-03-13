@@ -13,6 +13,7 @@ service CLI {
     rpc AddMirror (Mirror) returns (AddMirrorReply) {}
     rpc UpdateMirror (Mirror) returns (UpdateMirrorReply) {}
     rpc RemoveMirror (MirrorIDRequest) returns (google.protobuf.Empty) {}
+    rpc GeoUpdateMirror (MirrorIDRequest) returns (GeoUpdateMirrorReply) {}
     rpc RefreshRepository (RefreshRepositoryRequest) returns (google.protobuf.Empty) {}
     rpc ScanMirror (ScanMirrorRequest) returns (ScanMirrorReply) {}
     rpc StatsFile (StatsFileRequest) returns (StatsFileReply) {}
@@ -103,6 +104,12 @@ message AddMirrorReply {
 
 message UpdateMirrorReply {
     string Diff = 1;
+}
+
+message GeoUpdateMirrorReply {
+    Mirror Mirror = 1;
+    string Diff = 2;
+    repeated string Warnings = 3;
 }
 
 message RefreshRepositoryRequest {

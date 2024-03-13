@@ -103,6 +103,7 @@ func (c *cli) CmdHelp() error {
 		{"edit", "Edit a mirror"},
 		{"enable", "Enable a mirror"},
 		{"export", "Export the mirror database"},
+		{"geoupdate", "Update geolocation of a mirror"},
 		{"list", "List all mirrors"},
 		{"logs", "Print logs of a mirror"},
 		{"refresh", "Refresh the local repository"},
@@ -688,6 +689,79 @@ reopen:
 	}
 
 	fmt.Printf("Mirror '%s' edited successfully\n", mirror.Name)
+
+	return nil
+}
+
+func (c *cli) CmdGeoupdate(args ...string) error {
+	cmd := SubCmd("geoupdate", "[IDENTIFIER]", "Update geolocation of a mirror")
+	force := cmd.Bool("f", false, "Never prompt for confirmation")
+
+	if err := cmd.Parse(args); err != nil {
+		return nil
+	}
+	if cmd.NArg() != 1 {
+		cmd.Usage()
+		return nil
+	}
+
+	id, name := c.matchMirror(cmd.Arg(0))
+
+	// Get mirror with geolocation updated
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	reply, err := client.GeoUpdateMirror(ctx, &rpc.MirrorIDRequest{
+		ID: int32(id),
+	})
+	if err != nil {
+		log.Fatal("edit error:", err)
+	}
+
+	// Print warnings if any
+	for i := 0; i < len(reply.Warnings); i++ {
+		fmt.Println(reply.Warnings[i])
+		if i == len(reply.Warnings)-1 {
+			fmt.Println("")
+		}
+	}
+
+	// Print diff if any
+	if len(reply.Diff) > 0 {
+		fmt.Println(reply.Diff)
+	} else {
+		fmt.Println("Geolocation is up to date, there is nothing to change.")
+		return nil
+	}
+
+	// Ask for confirmation
+	if *force == false {
+		fmt.Printf("Update mirror %s? [y/N]", name)
+		reader := bufio.NewReader(os.Stdin)
+		s, _ := reader.ReadString('\n')
+		switch s[0] {
+		case 'y', 'Y':
+			break
+		default:
+			return nil
+		}
+	}
+
+	// Update the mirror
+	ctx, cancel = context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	reply2, err := client.UpdateMirror(ctx, reply.Mirror)
+	if err != nil {
+		log.Fatal("edit error:", err)
+	}
+
+	// The diff shouldn't have changed, but let's check
+	if reply2.Diff != reply.Diff {
+		fmt.Println("Unexpected diff, see below:")
+		fmt.Println(reply2.Diff)
+	}
+
+	fmt.Printf("Mirror '%s' updated successfully\n", name)
 
 	return nil
 }

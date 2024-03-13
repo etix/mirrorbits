@@ -1,0 +1,99 @@
+#!/bin/bash
+
+# Copyright (c) 2023 Arnaud Rebillout <arnaudr@kali.org>
+# Distributed under the same license as mirrorbits.
+
+set -euo pipefail
+
+USAGE="$(basename $0) [-f [-f]] [MIRRORBITS_ARGS...]
+
+Update geolocation for all mirrors.
+
+The argument '-f' controls the exact behavior of the script:
+* no  -f: ask for confirmation for each mirror.
+* one -f: if there are only latitute and longitude changes, don't ask for
+  confirmation. Otherwise (eg. ASN, country or continent changed), either
+  1) ask for confirmation if running interactively, or
+  2) print the changes and skip this mirror - in the end the script returns
+     the special exit code 33 to signal that some mirrors were not updated.
+* two -f: update all mirrors without asking for confirmation.
+
+Arguments passed to this script (except -f) are handed over to the mirrorbits
+command, so you might want to use '-p PORT' to provide the server port.
+"
+
+FORCE=0
+
+while [ $# -gt 0 ]; do
+    case $1 in
+        -f|--force) FORCE=$((FORCE + 1)) ;;
+        -h|--help) echo "$USAGE"; exit 0 ;;
+        *) break ;;
+    esac
+    shift
+done
+
+MIRRORBITS="mirrorbits $@"
+
+# Get all the mirrors
+MIRRORS=$($MIRRORBITS list -state=false | grep -iv "^identifier\b" || :)
+MIRRORS=$(echo "$MIRRORS" | LC_ALL=C sort -u)
+
+# Iterate over the mirrors
+EXIT_STATUS=0
+NO_MIRROR_TO_UPDATE=1
+for mirror in $MIRRORS; do
+    # Ask to update mirror, but bail out. We only want to see the changes.
+    output=$(echo n | $MIRRORBITS geoupdate $mirror)
+
+    # Keep only the lines that list the changes.
+    changes=$(echo "$output" | grep "^[+-] " || :)
+
+    # No change? Keep going then.
+    if [ -z "$changes" ]; then
+        continue
+    fi
+
+    if [ $NO_MIRROR_TO_UPDATE = 0 ]; then
+        echo "------------------------------------------------"
+    fi
+
+    NO_MIRROR_TO_UPDATE=0
+        
+    echo "Updating $mirror:"
+
+    # FORCE == 0 aka. interactive. Always ask for confirmation.
+    if [ $FORCE -eq 0 ]; then
+        $MIRRORBITS geoupdate $mirror
+        continue
+    fi
+
+    # FORCE == 2 aka. just do it. Never ask for confirmation.
+    if [ $FORCE -ge 2 ]; then
+        $MIRRORBITS geoupdate -f $mirror
+        continue
+    fi
+
+    # FORCE == 1 aka. automatic but conservative.
+    # Filter out latitude and longitude changes. If there are no other
+    # changes, act without waiting for confirmation. If there are other
+    # changes, and we're running interactively, ask for confirmation.
+    # Otherwise, print a warning, and keep going. We'll return a special
+    # exit code in the end.
+    changes=$(echo "$changes" | grep -Ev "L(at|ong)itude:" || :)
+    if [ -z "$changes" ]; then
+        $MIRRORBITS geoupdate -f $mirror
+    elif [ -t 0 ]; then
+        $MIRRORBITS geoupdate $mirror
+    else
+        echo "NOT UPDATING! Changes need review, see below:"
+        echo "$output" | grep -iv "y/n" || :
+        EXIT_STATUS=33
+    fi
+done
+
+if [ $NO_MIRROR_TO_UPDATE = 1 ]; then
+    echo "No mirror to update, nothing was done."
+fi
+
+exit $EXIT_STATUS
