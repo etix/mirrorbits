@@ -265,17 +265,20 @@ func (m *monitor) MonitorLoop() {
 					// Ignore disabled mirrors
 					continue
 				}
-				if v.NeedHealthCheck() && !v.IsChecking() && m.cluster.IsHandled(id) {
+				if !m.cluster.IsHandled(id) {
+					continue
+				}
+				if v.NeedHealthCheck() && !v.IsChecking() {
 					select {
 					case m.healthCheckChan <- id:
-						m.mirrors[id].checking = true
+						v.checking = true
 					default:
 					}
 				}
-				if v.NeedSync() && !v.IsScanning() && m.cluster.IsHandled(id) {
+				if v.NeedSync() && !v.IsScanning() {
 					select {
 					case m.syncChan <- id:
-						m.mirrors[id].scanning = true
+						v.scanning = true
 					default:
 					}
 				}
@@ -458,7 +461,7 @@ func (m *monitor) syncLoop() {
 				goto end
 			}
 
-			if err == nil && mir.Enabled == true && mir.Up == false {
+			if err == nil && mir.Enabled == true && mir.IsUp() == false {
 				m.healthCheckChan <- id
 			}
 
@@ -474,22 +477,45 @@ func (m *monitor) syncLoop() {
 
 // Do an actual health check against a given mirror
 func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
-	// Format log output
-	format := "%-" + fmt.Sprintf("%d.%ds", m.formatLongestID+4, m.formatLongestID+4)
-
 	// Get the URL to a random file available on this mirror
 	file, size, err := m.getRandomFile(mirror.ID)
 	if err != nil {
 		if err == redis.ErrNil {
 			return errMirrorNotScanned
 		} else if !database.RedisIsLoading(err) {
-			log.Warningf(format+"Error: Cannot obtain a random file: %s", mirror.Name, err)
+			log.Warningf("%s: Error: Cannot obtain a random file: %s", mirror.Name, err)
 		}
 		return err
 	}
 
+	// Do health checks
+	m.healthCheckDo(&mirror, mirrors.HTTP, file, size)
+	m.healthCheckDo(&mirror, mirrors.HTTPS, file, size)
+
+	return nil
+}
+
+func (m *monitor) healthCheckDo(mirror *mirrors.Mirror, proto mirrors.Protocol, file string, size int64) error {
+	// Format log output
+	format := "%-" + fmt.Sprintf("%d.%ds %-5s ", m.formatLongestID+4, m.formatLongestID+4, proto)
+
+	// Get URL according to the protocol requested
+	url := mirror.HttpURL
+	if proto == mirrors.HTTPS {
+		url = mirror.HttpsURL
+	}
+
+	// If no URL, mark mirror as down
+	if url == "" {
+		err := mirrors.MarkMirrorDown(m.redis, mirror.ID, proto, fmt.Sprintf("No %s URL", proto))
+		if err != nil {
+			log.Errorf(format+"Unable to mark mirror as down: %s", mirror.Name, err)
+		}
+		return nil
+	}
+
 	// Prepare the HTTP request
-	req, err := http.NewRequest("HEAD", strings.TrimRight(mirror.HttpURL, "/")+file, nil)
+	req, err := http.NewRequest("HEAD", strings.TrimRight(url, "/")+file, nil)
 	req.Header.Set("User-Agent", userAgent)
 	req.Close = true
 
@@ -503,7 +529,7 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 	go func() {
 		select {
 		case <-m.stop:
-			log.Debugf("Aborting health-check for %s", mirror.HttpURL)
+			log.Debugf("Aborting health-check for %s", url)
 			cancel()
 		case <-ctx.Done():
 		}
@@ -529,10 +555,14 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 		if opErr, ok := err.(*net.OpError); ok {
 			log.Debugf("Op: %s | Net: %s | Addr: %s | Err: %s | Temporary: %t", opErr.Op, opErr.Net, opErr.Addr, opErr.Error(), opErr.Temporary())
 		}
+		var err2 error
 		if strings.Contains(err.Error(), errRedirect.Error()) {
-			mirrors.MarkMirrorDown(m.redis, mirror.ID, "Unauthorized redirect")
+			err2 = mirrors.MarkMirrorDown(m.redis, mirror.ID, proto, "Unauthorized redirect")
 		} else {
-			mirrors.MarkMirrorDown(m.redis, mirror.ID, "Unreachable")
+			err2 = mirrors.MarkMirrorDown(m.redis, mirror.ID, proto, "Unreachable")
+		}
+		if err2 != nil {
+			log.Errorf(format+"Unable to mark mirror as down: %s", mirror.Name, err2)
 		}
 		log.Errorf(format+"Error: %s (%dms)", mirror.Name, err.Error(), elapsed/time.Millisecond)
 		return err
@@ -540,7 +570,7 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 
 	switch statusCode {
 	case 200:
-		err = mirrors.MarkMirrorUp(m.redis, mirror.ID)
+		err = mirrors.MarkMirrorUp(m.redis, mirror.ID, proto)
 		if err != nil {
 			log.Errorf(format+"Unable to mark mirror as up: %s", mirror.Name, err)
 		}
@@ -551,7 +581,7 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 			log.Noticef(format+"Up! (%dms)", mirror.Name, elapsed/time.Millisecond)
 		}
 	case 404:
-		err = mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("File not found %s (error 404)", file))
+		err = mirrors.MarkMirrorDown(m.redis, mirror.ID, proto, fmt.Sprintf("File not found %s (error 404)", file))
 		if err != nil {
 			log.Errorf(format+"Unable to mark mirror as down: %s", mirror.Name, err)
 		}
@@ -563,7 +593,7 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 		}
 		log.Errorf(format+"Error: File %s not found (error 404)", mirror.Name, file)
 	default:
-		err = mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", statusCode))
+		err = mirrors.MarkMirrorDown(m.redis, mirror.ID, proto, fmt.Sprintf("Got status code %d", statusCode))
 		if err != nil {
 			log.Errorf(format+"Unable to mark mirror as down: %s", mirror.Name, err)
 		}

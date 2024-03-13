@@ -244,9 +244,14 @@ func (c *CLI) AddMirror(ctx context.Context, in *Mirror) (*AddMirrorReply, error
 		return nil, status.Error(codes.FailedPrecondition, "unexpected ID")
 	}
 
-	u, err := url.Parse(mirror.HttpURL)
+	var u *url.URL
+	if mirror.HttpURL != "" {
+		u, err = url.Parse(mirror.HttpURL)
+	} else {
+		u, err = url.Parse(mirror.HttpsURL)
+	}
 	if err != nil {
-		return nil, errors.Wrap(err, "can't parse http url")
+		return nil, errors.Wrap(err, "can't parse url")
 	}
 
 	reply := &AddMirrorReply{}
@@ -377,6 +382,9 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 	if mirror.HttpURL != "" {
 		mirror.HttpURL = utils.NormalizeURL(mirror.HttpURL)
 	}
+	if mirror.HttpsURL != "" {
+		mirror.HttpsURL = utils.NormalizeURL(mirror.HttpsURL)
+	}
 	if mirror.RsyncURL != "" {
 		mirror.RsyncURL = utils.NormalizeURL(mirror.RsyncURL)
 	}
@@ -390,6 +398,7 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 		"ID", mirror.ID,
 		"name", mirror.Name,
 		"http", mirror.HttpURL,
+		"https", mirror.HttpsURL,
 		"rsync", mirror.RsyncURL,
 		"ftp", mirror.FtpURL,
 		"sponsorName", mirror.SponsorName,

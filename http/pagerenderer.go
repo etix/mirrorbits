@@ -87,17 +87,39 @@ func (w *RedirectRenderer) Write(ctx *Context, results *mirrors.Results) (status
 				if len(m.CountryFields) > 0 {
 					countryCode = strings.ToLower(m.CountryFields[0])
 				}
-				ctx.ResponseWriter().Header().Add("Link", fmt.Sprintf("<%s>; rel=duplicate; pri=%d; geo=%s", m.HttpURL+path, i+1, countryCode))
+				url := redirect(&m, path)
+				ctx.ResponseWriter().Header().Add("Link", fmt.Sprintf("<%s>; rel=duplicate; pri=%d; geo=%s", url, i+1, countryCode))
 			}
 		}
 
 		// Finally issue the redirect
-		http.Redirect(ctx.ResponseWriter(), ctx.Request(), results.MirrorList[0].HttpURL+path, http.StatusFound)
+		url := redirect(&results.MirrorList[0], path)
+		http.Redirect(ctx.ResponseWriter(), ctx.Request(), url, http.StatusFound)
 		return http.StatusFound, nil
 	}
 	// No mirror returned for this request
 	http.NotFound(ctx.ResponseWriter(), ctx.Request())
 	return http.StatusNotFound, nil
+}
+
+// redirect returns the redirected URL
+func redirect(mirror *mirrors.Mirror, path string) string {
+	switch mirror.SelectedProtocol {
+	case mirrors.HTTP:
+		return mirror.HttpURL + path
+	case mirrors.HTTPS:
+		return mirror.HttpsURL + path
+	default:
+		// At this point, there should be a selected protocol,
+		// otherwise it's likely that there's a bug in the code.
+		// In any case, no hard failure, return something, favor
+		// HTTP if ever both HTTP and HTTPS are available.
+		if mirror.HttpURL != "" {
+			return mirror.HttpURL + path
+		} else {
+			return mirror.HttpsURL + path
+		}
+	}
 }
 
 // MirrorListRenderer is used to render the mirrorlist page using the HTML templates

@@ -257,13 +257,47 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		if len(fallbacks) > 0 {
 			fallback = true
 			for i, f := range fallbacks {
+				// Remove the scheme from the fallback url
+				hostPath := ""
+				idx := strings.Index(f.URL, "://")
+				if idx == -1 {
+					hostPath = f.URL
+				} else {
+					hostPath = f.URL[idx+3:]
+				}
+
+				// Now add the scheme according to the request
+				httpURL := ""
+				httpsURL := ""
+				proto := mirrors.UNDEFINED
+				switch ctx.SecureOption() {
+				case WITHTLS:
+					httpsURL = "https://" + hostPath
+					proto = mirrors.HTTPS
+				case WITHOUTTLS:
+					httpURL = "http://" + hostPath
+					proto = mirrors.HTTP
+				default:
+					// respect the original fallback url
+					if strings.HasPrefix(f.URL, "https") {
+						httpsURL = f.URL
+						proto = mirrors.HTTPS
+					} else {
+						httpURL = f.URL
+						proto = mirrors.HTTP
+					}
+				}
+
+				// Create a mirror object and add it to the result
 				mlist = append(mlist, mirrors.Mirror{
 					ID:            i * -1,
 					Name:          fmt.Sprintf("fallback%d", i),
-					HttpURL:       f.URL,
+					HttpURL:       httpURL,
+					HttpsURL:      httpsURL,
 					CountryCodes:  strings.ToUpper(f.CountryCode),
 					CountryFields: []string{strings.ToUpper(f.CountryCode)},
-					ContinentCode: strings.ToUpper(f.ContinentCode)})
+					ContinentCode: strings.ToUpper(f.ContinentCode),
+					SelectedProtocol: proto})
 			}
 			sort.Sort(mirrors.ByRank{Mirrors: mlist, ClientInfo: clientInfo})
 		} else {

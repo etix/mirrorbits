@@ -139,6 +139,7 @@ func (d ByDate) Less(i, j int) bool { return d[i].StateSince.Seconds > d[j].Stat
 func (c *cli) CmdList(args ...string) error {
 	cmd := SubCmd("list", "", "Get the list of mirrors")
 	http := cmd.Bool("http", false, "Print HTTP addresses")
+	https := cmd.Bool("https", false, "Print HTTPS addresses")
 	rsync := cmd.Bool("rsync", false, "Print rsync addresses")
 	ftp := cmd.Bool("ftp", false, "Print FTP addresses")
 	location := cmd.Bool("location", false, "Print the country and continent code")
@@ -175,6 +176,9 @@ func (c *cli) CmdList(args ...string) error {
 	if *http == true {
 		fmt.Fprint(w, "\tHTTP ")
 	}
+	if *https == true {
+		fmt.Fprint(w, "\tHTTPS ")
+	}
 	if *rsync == true {
 		fmt.Fprint(w, "\tRSYNC ")
 	}
@@ -201,7 +205,7 @@ func (c *cli) CmdList(args ...string) error {
 			}
 		}
 		if *down == true {
-			if mirror.Up == true || mirror.Enabled == false {
+			if IsUp(mirror) || mirror.Enabled == false {
 				continue
 			}
 		}
@@ -215,6 +219,9 @@ func (c *cli) CmdList(args ...string) error {
 		}
 		if *http == true {
 			fmt.Fprintf(w, "\t%s ", mirror.HttpURL)
+		}
+		if *https == true {
+			fmt.Fprintf(w, "\t%s ", mirror.HttpsURL)
 		}
 		if *rsync == true {
 			fmt.Fprintf(w, "\t%s ", mirror.RsyncURL)
@@ -233,10 +240,8 @@ func (c *cli) CmdList(args ...string) error {
 		if *state == true {
 			if mirror.Enabled == false {
 				fmt.Fprintf(w, "\tdisabled")
-			} else if mirror.Up == true {
-				fmt.Fprintf(w, "\tup")
 			} else {
-				fmt.Fprintf(w, "\tdown")
+				fmt.Fprintf(w, "\t%s", StatusString(mirror))
 			}
 			fmt.Fprintf(w, " \t(%s)", stateSince.Format(time.RFC1123))
 		}
@@ -248,9 +253,58 @@ func (c *cli) CmdList(args ...string) error {
 	return nil
 }
 
+func IsUp(m *rpc.Mirror) bool {
+	// Up over both HTTP and HTTPS?
+	if m.HttpUp == true && m.HttpsUp == true {
+		return true
+	}
+	// Up over HTTP, no HTTPS URL?
+	if m.HttpUp == true && m.HttpsURL == "" {
+		return true
+	}
+	// Up over HTTPS, no HTTP URL?
+	if m.HttpsUp == true && m.HttpURL == "" {
+		return true
+	}
+	return false
+}
+
+func StatusString(m *rpc.Mirror) string {
+	var http string
+	var https string
+
+	if m.HttpUp {
+		http = "up"
+	} else {
+		http = "down"
+	}
+
+	if m.HttpsUp {
+		https = "up"
+	} else {
+		https = "down"
+	}
+
+	// Same status for HTTP and HTTPS?
+	if m.HttpUp == m.HttpsUp {
+		return http
+	}
+	// Only HTTPS URL is set?
+	if m.HttpURL == "" {
+		return https
+	}
+	// Only HTTP URL is set?
+	if m.HttpsURL == "" {
+		return http
+	}
+	// Both HTTP and HTTPS URLs are set, and status differ
+	return fmt.Sprintf("%s/%s", http, https)
+}
+
 func (c *cli) CmdAdd(args ...string) error {
 	cmd := SubCmd("add", "[OPTIONS] IDENTIFIER", "Add a new mirror")
 	http := cmd.String("http", "", "HTTP base URL")
+	https := cmd.String("https", "", "HTTPS base URL")
 	rsync := cmd.String("rsync", "", "RSYNC base URL (for scanning only)")
 	ftp := cmd.String("ftp", "", "FTP base URL (for scanning only)")
 	sponsorName := cmd.String("sponsor-name", "", "Name of the sponsor")
@@ -278,24 +332,56 @@ func (c *cli) CmdAdd(args ...string) error {
 		os.Exit(-1)
 	}
 
-	if *http == "" {
-		fmt.Fprintf(os.Stderr, "You *must* pass at least an HTTP URL\n")
+	if *http == "" && *https == "" {
+		fmt.Fprintf(os.Stderr, "You *must* pass at least either an HTTP or HTTPS URL\n")
 		os.Exit(-1)
 	}
 
-	if !strings.HasPrefix(*http, "http://") && !strings.HasPrefix(*http, "https://") {
-		*http = "http://" + *http
+	httpHost := ""
+
+	if *http != "" {
+		if strings.HasPrefix(*http, "https://") {
+			fmt.Fprintf(os.Stderr, "Protocol mismatch: don't pass a HTTPS URL with -http\n")
+			os.Exit(-1)
+		}
+		if !strings.HasPrefix(*http, "http://") {
+			*http = "http://" + *http
+		}
+		u, err := url.Parse(*http)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Can't parse http url\n")
+			os.Exit(-1)
+		}
+		httpHost = u.Host
 	}
 
-	_, err := url.Parse(*http)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Can't parse url\n")
+	httpsHost := ""
+
+	if *https != "" {
+		if strings.HasPrefix(*https, "http://") {
+			fmt.Fprintf(os.Stderr, "Protocol mismatch: don't pass a HTTP URL with -https\n")
+			os.Exit(-1)
+		}
+		if !strings.HasPrefix(*https, "https://") {
+			*https = "https://" + *https
+		}
+		u, err := url.Parse(*https)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Can't parse https url\n")
+			os.Exit(-1)
+		}
+		httpsHost = u.Host
+	}
+
+	if httpHost != "" && httpsHost != "" && httpHost != httpsHost {
+		fmt.Fprintf(os.Stderr, "HTTP URL and HTTPS URL *must* point to the same host\n")
 		os.Exit(-1)
 	}
 
 	mirror := &mirrors.Mirror{
 		Name:           cmd.Arg(0),
 		HttpURL:        *http,
+		HttpsURL:       *https,
 		RsyncURL:       *rsync,
 		FtpURL:         *ftp,
 		SponsorName:    *sponsorName,
@@ -664,6 +750,17 @@ reopen:
 
 	mirror.Comment = comment
 
+	// Do some sanity checks
+	err = ValidateMirror(mirror)
+	if err != nil {
+		switch reopen(err) {
+		case true:
+			goto reopen
+		case false:
+			return nil
+		}
+	}
+
 	ctx, cancel = context.WithTimeout(context.Background(), defaultRPCTimeout)
 	defer cancel()
 	m, err := rpc.MirrorToRPC(mirror)
@@ -688,6 +785,44 @@ reopen:
 	}
 
 	fmt.Printf("Mirror '%s' edited successfully\n", mirror.Name)
+
+	return nil
+}
+
+func ValidateMirror(m *mirrors.Mirror) error {
+	if m.HttpURL == "" && m.HttpsURL == "" {
+		return errors.New("Either HttpURL or HttpsURL must be set")
+	}
+
+	httpHost := ""
+
+	if m.HttpURL != "" {
+		if !strings.HasPrefix(m.HttpURL, "http://") {
+			return errors.New("HttpURL must start with http://")
+		}
+		u, err := url.Parse(m.HttpURL)
+		if err != nil {
+			return errors.Wrap(err, "Can't parse url")
+		}
+		httpHost = u.Host
+	}
+
+	httpsHost := ""
+
+	if m.HttpsURL != "" {
+		if !strings.HasPrefix(m.HttpsURL, "https://") {
+			return errors.New("HttpsURL must start with https://")
+		}
+		u, err := url.Parse(m.HttpsURL)
+		if err != nil {
+			return errors.Wrap(err, "Can't parse url")
+		}
+		httpsHost = u.Host
+	}
+
+	if httpHost != "" && httpsHost != "" && httpHost != httpsHost {
+		return errors.New("HttpURL and HttpsURL must point to the same host")
+	}
 
 	return nil
 }
@@ -733,6 +868,7 @@ func (c *cli) CmdExport(args ...string) error {
 	cmd := SubCmd("export", "[format]", "Export the mirror database.\n\nAvailable formats: mirmon")
 	rsync := cmd.Bool("rsync", true, "Export rsync URLs")
 	http := cmd.Bool("http", true, "Export http URLs")
+	https := cmd.Bool("https", true, "Export https URLs")
 	ftp := cmd.Bool("ftp", true, "Export ftp URLs")
 	disabled := cmd.Bool("disabled", true, "Export disabled mirrors")
 
@@ -775,6 +911,9 @@ func (c *cli) CmdExport(args ...string) error {
 		}
 		if *http == true && m.HttpURL != "" {
 			urls = append(urls, m.HttpURL)
+		}
+		if *https == true && m.HttpsURL != "" {
+			urls = append(urls, m.HttpsURL)
 		}
 		if *ftp == true && m.FtpURL != "" {
 			urls = append(urls, m.FtpURL)
@@ -932,10 +1071,8 @@ func (c *cli) CmdStats(args ...string) error {
 		fmt.Fprintf(w, "Identifier:\t%s\n", name)
 		if !reply.Mirror.Enabled {
 			fmt.Fprintf(w, "Status:\tdisabled\n")
-		} else if reply.Mirror.Up {
-			fmt.Fprintf(w, "Status:\tup\n")
 		} else {
-			fmt.Fprintf(w, "Status:\tdown\n")
+			fmt.Fprintf(w, "Status:\t%s\n", StatusString(reply.Mirror))
 		}
 		fmt.Fprintf(w, "Download requests:\t%d\n", reply.Requests)
 		fmt.Fprint(w, "Bytes transferred:\t")
