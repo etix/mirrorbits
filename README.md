@@ -30,6 +30,7 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
 * Seamless binary upgrade (aka zero downtime upgrade)
 * [Mirmon](http://www.staff.science.uu.nl/~penni101/mirmon/) support
 * Full **IPv6** support
+* If-Modified-Since (RFC-7232) support
 * more...
 
 ## Is it production ready?
