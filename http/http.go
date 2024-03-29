@@ -414,6 +414,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 			sort.Sort(mirrors.ByRank{Mirrors: mlist, ClientInfo: clientInfo})
 		} else {
 			// No fallback in stock, there's nothing else we can do
+			log.Error("503, fallback")
 			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 			return
 		}

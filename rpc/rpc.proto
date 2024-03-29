@@ -23,6 +23,7 @@ service CLI {
     rpc AddMetric (Metric) returns (google.protobuf.Empty) {}
     rpc DelMetric (Metric) returns (google.protobuf.Empty) {}
     rpc ListMetrics (Metric) returns (MetricsList) {}
+    rpc GetStatusMetrics (google.protobuf.Empty) returns (Status) {}
     rpc EnableAuto (google.protobuf.Empty) returns (google.protobuf.Empty) {}
     rpc DisableAuto (google.protobuf.Empty) returns (google.protobuf.Empty) {}
     rpc GetStatusAuto (google.protobuf.Empty) returns (Status) {}
