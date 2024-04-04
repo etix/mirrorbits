@@ -37,6 +37,7 @@ func defaultConfig() Configuration {
 		OutputMode:             "auto",
 		ListenAddress:          ":8080",
 		Gzip:                   false,
+		SameDownloadInterval:   600,
 		RedisAddress:           "127.0.0.1:6379",
 		RedisPassword:          "",
 		RedisDB:                0,
@@ -70,6 +71,7 @@ type Configuration struct {
 	OutputMode              string     `yaml:"OutputMode"`
 	ListenAddress           string     `yaml:"ListenAddress"`
 	Gzip                    bool       `yaml:"Gzip"`
+	SameDownloadInterval    int        `yaml:"SameDownloadInterval"`
 	RedisAddress            string     `yaml:"RedisAddress"`
 	RedisPassword           string     `yaml:"RedisPassword"`
 	RedisDB                 int        `yaml:"RedisDB"`
