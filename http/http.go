@@ -321,7 +321,8 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	if !ctx.IsMirrorlist() {
 		logs.LogDownload(resultRenderer.Type(), status, results, err)
 		if len(mlist) > 0 {
-			if r.Header.Get("Range") == "" {
+			timeout := GetConfig().SameDownloadInterval
+			if r.Header.Get("Range") == "" || timeout == 0 {
 				h.stats.CountDownload(mlist[0], fileInfo)
 			} else {
 				downloaderID := remoteIP+"/"+r.Header.Get("User-Agent")
@@ -335,7 +336,6 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 				tempKey := "DOWNLOADED_"+chk+"_"+urlPath
 
 				prev := ""
-				timeout := 600
 				if h.redis.IsAtLeastVersion("6.2.0") {
 					// Get and set the key in one command.
 					prev, _ = redis.String(rconn.Do("SET", tempKey, 1, "GET", "EX", timeout))
