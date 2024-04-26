@@ -1,4 +1,4 @@
-.PHONY: all build dev clean release test installdirs install uninstall install-service uninstall-service service-systemd
+.PHONY: all build dev clean release test installdirs install uninstall install-service uninstall-service service-systemd regen-proto
 
 VERSION := $(shell git describe --always --dirty --tags)
 SHA := $(shell git rev-parse --short HEAD)
@@ -19,7 +19,6 @@ GOFLAGS := -ldflags "$(LDFLAGS)"
 GOFLAGSDEV := -race -ldflags "$(LDFLAGS) -X $(PACKAGE)/core.DEV=-dev"
 
 GOPATH ?= $(HOME)/go
-PROTOC_GEN_GO := $(GOPATH)/bin/protoc-gen-go
 
 export PATH := $(GOPATH)/bin:$(PATH)
 
@@ -28,20 +27,19 @@ SERVICEDIR_SYSTEMD ?= $(shell $(PKG_CONFIG) systemd --variable=systemdsystemunit
 
 all: build
 
-$(PROTOC_GEN_GO):
-	go get -u github.com/golang/protobuf/protoc-gen-go
-
-rpc/rpc.pb.go: rpc/rpc.proto | $(PROTOC_GEN_GO) $(PROTOC)
+regen-proto: rpc/rpc.proto
 	@ if ! which protoc > /dev/null; then \
 		echo "error: protoc not installed" >&2; \
 		exit 1; \
 	fi
+	go install github.com/golang/protobuf/protoc-gen-go@v1.3.5 && \
+	rm -f rpc/rpc.pb.go && \
 	protoc -I rpc rpc/rpc.proto --go_out=plugins=grpc:rpc
 
-build: rpc/rpc.pb.go
+build:
 	GO111MODULE=on go build $(GOFLAGS) -o $(BINARY) .
 
-dev: rpc/rpc.pb.go
+dev:
 	GO111MODULE=on go build $(GOFLAGSDEV) -o $(BINARY) .
 
 clean:
@@ -52,7 +50,7 @@ clean:
 
 release: $(TARBALL)
 
-test: rpc/rpc.pb.go
+test:
 	GO111MODULE=on go test $(GOFLAGS) ./...
 
 installdirs:
