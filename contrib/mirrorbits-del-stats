@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-USAGE="Usage: $(basename $0) [-f] <period>:<retention>... [REDIS_CLI_ARGS...]
+USAGE="Usage: $(basename $0) [-f] <period>:<retention>... [--] [REDIS_CLI_ARGS...]
 
 Delete old Mirrorbits stats.
 
@@ -31,6 +31,7 @@ FORCE=0
 
 while [ $# -gt 0 ]; do
     case $1 in
+        --) shift; break ;;
         -f|--force) FORCE=1 ;;
         -h|--help) echo "$USAGE"; exit 0 ;;
 	-*) break ;;
