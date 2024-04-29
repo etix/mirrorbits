@@ -113,6 +113,16 @@ _mirrorbits() {
                 COMPREPLY=( $( compgen -W '-help -disabled -ftp
                     -http -rsync' -- "$cur" ) )
                 ;;
+            geoupdate)
+                case $cur in
+                    -*)
+                        COMPREPLY=( $( compgen -W '-help -f' -- "$cur" ) )
+                        ;;
+                    *)
+                        COMPREPLY=( $( compgen -W "$( _mirrorbits_list $port )" -- "$cur" ) )
+                        ;;
+                esac
+                ;;
             list)
                 COMPREPLY=( $( compgen -W '-help -disabled -down -enabled
                     -ftp -http -location -rsync -score -state
