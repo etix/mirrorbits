@@ -5,21 +5,26 @@
 
 set -euo pipefail
 
-USAGE="$(basename $0) [-f [-f]] [MIRRORBITS_ARGS...]
+USAGE="$(basename $0) [-f [-f]] [--] [MIRRORBITS_ARGS...]
 
 Update geolocation for all mirrors.
 
 The argument '-f' controls the exact behavior of the script:
 * no  -f: ask for confirmation for each mirror.
-* one -f: if there are only latitute and longitude changes, don't ask for
+* one -f: if there are only latitude and longitude changes, don't ask for
   confirmation. Otherwise (eg. ASN, country or continent changed), either
   1) ask for confirmation if running interactively, or
   2) print the changes and skip this mirror - in the end the script returns
      the special exit code 33 to signal that some mirrors were not updated.
 * two -f: update all mirrors without asking for confirmation.
 
-Arguments passed to this script (except -f) are handed over to the mirrorbits
-command, so you might want to use '-p PORT' to provide the server port.
+Trailing arguments are handed over to the mirrorbits command.
+
+For example, the command:
+
+    mirrorbits-geoupdate-all -f -- -p 3391
+
+updates all the mirrors for the mirrorbits instance listening on port 3391.
 "
 
 FORCE=0
@@ -28,6 +33,7 @@ while [ $# -gt 0 ]; do
     case $1 in
         -f|--force) FORCE=$((FORCE + 1)) ;;
         -h|--help) echo "$USAGE"; exit 0 ;;
+        --) shift; break ;;
         *) break ;;
     esac
     shift
