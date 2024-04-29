@@ -54,7 +54,7 @@ echo_updating() {
 
 # Iterate over the mirrors
 EXIT_STATUS=0
-NO_MIRROR_TO_UPDATE=1
+MIRRORS_WITH_CHANGES=0
 for mirror in $MIRRORS; do
     # Ask to update mirror, but bail out. We only want to see the changes.
     output=$(echo n | $MIRRORBITS geoupdate $mirror)
@@ -67,7 +67,7 @@ for mirror in $MIRRORS; do
         continue
     fi
 
-    NO_MIRROR_TO_UPDATE=0
+    MIRRORS_WITH_CHANGES=$((MIRRORS_WITH_CHANGES + 1))
 
     echo
     echo_updating $mirror
@@ -102,7 +102,7 @@ for mirror in $MIRRORS; do
     fi
 done
 
-if [ $NO_MIRROR_TO_UPDATE = 1 ]; then
+if [ $MIRRORS_WITH_CHANGES = 0 ]; then
     echo "No mirror to update, nothing was done."
 fi
 
