@@ -45,6 +45,13 @@ MIRRORBITS="mirrorbits $@"
 MIRRORS=$($MIRRORBITS list -state=false | grep -iv "^identifier\b" || :)
 MIRRORS=$(echo "$MIRRORS" | LC_ALL=C sort -u)
 
+# Helper to print like ansible, bash-fu from:
+# https://stackoverflow.com/a/54505990/776208
+echo_updating() {
+    COLUMNS=$(tput cols 2>/dev/null || echo 80)
+    printf "%-${COLUMNS}s\n" "[^Updating^mirror:^$1^]^" | tr "^ " " ="
+}
+
 # Iterate over the mirrors
 EXIT_STATUS=0
 NO_MIRROR_TO_UPDATE=1
@@ -60,13 +67,10 @@ for mirror in $MIRRORS; do
         continue
     fi
 
-    if [ $NO_MIRROR_TO_UPDATE = 0 ]; then
-        echo "------------------------------------------------"
-    fi
-
     NO_MIRROR_TO_UPDATE=0
-        
-    echo "Updating $mirror:"
+
+    echo
+    echo_updating $mirror
 
     # FORCE == 0 aka. interactive. Always ask for confirmation.
     if [ $FORCE -eq 0 ]; then
