@@ -38,6 +38,7 @@ func NewMetrics(r *database.Redis) *Metrics {
 			metrics.getMetrics(r)
 			trackedFiles, err := r.GetListOfTrackedFiles()
 			if err != nil {
+				log.Error("WTF")
 				log.Error(err.Error)
 			} else {
 				metrics.trackedFileList = trackedFiles
@@ -375,10 +376,17 @@ func (m *Metrics) getMetrics(httpRedis *database.Redis) {
 }
 
 func (h *HTTP) metricsHandler(w http.ResponseWriter, r *http.Request) {
-	h.metrics.lock.Lock()
-	output := h.metrics.metricsResponse
-	h.metrics.lock.Unlock()
-	w.Write([]byte(output))
+	if config.GetConfig().MetricsEnabled {
+		h.metrics.lock.Lock()
+		output := h.metrics.metricsResponse
+		h.metrics.lock.Unlock()
+		w.Write([]byte(output))
+		log.Debug("test")
+	} else {
+		log.Errorf("Error: metrics are disabled")
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+	}
+
 }
 
 func getDurationFromKey(key string) string {
