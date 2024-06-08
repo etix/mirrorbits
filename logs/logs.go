@@ -149,7 +149,7 @@ func ReloadDownloadLogs() {
 }
 
 // LogDownload writes a download result to the logs
-func LogDownload(typ string, statuscode int, p *mirrors.Results, err error) {
+func LogDownload(typ string, method string, statuscode int, p *mirrors.Results, err error) {
 	dlogger.RLock()
 	defer dlogger.RUnlock()
 
@@ -177,8 +177,8 @@ func LogDownload(typ string, statuscode int, p *mirrors.Results, err error) {
 			sameASNum = "same"
 		}
 
-		dlogger.l.Printf("%s %d \"%s\" ip:%s mirror:%s%s %sasn:%d distance:%skm countries:%s",
-			typ, statuscode, p.FileInfo.Path, p.IP, m.Name, fallback, sameASNum, m.Asnum, distance, countries)
+		dlogger.l.Printf("%s %d \"%s\" method:%s ip:%s mirror:%s%s %sasn:%d distance:%skm countries:%s",
+			typ, statuscode, p.FileInfo.Path, method, p.IP, m.Name, fallback, sameASNum, m.Asnum, distance, countries)
 	} else if statuscode == 404 && p != nil {
 		dlogger.l.Printf("%s 404 \"%s\" ip:%s", typ, p.FileInfo.Path, p.IP)
 	} else if statuscode == 500 && p != nil {
