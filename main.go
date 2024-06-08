@@ -104,12 +104,13 @@ func main() {
 					}
 				case syscall.SIGHUP:
 					listenAddress := GetConfig().ListenAddress
+					metricsEnabled := GetConfig().MetricsEnabled
 					if err := ReloadConfig(); err != nil {
 						log.Warningf("SIGHUP Received: %s\n", err)
 					} else {
 						log.Notice("SIGHUP Received: Reloading configuration...")
 					}
-					if GetConfig().ListenAddress != listenAddress {
+					if GetConfig().ListenAddress != listenAddress || GetConfig().MetricsEnabled != metricsEnabled {
 						h.Restarting = true
 						h.Stop(1 * time.Second)
 					}

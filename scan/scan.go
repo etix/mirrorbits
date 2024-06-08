@@ -236,6 +236,11 @@ func (s *scan) ScannerAddFile(f filedata) {
 	ik := fmt.Sprintf("FILEINFO_%d_%s", s.mirrorid, f.path)
 	s.conn.Send("HMSET", ik, "size", f.size, "modTime", f.modTime)
 
+	// Add file to tracked files if auto tracked files is enabled
+	if GetConfig().MetricsAutoTrackedFiles {
+		s.conn.Send("SADD", "TRACKED_FILES", f.path)
+	}
+
 	// Publish update
 	database.SendPublish(s.conn, database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", s.mirrorid, f.path))
 }
