@@ -106,6 +106,7 @@ func (c *cli) CmdHelp() error {
 		{"geoupdate", "Update geolocation of a mirror"},
 		{"list", "List all mirrors"},
 		{"logs", "Print logs of a mirror"},
+		{"metrics", "Manage metrics"},
 		{"refresh", "Refresh the local repository"},
 		{"reload", "Reload configuration"},
 		{"remove", "Remove a mirror"},
@@ -115,7 +116,7 @@ func (c *cli) CmdHelp() error {
 		{"upgrade", "Seamless binary upgrade"},
 		{"version", "Print version information"},
 	} {
-		help += fmt.Sprintf("    %-10.10s%s\n", command[0], command[1])
+		help += fmt.Sprintf("    %-15.15s%s\n", command[0], command[1])
 	}
 	fmt.Fprintf(os.Stderr, "%s\n", help)
 	return nil
@@ -346,6 +347,156 @@ func (c *cli) CmdAdd(args ...string) error {
 
 	fmt.Printf("Mirror '%s' added successfully\n", mirror.Name)
 	fmt.Printf("Enable this mirror using\n  $ mirrorbits enable %s\n", mirror.Name)
+
+	return nil
+}
+
+func (c *cli) CmdMetrics(args ...string) error {
+	cmd := SubCmd("metrics", "COMMAND [OPTIONNAL ARGUMENTS]", "Manage metrics")
+	_ = cmd.String("add", "", "Add a file to the metrics route")
+	_ = cmd.String("list", "*", "List files in metrics + Optionnal pattern to filter results")
+	_ = cmd.String("delete", "", "Delete a file from the metrics route")
+	_ = cmd.Bool("status", false, "Show if metrics are enabled")
+	_ = cmd.Bool("auto-enable", true, "Enable automatic addition of new files to tracked files")
+	_ = cmd.Bool("auto-disable", false, "Disable automatic addition of new files to tracked files")
+	_ = cmd.Bool("auto-status", true, "Print boolean of automatic addition of new files to tracked files")
+
+	// Can't use cmd.Parse(args) because it doesn't handle -command without
+	// an argument following which is needed for list
+	if len(args) < 1 || len(args) > 2 {
+		cmd.Usage()
+		return nil
+	}
+	if args[0] == "-list" {
+		pattern := ""
+		if len(args) == 2 {
+			pattern = args[1]
+		}
+		c.CmdListmetrics(pattern)
+	} else if args[0] == "-add" && len(args) == 2 {
+		c.CmdAddmetric(args[1])
+	} else if args[0] == "-delete" && len(args) == 2 {
+		c.CmdDelmetric(args[1])
+	} else if args[0] == "-auto-enable" {
+		c.CmdEnableauto()
+	} else if args[0] == "-auto-disable" {
+		c.CmdDisableauto()
+	} else if args[0] == "-auto-status" {
+		c.CmdStatusauto()
+	} else if args[0] == "-status" {
+		c.CmdStatusmetrics()
+	} else {
+		cmd.Usage()
+		return nil
+	}
+	return nil
+}
+
+func (c *cli) CmdAddmetric(file string) error {
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	_, err := client.AddMetric(ctx, &rpc.Metric{
+		Filename: string(file),
+	})
+	if err != nil {
+		log.Fatal("Error while adding metric: ", err)
+	}
+
+	fmt.Printf("File %s successfully added to metrics.\n", file)
+	return nil
+}
+
+func (c *cli) CmdDelmetric(file string) error {
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	_, err := client.DelMetric(ctx, &rpc.Metric{
+		Filename: string(file),
+	})
+	if err != nil {
+		log.Fatal("Error while deleting metric: ", err)
+	}
+
+	fmt.Printf("File %s successfully deleted from metrics.\n", file)
+	return nil
+}
+
+func (c *cli) CmdListmetrics(pattern string) error {
+	filterPattern := "*"
+	if pattern != "" {
+		filterPattern = "*" + pattern + "*"
+	}
+
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	fileList, err := client.ListMetrics(ctx, &rpc.Metric{
+		Filename: string(filterPattern),
+	})
+	if err != nil {
+		log.Fatal("Error while listing metrics: ", err)
+	}
+
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
+	if len(fileList.Filename) == 0 {
+		if pattern != "" {
+			fmt.Println("There are no tracked files matching your request.")
+		} else {
+			fmt.Println("There are no tracked files.")
+		}
+	} else {
+		for _, file := range fileList.Filename {
+			fmt.Println(file)
+		}
+	}
+
+	return nil
+}
+
+func (c *cli) CmdStatusmetrics() error {
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	status, _ := client.GetStatusMetrics(ctx, &empty.Empty{})
+
+	if status.Status {
+		log.Info("Metrics are enabled")
+	} else {
+		log.Info("Metrics are disabled")
+	}
+
+	return nil
+}
+
+func (c *cli) CmdEnableauto() error {
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	client.EnableAuto(ctx, &empty.Empty{})
+	return nil
+}
+
+func (c *cli) CmdDisableauto() error {
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	client.DisableAuto(ctx, &empty.Empty{})
+	return nil
+}
+
+func (c *cli) CmdStatusauto() error {
+	client := c.GetRPC()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	defer cancel()
+	status, _ := client.GetStatusAuto(ctx, &empty.Empty{})
+
+	if status.Status {
+		log.Info("Auto tracked files is enabled")
+	} else {
+		log.Info("Auto tracked files is disabled")
+	}
 
 	return nil
 }

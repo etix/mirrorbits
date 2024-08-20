@@ -4,10 +4,12 @@
 package database
 
 import (
-	"errors"
 	"strconv"
 
 	"github.com/gomodule/redigo/redis"
+	"github.com/pkg/errors"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func (r *Redis) GetListOfMirrors() (map[int]string, error) {
@@ -39,6 +41,158 @@ func (r *Redis) GetListOfMirrors() (map[int]string, error) {
 	}
 
 	return mirrors, nil
+}
+
+func (r *Redis) GetListOfFiles() ([]string, error) {
+	conn, err := r.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	values, err := redis.Values(conn.Do("SMEMBERS", "FILES"))
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]string, len(values))
+	for i, v := range values {
+		value, okValue := v.([]byte)
+		if !okValue {
+			return nil, errors.New("invalid type for file")
+		}
+		files[i] = string(value)
+	}
+
+	return files, nil
+}
+
+func (r *Redis) GetListOfTrackedFiles() ([]string, error) {
+	conn, err := r.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	values, err := redis.Values(conn.Do("SMEMBERS", "TRACKED_FILES"))
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]string, len(values))
+	for i, v := range values {
+		value, okValue := v.([]byte)
+		if !okValue {
+			return nil, errors.New("invalid type for file")
+		}
+		files[i] = string(value)
+	}
+
+	return files, nil
+}
+
+func (r *Redis) GetListOfCountries() ([]string, error) {
+	conn, err := r.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	values, err := redis.Values(conn.Do("SMEMBERS", "COUNTRIES"))
+	if err != nil {
+		return nil, err
+	}
+
+	countries := make([]string, len(values))
+	for i, v := range values {
+		value, okValue := v.([]byte)
+		if !okValue {
+			return nil, errors.New("invalid type for countries")
+		}
+		countries[i] = string(value)
+	}
+
+	return countries, nil
+}
+
+func (r *Redis) GetListOfTrackFilesFields(file string) ([]string, error) {
+	conn, err := r.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	values, err := redis.Values(conn.Do("HKEYS", "STATS_TRACKED_"+file))
+	if err != nil {
+		return nil, err
+	}
+
+	files := make([]string, len(values))
+	for i, v := range values {
+		value, okValue := v.([]byte)
+		if !okValue {
+			return nil, errors.New("invalid type for file")
+		}
+		files[i] = string(value)
+	}
+
+	return files, nil
+}
+
+func (r *Redis) AddCountry(country string) error {
+	conn, err := r.Connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	_, err = conn.Do("SADD", "COUNTRIES", country)
+	return err
+}
+
+func (r *Redis) AddTrackedFile(file string) error {
+	conn, err := r.Connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	exists, err := redis.Int(conn.Do("SISMEMBER", "FILES", file))
+	if err != nil {
+		return errors.Wrap(err, "failed to check for file presence")
+	} else if exists == 0 {
+		return status.Error(codes.FailedPrecondition,
+			"file does not exist")
+	}
+
+	exists, err = redis.Int(conn.Do("SADD", "TRACKED_FILES", file))
+	if err != nil {
+		return errors.Wrap(err, "failed to add file to metrics")
+	} else if exists == 0 {
+		return status.Error(codes.AlreadyExists, "file already is in metrics")
+	}
+	return nil
+}
+
+func (r *Redis) DeleteTrackedFile(file string) error {
+	conn, err := r.Connect()
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	exists, err := redis.Int(conn.Do("SISMEMBER", "TRACKED_FILES", file))
+	if err != nil {
+		return errors.Wrap(err, "failed to check for file presence")
+	} else if exists == 0 {
+		return status.Error(codes.FailedPrecondition,
+			"file is not part of tracked files")
+	}
+
+	_, err = conn.Do("SREM", "TRACKED_FILES", file)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove file from tracked files")
+	}
+	return nil
 }
 
 type NetReadyError struct {

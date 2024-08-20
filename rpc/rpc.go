@@ -803,3 +803,51 @@ func (c *CLI) GetMirrorLogs(ctx context.Context, in *GetMirrorLogsRequest) (*Get
 
 	return &GetMirrorLogsReply{Line: lines}, nil
 }
+
+func (c *CLI) AddMetric(ctx context.Context, in *Metric) (*empty.Empty, error) {
+	return &empty.Empty{}, c.redis.AddTrackedFile(in.Filename)
+}
+
+func (c *CLI) DelMetric(ctx context.Context, in *Metric) (*empty.Empty, error) {
+	return &empty.Empty{}, c.redis.DeleteTrackedFile(in.Filename)
+}
+
+func (c *CLI) ListMetrics(ctx context.Context, in *Metric) (*MetricsList, error) {
+	conn, err := c.redis.Connect()
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	values, err := redis.Values(conn.Do("SSCAN", "TRACKED_FILES",
+		"0", "MATCH", in.Filename, "COUNT", 1000))
+	if err != nil {
+		return nil, err
+	}
+
+	byteValues, err := redis.ByteSlices(values[1], err)
+	files := make([]string, len(byteValues))
+	for i, v := range byteValues {
+		files[i] = string(v)
+	}
+
+	return &MetricsList{Filename: files}, nil
+}
+
+func (c *CLI) GetStatusMetrics(context.Context, *empty.Empty) (*Status, error) {
+	return &Status{Status: GetConfig().MetricsEnabled}, nil
+}
+
+func (c *CLI) EnableAuto(context.Context, *empty.Empty) (*empty.Empty, error) {
+	GetConfig().MetricsAutoTrackedFiles = true
+	return &empty.Empty{}, nil
+}
+
+func (c *CLI) DisableAuto(context.Context, *empty.Empty) (*empty.Empty, error) {
+	GetConfig().MetricsAutoTrackedFiles = false
+	return &empty.Empty{}, nil
+}
+
+func (c *CLI) GetStatusAuto(context.Context, *empty.Empty) (*Status, error) {
+	return &Status{Status: GetConfig().MetricsAutoTrackedFiles}, nil
+}

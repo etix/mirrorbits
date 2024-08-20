@@ -21,6 +21,7 @@ import (
 	"time"
 
 	systemd "github.com/coreos/go-systemd/daemon"
+	"github.com/etix/mirrorbits/config"
 	. "github.com/etix/mirrorbits/config"
 	"github.com/etix/mirrorbits/core"
 	"github.com/etix/mirrorbits/database"
@@ -72,6 +73,7 @@ type HTTP struct {
 	Restarting     bool
 	stopped        bool
 	stoppedMutex   sync.Mutex
+	metrics        *Metrics
 }
 
 // Templates is a struct embedding instances of the precompiled templates
@@ -94,6 +96,15 @@ func HTTPServer(redis *database.Redis, cache *mirrors.Cache) *HTTP {
 	h.stats = NewStats(redis)
 	h.engine = DefaultEngine{}
 	http.Handle("/", NewGzipHandler(h.requestDispatcher))
+
+	if config.GetConfig().MetricsEnabled {
+		log.Info("Metrics enabled")
+		h.metrics = NewMetrics(redis)
+	} else {
+		h.metrics = nil
+		log.Info("Metrics disabled")
+	}
+	http.Handle("/metrics", NewGzipHandler(h.metricsHandler))
 
 	// Load the GeoIP databases
 	if err := h.geoip.LoadGeoIP(); err != nil {
@@ -156,6 +167,14 @@ func (h *HTTP) StopChan() <-chan struct{} {
 func (h *HTTP) Reload() {
 	// Reload the GeoIP database
 	h.geoip.LoadGeoIP()
+
+	if config.GetConfig().MetricsEnabled && h.metrics == nil {
+		log.Info("Configuration Reload: Metrics enabled")
+		h.metrics = NewMetrics(h.redis)
+	} else if h.metrics != nil {
+		h.metrics = nil
+		log.Info("Configuration Reload: Metrics disabled")
+	}
 
 	// Reload the templates
 	h.templates.Lock()
@@ -246,7 +265,7 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
-// 
+//
 //    * Redistributions of source code must retain the above copyright
 // notice, this list of conditions and the following disclaimer.
 //    * Redistributions in binary form must reproduce the above
@@ -256,7 +275,7 @@ func (h *HTTP) requestDispatcher(w http.ResponseWriter, r *http.Request) {
 //    * Neither the name of Google Inc. nor the names of its
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
-// 
+//
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -275,9 +294,9 @@ func isZeroTime(t time.Time) bool {
 }
 
 func setLastModified(w http.ResponseWriter, modtime time.Time) {
-        if !isZeroTime(modtime) {
-                w.Header().Set("Last-Modified", modtime.UTC().Format(TimeFormat))
-        }
+	if !isZeroTime(modtime) {
+		w.Header().Set("Last-Modified", modtime.UTC().Format(TimeFormat))
+	}
 }
 
 func checkIfModifiedSince(r *http.Request, modtime time.Time) condResult {
@@ -347,7 +366,13 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		return
 	}
 
-	remoteIP := network.ExtractRemoteIP(r.Header.Get("X-Forwarded-For"))
+	var remoteIP string
+	// This http header should only be used in the context of testing geoip
+	if r.Header.Get("X-Fake-Ip") != "" {
+		remoteIP = network.ExtractRemoteIP(r.Header.Get("X-Fake-Ip"))
+	} else {
+		remoteIP = network.ExtractRemoteIP(r.Header.Get("X-Forwarded-For"))
+	}
 	if len(remoteIP) == 0 {
 		remoteIP = network.RemoteIPFromAddr(r.RemoteAddr)
 	}
@@ -360,6 +385,14 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 	}
 
 	clientInfo := h.geoip.GetRecord(remoteIP) //TODO return a pointer?
+
+	if clientInfo.Country != "" {
+		err = h.redis.AddCountry(clientInfo.Country)
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	mlist, excluded, err := h.engine.Selection(ctx, h.cache, &fileInfo, clientInfo)
 
@@ -382,6 +415,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 			sort.Sort(mirrors.ByRank{Mirrors: mlist, ClientInfo: clientInfo})
 		} else {
 			// No fallback in stock, there's nothing else we can do
+			log.Error("503, fallback")
 			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 			return
 		}
@@ -430,14 +464,22 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		http.Error(w, err.Error(), status)
 	}
 
+	var isTracked = false
+	if config.GetConfig().MetricsEnabled {
+		isTracked, err = h.metrics.IsFileTracked(fileInfo.Path)
+		if err != nil {
+			log.Error("There was a problem fetching the tracked file list: ", err)
+		}
+	}
+
 	if !ctx.IsMirrorlist() {
 		logs.LogDownload(resultRenderer.Type(), status, results, err)
 		if len(mlist) > 0 {
 			timeout := GetConfig().SameDownloadInterval
 			if r.Header.Get("Range") == "" || timeout == 0 {
-				h.stats.CountDownload(mlist[0], fileInfo)
+				h.stats.CountDownload(mlist[0], fileInfo, clientInfo, isTracked)
 			} else {
-				downloaderID := remoteIP+"/"+r.Header.Get("User-Agent")
+				downloaderID := remoteIP + "/" + r.Header.Get("User-Agent")
 				hash := sha256.New()
 				hash.Write([]byte(downloaderID))
 				chk := hex.EncodeToString(hash.Sum(nil))
@@ -445,7 +487,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 				rconn := h.redis.Get()
 				defer rconn.Close()
 
-				tempKey := "DOWNLOADED_"+chk+"_"+urlPath
+				tempKey := "DOWNLOADED_" + chk + "_" + urlPath
 
 				prev := ""
 				if h.redis.IsAtLeastVersion("6.2.0") {
@@ -461,10 +503,10 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 					// from counting multiple times a single client
 					// downloading a single file in pieces, such as
 					// torrent clients when files are used as web seeds.
-					h.stats.CountDownload(mlist[0], fileInfo)
+					h.stats.CountDownload(mlist[0], fileInfo, clientInfo, isTracked)
 				}
 
-				if ! h.redis.IsAtLeastVersion("6.2.0") {
+				if !h.redis.IsAtLeastVersion("6.2.0") {
 					// Set the key anyway to reset the timer.
 					rconn.Send("SET", tempKey, 1, "EX", timeout)
 				}
