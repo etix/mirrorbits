@@ -563,9 +563,17 @@ func (c *cli) CmdEdit(args ...string) error {
 
 	// Find the editor to use
 	editor := os.Getenv("EDITOR")
-
 	if editor == "" {
-		log.Fatal("Environment variable $EDITOR not set")
+		for _, p := range []string{"editor", "vi", "emacs", "nano"} {
+			_, err := exec.LookPath(p)
+			if err == nil {
+				editor = p
+				break
+			}
+		}
+		if editor == "" {
+			log.Fatal("No text editor found, please set the EDITOR environment variable")
+		}
 	}
 
 	id, _ := c.matchMirror(cmd.Arg(0))
