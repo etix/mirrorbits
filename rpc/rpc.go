@@ -449,15 +449,9 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 	mirror.ContinentCode = utils.SanitizeLocationCodes(mirror.ContinentCode)
 
 	// Normalize URLs
-	if mirror.HttpURL != "" {
-		mirror.HttpURL = utils.NormalizeURL(mirror.HttpURL)
-	}
-	if mirror.RsyncURL != "" {
-		mirror.RsyncURL = utils.NormalizeURL(mirror.RsyncURL)
-	}
-	if mirror.FtpURL != "" {
-		mirror.FtpURL = utils.NormalizeURL(mirror.FtpURL)
-	}
+	mirror.HttpURL = utils.NormalizeURL(mirror.HttpURL)
+	mirror.RsyncURL = utils.NormalizeURL(mirror.RsyncURL)
+	mirror.FtpURL = utils.NormalizeURL(mirror.FtpURL)
 
 	// Save the values back into redis
 	conn.Send("MULTI")
