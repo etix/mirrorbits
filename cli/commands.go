@@ -284,7 +284,7 @@ func (c *cli) CmdAdd(args ...string) error {
 		os.Exit(-1)
 	}
 
-	if !strings.HasPrefix(*http, "http://") && !strings.HasPrefix(*http, "https://") {
+	if !utils.HasAnyPrefix(*http, "http://", "https://") {
 		*http = "http://" + *http
 	}
 

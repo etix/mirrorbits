@@ -8,7 +8,6 @@ import (
 	"math"
 	"math/rand"
 	"sort"
-	"strings"
 	"time"
 
 	. "github.com/etix/mirrorbits/config"
@@ -169,7 +168,7 @@ func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesyst
 
 	for _, m := range mlist {
 		// Does it support http? Is it well formated?
-		if !strings.HasPrefix(m.HttpURL, "http://") && !strings.HasPrefix(m.HttpURL, "https://") {
+		if !utils.HasAnyPrefix(m.HttpURL, "http://", "https://") {
 			m.ExcludeReason = "Invalid URL"
 			goto discard
 		}
