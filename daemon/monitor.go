@@ -477,19 +477,26 @@ func (m *monitor) syncLoop() {
 
 // Do an actual health check against a given mirror
 func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
-	// Format log output
-	format := "%-" + fmt.Sprintf("%d.%ds", m.formatLongestID+4, m.formatLongestID+4)
-
 	// Get the URL to a random file available on this mirror
 	file, size, err := m.getRandomFile(mirror.ID)
 	if err != nil {
 		if err == redis.ErrNil {
 			return errMirrorNotScanned
 		} else if !database.RedisIsLoading(err) {
-			log.Warningf(format+"Error: Cannot obtain a random file: %s", mirror.Name, err)
+			log.Warningf("%s: Error: Cannot obtain a random file: %s", mirror.Name, err)
 		}
 		return err
 	}
+
+	// Perform health check
+	err = m.healthCheckDo(&mirror, file, size)
+
+	return err
+}
+
+func (m *monitor) healthCheckDo(mirror *mirrors.Mirror, file string, size int64) error {
+	// Format log output
+	format := "%-" + fmt.Sprintf("%d.%ds", m.formatLongestID+4, m.formatLongestID+4)
 
 	// Prepare the HTTP request
 	req, err := http.NewRequest("HEAD", strings.TrimRight(mirror.HttpURL, "/")+file, nil)
