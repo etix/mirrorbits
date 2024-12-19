@@ -21,6 +21,16 @@ const (
 	RadToDeg = 57.295779513082320876798154814105170332405472466564 // N[180/Pi, 50]
 )
 
+// HasAnyPrefix reports whether the string s begins with any of the prefixes
+func HasAnyPrefix(s string, prefixes ...string) bool {
+	for _, p := range prefixes {
+		if strings.HasPrefix(s, p) {
+			return true
+		}
+	}
+	return false
+}
+
 // NormalizeURL adds a trailing slash to the URL
 func NormalizeURL(url string) string {
 	if url != "" && !strings.HasSuffix(url, "/") {
