@@ -35,99 +35,8 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 		return
 	}
 
-	// Filter
-	safeIndex := 0
-	excluded = make([]mirrors.Mirror, 0, len(mlist))
-	var closestMirror float32
-	var farthestMirror float32
-	for i, m := range mlist {
-		// Does it support http? Is it well formated?
-		if !strings.HasPrefix(m.HttpURL, "http://") && !strings.HasPrefix(m.HttpURL, "https://") {
-			m.ExcludeReason = "Invalid URL"
-			goto discard
-		}
-		// Is it enabled?
-		if !m.Enabled {
-			m.ExcludeReason = "Disabled"
-			goto discard
-		}
-		// Is it up?
-		if !m.Up {
-			if m.ExcludeReason == "" {
-				m.ExcludeReason = "Down"
-			}
-			goto discard
-		}
-		if ctx.SecureOption() == WITHTLS && !m.IsHTTPS() {
-			m.ExcludeReason = "Not HTTPS"
-			goto discard
-		}
-		if ctx.SecureOption() == WITHOUTTLS && m.IsHTTPS() {
-			m.ExcludeReason = "Not HTTP"
-			goto discard
-		}
-		// Is it the same size / modtime as source?
-		if m.FileInfo != nil {
-			if m.FileInfo.Size != fileInfo.Size {
-				m.ExcludeReason = "File size mismatch"
-				goto discard
-			}
-			if !m.FileInfo.ModTime.IsZero() {
-				mModTime := m.FileInfo.ModTime
-				if GetConfig().FixTimezoneOffsets {
-					mModTime = mModTime.Add(time.Duration(m.TZOffset) * time.Millisecond)
-				}
-				mModTime = mModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
-				lModTime := fileInfo.ModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
-				if !mModTime.Equal(lModTime) {
-					m.ExcludeReason = fmt.Sprintf("Mod time mismatch (diff: %s)", lModTime.Sub(mModTime))
-					goto discard
-				}
-			}
-		}
-		// Is it configured to serve its continent only?
-		if m.ContinentOnly {
-			if !clientInfo.IsValid() || clientInfo.ContinentCode != m.ContinentCode {
-				m.ExcludeReason = "Continent only"
-				goto discard
-			}
-		}
-		// Is it configured to serve its country only?
-		if m.CountryOnly {
-			if !clientInfo.IsValid() || !utils.IsInSlice(clientInfo.CountryCode, m.CountryFields) {
-				m.ExcludeReason = "Country only"
-				goto discard
-			}
-		}
-		// Is it in the same AS number?
-		if m.ASOnly {
-			if !clientInfo.IsValid() || clientInfo.ASNum != m.Asnum {
-				m.ExcludeReason = "AS only"
-				goto discard
-			}
-		}
-		// Is the user's country code allowed on this mirror?
-		if clientInfo.IsValid() && utils.IsInSlice(clientInfo.CountryCode, m.ExcludedCountryFields) {
-			m.ExcludeReason = "User's country restriction"
-			goto discard
-		}
-		if safeIndex == 0 {
-			closestMirror = m.Distance
-		} else if closestMirror > m.Distance {
-			closestMirror = m.Distance
-		}
-		if m.Distance > farthestMirror {
-			farthestMirror = m.Distance
-		}
-		mlist[safeIndex] = mlist[i]
-		safeIndex++
-		continue
-	discard:
-		excluded = append(excluded, m)
-	}
-
-	// Reduce the slice to its new size
-	mlist = mlist[:safeIndex]
+	// Filter the list of mirrors
+	mlist, excluded, closestMirror, farthestMirror := Filter(mlist, ctx.SecureOption(), fileInfo, clientInfo)
 
 	if !clientInfo.IsValid() {
 		// Shuffle the list
@@ -248,5 +157,104 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 	} else if selected == 1 && len(mlist) > 0 {
 		mlist[0].Weight = 100
 	}
+	return
+}
+
+// Filter mirror list, return the list of mirrors candidates for redirection,
+// and the list of mirrors that were excluded. Also return the distance of the
+// closest and farthest mirrors. NOTE: the function modifies mlist in place.
+func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (accepted mirrors.Mirrors, excluded mirrors.Mirrors, closestMirror float32, farthestMirror float32) {
+	safeIndex := 0
+	excluded = make([]mirrors.Mirror, 0, len(mlist))
+
+	for i, m := range mlist {
+		// Does it support http? Is it well formated?
+		if !strings.HasPrefix(m.HttpURL, "http://") && !strings.HasPrefix(m.HttpURL, "https://") {
+			m.ExcludeReason = "Invalid URL"
+			goto discard
+		}
+		// Is it enabled?
+		if !m.Enabled {
+			m.ExcludeReason = "Disabled"
+			goto discard
+		}
+		// Is it up?
+		if !m.Up {
+			if m.ExcludeReason == "" {
+				m.ExcludeReason = "Down"
+			}
+			goto discard
+		}
+		if secureOption == WITHTLS && !m.IsHTTPS() {
+			m.ExcludeReason = "Not HTTPS"
+			goto discard
+		}
+		if secureOption == WITHOUTTLS && m.IsHTTPS() {
+			m.ExcludeReason = "Not HTTP"
+			goto discard
+		}
+		// Is it the same size / modtime as source?
+		if m.FileInfo != nil {
+			if m.FileInfo.Size != fileInfo.Size {
+				m.ExcludeReason = "File size mismatch"
+				goto discard
+			}
+			if !m.FileInfo.ModTime.IsZero() {
+				mModTime := m.FileInfo.ModTime
+				if GetConfig().FixTimezoneOffsets {
+					mModTime = mModTime.Add(time.Duration(m.TZOffset) * time.Millisecond)
+				}
+				mModTime = mModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
+				lModTime := fileInfo.ModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
+				if !mModTime.Equal(lModTime) {
+					m.ExcludeReason = fmt.Sprintf("Mod time mismatch (diff: %s)", lModTime.Sub(mModTime))
+					goto discard
+				}
+			}
+		}
+		// Is it configured to serve its continent only?
+		if m.ContinentOnly {
+			if !clientInfo.IsValid() || clientInfo.ContinentCode != m.ContinentCode {
+				m.ExcludeReason = "Continent only"
+				goto discard
+			}
+		}
+		// Is it configured to serve its country only?
+		if m.CountryOnly {
+			if !clientInfo.IsValid() || !utils.IsInSlice(clientInfo.CountryCode, m.CountryFields) {
+				m.ExcludeReason = "Country only"
+				goto discard
+			}
+		}
+		// Is it in the same AS number?
+		if m.ASOnly {
+			if !clientInfo.IsValid() || clientInfo.ASNum != m.Asnum {
+				m.ExcludeReason = "AS only"
+				goto discard
+			}
+		}
+		// Is the user's country code allowed on this mirror?
+		if clientInfo.IsValid() && utils.IsInSlice(clientInfo.CountryCode, m.ExcludedCountryFields) {
+			m.ExcludeReason = "User's country restriction"
+			goto discard
+		}
+		if safeIndex == 0 {
+			closestMirror = m.Distance
+		} else if closestMirror > m.Distance {
+			closestMirror = m.Distance
+		}
+		if m.Distance > farthestMirror {
+			farthestMirror = m.Distance
+		}
+		mlist[safeIndex] = mlist[i]
+		safeIndex++
+		continue
+	discard:
+		excluded = append(excluded, m)
+	}
+
+	// Reduce the slice to its new size
+	accepted = mlist[:safeIndex]
+
 	return
 }
