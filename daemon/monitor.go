@@ -461,7 +461,7 @@ func (m *monitor) syncLoop() {
 				goto end
 			}
 
-			if err == nil && mir.Enabled == true && mir.Up == false {
+			if err == nil && mir.Enabled == true && mir.IsUp() == false {
 				m.healthCheckChan <- id
 			}
 

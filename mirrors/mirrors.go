@@ -75,6 +75,11 @@ func (m *Mirror) IsHTTPS() bool {
 	return strings.HasPrefix(m.HttpURL, "https://")
 }
 
+// IsUp returns true if the mirror is up
+func (m *Mirror) IsUp() bool {
+	return m.Up
+}
+
 // Mirrors represents a slice of Mirror
 type Mirrors []Mirror
 
