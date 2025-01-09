@@ -162,12 +162,12 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 
 // Filter mirror list, return the list of mirrors candidates for redirection,
 // and the list of mirrors that were excluded. Also return the distance of the
-// closest and farthest mirrors. NOTE: the function modifies mlist in place.
+// closest and farthest mirrors.
 func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (accepted mirrors.Mirrors, excluded mirrors.Mirrors, closestMirror float32, farthestMirror float32) {
-	safeIndex := 0
+	accepted = make([]mirrors.Mirror, 0, len(mlist))
 	excluded = make([]mirrors.Mirror, 0, len(mlist))
 
-	for i, m := range mlist {
+	for _, m := range mlist {
 		// Does it support http? Is it well formated?
 		if !strings.HasPrefix(m.HttpURL, "http://") && !strings.HasPrefix(m.HttpURL, "https://") {
 			m.ExcludeReason = "Invalid URL"
@@ -238,7 +238,7 @@ func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesyst
 			m.ExcludeReason = "User's country restriction"
 			goto discard
 		}
-		if safeIndex == 0 {
+		if len(accepted) == 0 {
 			closestMirror = m.Distance
 		} else if closestMirror > m.Distance {
 			closestMirror = m.Distance
@@ -246,15 +246,11 @@ func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesyst
 		if m.Distance > farthestMirror {
 			farthestMirror = m.Distance
 		}
-		mlist[safeIndex] = mlist[i]
-		safeIndex++
+		accepted = append(accepted, m)
 		continue
 	discard:
 		excluded = append(excluded, m)
 	}
-
-	// Reduce the slice to its new size
-	accepted = mlist[:safeIndex]
 
 	return
 }
