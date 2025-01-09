@@ -202,7 +202,7 @@ func (c *cli) CmdList(args ...string) error {
 			}
 		}
 		if *down == true {
-			if mirror.Up == true || mirror.Enabled == false {
+			if IsUp(mirror) || mirror.Enabled == false {
 				continue
 			}
 		}
@@ -234,10 +234,8 @@ func (c *cli) CmdList(args ...string) error {
 		if *state == true {
 			if mirror.Enabled == false {
 				fmt.Fprintf(w, "\tdisabled")
-			} else if mirror.Up == true {
-				fmt.Fprintf(w, "\tup")
 			} else {
-				fmt.Fprintf(w, "\tdown")
+				fmt.Fprintf(w, "\t%s", StatusString(mirror))
 			}
 			fmt.Fprintf(w, " \t(%s)", stateSince.Format(time.RFC1123))
 		}
@@ -247,6 +245,18 @@ func (c *cli) CmdList(args ...string) error {
 	w.Flush()
 
 	return nil
+}
+
+func IsUp(m *rpc.Mirror) bool {
+	return m.Up
+}
+
+func StatusString(m *rpc.Mirror) string {
+	if m.Up == true {
+		return "up"
+	} else {
+		return "down"
+	}
 }
 
 func (c *cli) CmdAdd(args ...string) error {
@@ -1014,10 +1024,8 @@ func (c *cli) CmdStats(args ...string) error {
 		fmt.Fprintf(w, "Identifier:\t%s\n", name)
 		if !reply.Mirror.Enabled {
 			fmt.Fprintf(w, "Status:\tdisabled\n")
-		} else if reply.Mirror.Up {
-			fmt.Fprintf(w, "Status:\tup\n")
 		} else {
-			fmt.Fprintf(w, "Status:\tdown\n")
+			fmt.Fprintf(w, "Status:\t%s\n", StatusString(reply.Mirror))
 		}
 		fmt.Fprintf(w, "Download requests:\t%d\n", reply.Requests)
 		fmt.Fprint(w, "Bytes transferred:\t")
