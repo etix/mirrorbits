@@ -238,9 +238,10 @@ func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesyst
 			m.ExcludeReason = "User's country restriction"
 			goto discard
 		}
+		// Keep track of the closest and farthest mirrors
 		if len(accepted) == 0 {
 			closestMirror = m.Distance
-		} else if closestMirror > m.Distance {
+		} else if m.Distance < closestMirror {
 			closestMirror = m.Distance
 		}
 		if m.Distance > farthestMirror {
