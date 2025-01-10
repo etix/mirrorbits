@@ -180,6 +180,7 @@ func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesyst
 		}
 		// Is it up?
 		if !m.Up {
+			m.ExcludeReason = m.DownReason
 			if m.ExcludeReason == "" {
 				m.ExcludeReason = "Down"
 			}
