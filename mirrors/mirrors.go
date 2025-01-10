@@ -19,6 +19,27 @@ import (
 	"github.com/gomodule/redigo/redis"
 )
 
+type Protocol uint
+
+const (
+	UNDEFINED Protocol = iota
+	HTTP
+	HTTPS
+)
+
+func (p Protocol) String() string {
+	switch p {
+	case UNDEFINED:
+		return "undefined"
+	case HTTP:
+		return "HTTP"
+	case HTTPS:
+		return "HTTPS"
+	default:
+		return "unknown"
+	}
+}
+
 // Mirror is the structure representing all the information about a mirror
 type Mirror struct {
 	ID                          int              `redis:"ID" yaml:"-"`
@@ -188,17 +209,17 @@ func SetMirrorEnabled(r *database.Redis, id int, state bool) error {
 }
 
 // MarkMirrorUp marks the given mirror as up
-func MarkMirrorUp(r *database.Redis, id int) error {
-	return SetMirrorState(r, id, true, "")
+func MarkMirrorUp(r *database.Redis, id int, proto Protocol) error {
+	return SetMirrorState(r, id, proto, true, "")
 }
 
 // MarkMirrorDown marks the given mirror as down
-func MarkMirrorDown(r *database.Redis, id int, reason string) error {
-	return SetMirrorState(r, id, false, reason)
+func MarkMirrorDown(r *database.Redis, id int, proto Protocol, reason string) error {
+	return SetMirrorState(r, id, proto, false, reason)
 }
 
 // SetMirrorState sets the state of a mirror to up or down with an optional reason
-func SetMirrorState(r *database.Redis, id int, state bool, reason string) error {
+func SetMirrorState(r *database.Redis, id int, proto Protocol, state bool, reason string) error {
 	conn := r.Get()
 	defer conn.Close()
 
@@ -223,7 +244,7 @@ func SetMirrorState(r *database.Redis, id int, state bool, reason string) error 
 		database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(id))
 
 		if state != previousState {
-			PushLog(r, NewLogStateChanged(id, state, reason))
+			PushLog(r, NewLogStateChanged(id, proto, state, reason))
 		}
 	}
 
