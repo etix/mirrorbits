@@ -40,6 +40,7 @@ Mirrorbits is a geographical download redirector written in [Go](https://golang.
 * [Chaos Computer Club](https://media.ccc.de/) to distribute media
 * [Jellyfin](https://jellyfin.org/) since [April 2021](https://jellyfin.org/posts/mirrorbits-cdn/)
 * [Jenkins](https://www.jenkins.io/) to distribute Jenkins releases since [February 2020](https://github.com/jenkins-infra/docker-mirrorbits)
+* [Kali Linux](https://www.kali.org/) to distribute packages and images since [December 2023](https://www.kali.org/blog/kali-linux-2023-4-release/#enters-mirrorbits)
 * [Kodi](http://kodi.tv/) (previously XBMC) since [July 2015](https://forum.kodi.tv/showthread.php?tid=233824)
 * [LineageOS](http://lineageos.org/) (previously CyanogenMod) since January 2017
 * [MariaDB](https://mariadb.org/) to distribute packages (deb/rpm) for Linux distributions since [December 2021](https://mariadb.org/mirrorbits/)
