@@ -488,19 +488,21 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 		return err
 	}
 
-	// Perform health check
-	err = m.healthCheckDo(&mirror, file, size)
+	// Perform health check(s)
+	if utils.HasAnyPrefix(mirror.HttpURL, "http://", "https://") {
+		err = m.healthCheckDo(&mirror, mirror.HttpURL, file, size)
+	} else {
+		err = m.healthCheckDo(&mirror, "http://"+mirror.HttpURL, file, size)
+		err2 := m.healthCheckDo(&mirror, "https://"+mirror.HttpURL, file, size)
+		if err2 != nil {
+			err = err2
+		}
+	}
 
 	return err
 }
 
-func (m *monitor) healthCheckDo(mirror *mirrors.Mirror, file string, size int64) error {
-	// Prepare url
-	url := mirror.HttpURL
-	if !utils.HasAnyPrefix(mirror.HttpURL, "http://", "https://") {
-		url = "http://"+mirror.HttpURL
-	}
-
+func (m *monitor) healthCheckDo(mirror *mirrors.Mirror, url string, file string, size int64) error {
 	// Get protocol
 	proto := mirrors.HTTP
 	if strings.HasPrefix(url, "https://") {

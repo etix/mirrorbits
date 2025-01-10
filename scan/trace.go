@@ -82,6 +82,8 @@ func (t *Trace) GetLastUpdate(mirror mirrors.Mirror) error {
 	var mirrorURL string
 	if utils.HasAnyPrefix(mirror.HttpURL, "http://", "https://") {
 		mirrorURL = mirror.HttpURL
+	} else if mirror.HttpsUp == true {
+		mirrorURL = "https://" + mirror.HttpURL
 	} else {
 		mirrorURL = "http://" + mirror.HttpURL
 	}

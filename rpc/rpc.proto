@@ -62,13 +62,15 @@ message Mirror {
     uint32 Asnum = 21;
     string Comment = 22;
     bool Enabled = 23;
-    bool Up = 24;
-    string DownReason = 25;
+    bool HttpUp = 24;
+    string HttpDownReason = 25;
     google.protobuf.Timestamp StateSince = 26;
     int32 AllowRedirects = 27;
     google.protobuf.Timestamp LastSync = 28;
     google.protobuf.Timestamp LastSuccessfulSync = 29;
     google.protobuf.Timestamp LastModTime = 30;
+    bool HttpsUp = 31;
+    string HttpsDownReason = 32;
 }
 
 message MirrorListReply {

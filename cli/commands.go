@@ -247,16 +247,53 @@ func (c *cli) CmdList(args ...string) error {
 	return nil
 }
 
+func IsHTTPOnly(m *rpc.Mirror) bool {
+	return strings.HasPrefix(m.HttpURL, "http://")
+}
+
+func IsHTTPSOnly(m *rpc.Mirror) bool {
+	return strings.HasPrefix(m.HttpURL, "https://")
+}
+
 func IsUp(m *rpc.Mirror) bool {
-	return m.Up
+	if m.HttpUp == m.HttpsUp {
+		return m.HttpUp
+	}
+	if IsHTTPOnly(m) {
+		return m.HttpUp
+	}
+	if IsHTTPSOnly(m) {
+		return m.HttpsUp
+	}
+	return false
 }
 
 func StatusString(m *rpc.Mirror) string {
-	if m.Up == true {
-		return "up"
+	var http string
+	var https string
+
+	if m.HttpUp {
+		http = "up"
 	} else {
-		return "down"
+		http = "down"
 	}
+
+	if m.HttpsUp {
+		https = "up"
+	} else {
+		https = "down"
+	}
+
+	if m.HttpUp == m.HttpsUp {
+		return http
+	}
+	if IsHTTPOnly(m) {
+		return http
+	}
+	if IsHTTPSOnly(m) {
+		return https
+	}
+	return fmt.Sprintf("%s/%s", http, https)
 }
 
 func (c *cli) CmdAdd(args ...string) error {
@@ -881,6 +918,7 @@ func (c *cli) CmdExport(args ...string) error {
 				urls = append(urls, m.HttpURL)
 			} else {
 				urls = append(urls, "http://" + m.HttpURL)
+				urls = append(urls, "https://" + m.HttpURL)
 			}
 		}
 		if *ftp == true && m.FtpURL != "" {

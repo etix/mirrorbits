@@ -349,7 +349,8 @@ func TestCache_fetchMirror(t *testing.T) {
 		Asnum:          444,
 		Comment:        "m1comment",
 		Enabled:        true,
-		Up:             true,
+		HttpUp:         true,
+		HttpsUp:        true,
 	}
 
 	_, err := c.fetchMirror(testmirror.ID)
@@ -380,7 +381,8 @@ func TestCache_fetchMirror(t *testing.T) {
 		"asnum":         strconv.FormatInt(int64(testmirror.Asnum), 10),
 		"comment":       testmirror.Comment,
 		"enabled":       strconv.FormatBool(testmirror.Enabled),
-		"up":            strconv.FormatBool(testmirror.Up),
+		"httpUp":        strconv.FormatBool(testmirror.HttpUp),
+		"httpsUp":       strconv.FormatBool(testmirror.HttpsUp),
 	})
 
 	m, err := c.fetchMirror(testmirror.ID)

@@ -375,8 +375,10 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 				var absURL string
 				if utils.HasAnyPrefix(f.URL, "http://", "https://") {
 					absURL = f.URL
-				} else {
+				} else if ctx.SecureOption() == WITHOUTTLS {
 					absURL = "http://" + f.URL
+				} else {
+					absURL = "https://" + f.URL
 				}
 
 				// Create a mirror object and add it to the result

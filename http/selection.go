@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"strings"
 	"time"
 
 	. "github.com/etix/mirrorbits/config"
@@ -167,33 +168,71 @@ func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesyst
 	excluded = make([]mirrors.Mirror, 0, len(mlist))
 
 	for _, m := range mlist {
-		// Set the absolute URL (ie. add scheme if missing)
-		if utils.HasAnyPrefix(m.HttpURL, "http://", "https://") {
-			m.AbsoluteURL = m.HttpURL
-		} else {
-			m.AbsoluteURL = "http://" + m.HttpURL
-		}
 		// Is it enabled?
 		if !m.Enabled {
 			m.ExcludeReason = "Disabled"
 			goto discard
 		}
-		// Is it up?
-		if !m.Up {
-			m.ExcludeReason = m.DownReason
-			if m.ExcludeReason == "" {
-				m.ExcludeReason = "Down"
+
+		// Is the procol requested supported by the mirror?
+		// Is the mirror up for this protocol?
+		switch secureOption {
+		case WITHTLS:
+			// HTTPS explicitly requested
+			m.AbsoluteURL = ensureAbsolute(m.HttpURL, "https")
+			httpsSupported := !strings.HasPrefix(m.HttpURL, "http://")
+			if !httpsSupported {
+				m.ExcludeReason = "Not HTTPS"
+			} else if !m.HttpsUp {
+				m.ExcludeReason = either(m.HttpsDownReason, "Down")
+			} else {
+				break
+			}
+			goto discard
+		case WITHOUTTLS:
+			// HTTP explicitly requested
+			m.AbsoluteURL = ensureAbsolute(m.HttpURL, "http")
+			httpSupported := !strings.HasPrefix(m.HttpURL, "https://")
+			if !httpSupported {
+				m.ExcludeReason = "Not HTTP"
+			} else if !m.HttpUp {
+				m.ExcludeReason = either(m.HttpDownReason, "Down")
+			} else {
+				break
+			}
+			goto discard
+		default:
+			// Any protocol will do - favor HTTPS if avail
+			var httpReason, httpsReason string
+
+			m.AbsoluteURL = ensureAbsolute(m.HttpURL, "https")
+			httpsSupported := !strings.HasPrefix(m.HttpURL, "http://")
+			if !httpsSupported {
+				httpsReason = "Not HTTPS"
+			} else if !m.HttpsUp {
+				httpsReason = either(m.HttpsDownReason, "Down")
+			} else {
+				break
+			}
+
+			m.AbsoluteURL = ensureAbsolute(m.HttpURL, "http")
+			httpSupported := !strings.HasPrefix(m.HttpURL, "https://")
+			if !httpSupported {
+				httpReason = "Not HTTP"
+			} else if !m.HttpUp {
+				httpReason = either(m.HttpDownReason, "Down")
+			} else {
+				break
+			}
+
+			if httpReason == httpsReason {
+				m.ExcludeReason = httpReason
+			} else {
+				m.ExcludeReason = httpReason + " / " + httpsReason
 			}
 			goto discard
 		}
-		if secureOption == WITHTLS && !m.IsHTTPS() {
-			m.ExcludeReason = "Not HTTPS"
-			goto discard
-		}
-		if secureOption == WITHOUTTLS && m.IsHTTPS() {
-			m.ExcludeReason = "Not HTTP"
-			goto discard
-		}
+
 		// Is it the same size / modtime as source?
 		if m.FileInfo != nil {
 			if m.FileInfo.Size != fileInfo.Size {
@@ -255,4 +294,21 @@ func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesyst
 	}
 
 	return
+}
+
+// ensureAbsolute returns the url 'as is' if it's absolute (ie. it starts with
+// a scheme), otherwise it prepends '<scheme>://' and returns the result.
+func ensureAbsolute(url string, scheme string) string {
+	if utils.HasAnyPrefix(url, "http://", "https://") {
+		return url
+	}
+	return scheme + "://" + url
+}
+
+// either returns s if it's not empty, d otherwise
+func either(s string, d string) string {
+	if s != "" {
+		return s
+	}
+	return d
 }

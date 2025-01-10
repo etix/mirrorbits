@@ -491,6 +491,15 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 		"allowredirects", mirror.AllowRedirects,
 		"enabled", mirror.Enabled)
 
+	// Reset state to down for unsupported protocol
+	if strings.HasPrefix(mirror.HttpURL, "http://") {
+		conn.Send("HMSET", fmt.Sprintf("MIRROR_%d", mirror.ID),
+			"httpsUp", false)
+	} else if strings.HasPrefix(mirror.HttpURL, "https://") {
+		conn.Send("HMSET", fmt.Sprintf("MIRROR_%d", mirror.ID),
+			"httpUp", false)
+	}
+
 	// The name of the mirror has been changed.
 	conn.Send("HSET", "MIRRORS", mirror.ID, mirror.Name)
 
