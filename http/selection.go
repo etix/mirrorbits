@@ -167,12 +167,11 @@ func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesyst
 	excluded = make([]mirrors.Mirror, 0, len(mlist))
 
 	for _, m := range mlist {
-		// Set the absolute URL
-		m.AbsoluteURL = m.HttpURL
-		// Does it support http? Is it well formated?
-		if !utils.HasAnyPrefix(m.HttpURL, "http://", "https://") {
-			m.ExcludeReason = "Invalid URL"
-			goto discard
+		// Set the absolute URL (ie. add scheme if missing)
+		if utils.HasAnyPrefix(m.HttpURL, "http://", "https://") {
+			m.AbsoluteURL = m.HttpURL
+		} else {
+			m.AbsoluteURL = "http://" + m.HttpURL
 		}
 		// Is it enabled?
 		if !m.Enabled {

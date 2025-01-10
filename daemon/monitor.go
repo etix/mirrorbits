@@ -497,6 +497,9 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 func (m *monitor) healthCheckDo(mirror *mirrors.Mirror, file string, size int64) error {
 	// Prepare url
 	url := mirror.HttpURL
+	if !utils.HasAnyPrefix(mirror.HttpURL, "http://", "https://") {
+		url = "http://"+mirror.HttpURL
+	}
 
 	// Get protocol
 	proto := mirrors.HTTP

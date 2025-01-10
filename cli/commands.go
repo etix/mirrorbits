@@ -294,14 +294,25 @@ func (c *cli) CmdAdd(args ...string) error {
 		os.Exit(-1)
 	}
 
-	if !utils.HasAnyPrefix(*http, "http://", "https://") {
-		*http = "http://" + *http
-	}
-
-	_, err := url.Parse(*http)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Can't parse url\n")
+	if utils.HasAnyPrefix(*http, "http://", "https://") {
+		_, err := url.Parse(*http)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Can't parse HTTP URL\n")
+			os.Exit(-1)
+		}
+	} else if strings.Contains(*http, "://") {
+		fmt.Fprintf(os.Stderr, "The HTTP URL has an invalid scheme\n")
 		os.Exit(-1)
+	} else {
+		// No scheme, that's a "relative URLs", and we do accept it.
+		// Note that the documentation of net/url mentions that parsing
+		// such URL is "invalid but may not necessarily return an error",
+		// so let's add a scheme before we parse it.
+		_, err := url.Parse("http://" + *http)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Can't parse HTTP URL\n")
+			os.Exit(-1)
+		}
 	}
 
 	mirror := &mirrors.Mirror{
@@ -866,7 +877,11 @@ func (c *cli) CmdExport(args ...string) error {
 			urls = append(urls, m.RsyncURL)
 		}
 		if *http == true && m.HttpURL != "" {
-			urls = append(urls, m.HttpURL)
+			if utils.HasAnyPrefix(m.HttpURL, "http://", "https://") {
+				urls = append(urls, m.HttpURL)
+			} else {
+				urls = append(urls, "http://" + m.HttpURL)
+			}
 		}
 		if *ftp == true && m.FtpURL != "" {
 			urls = append(urls, m.FtpURL)

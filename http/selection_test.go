@@ -28,11 +28,6 @@ func TestFilter(t *testing.T) {
 		up bool
 		excludeReason string
 	} {
-		"invalid_url": {
-			secureOption: WITHTLS,
-			mirrorURL: "m1.mirror",
-			excludeReason: "Invalid URL",
-		},
 		"not_enabled": {
 			secureOption: WITHTLS,
 			mirrorURL: "http://m1.mirror",
