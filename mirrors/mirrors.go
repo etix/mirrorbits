@@ -83,6 +83,7 @@ type Mirror struct {
 	LastModTime                 Time             `redis:"lastModTime" yaml:"-"`
 
 	FileInfo *filesystem.FileInfo `redis:"-" json:"-" yaml:"-"` // Details of the requested file on this specific mirror
+	AbsoluteURL string            `redis:"-" yaml:"-"` // Absolute HttpURL, guaranteed to start with a scheme
 }
 
 // Prepare must be called after retrieval from the database to reformat some values
