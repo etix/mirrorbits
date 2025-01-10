@@ -495,8 +495,14 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 }
 
 func (m *monitor) healthCheckDo(mirror *mirrors.Mirror, file string, size int64) error {
+	// Get protocol
+	proto := mirrors.HTTP
+	if strings.HasPrefix(mirror.HttpURL, "https://") {
+		proto = mirrors.HTTPS
+	}
+
 	// Format log output
-	format := "%-" + fmt.Sprintf("%d.%ds", m.formatLongestID+4, m.formatLongestID+4)
+	format := "%-" + fmt.Sprintf("%d.%ds %-5s ", m.formatLongestID+4, m.formatLongestID+4, proto)
 
 	// Prepare the HTTP request
 	req, err := http.NewRequest("HEAD", strings.TrimRight(mirror.HttpURL, "/")+file, nil)
@@ -543,7 +549,7 @@ func (m *monitor) healthCheckDo(mirror *mirrors.Mirror, file string, size int64)
 		if strings.Contains(err.Error(), errRedirect.Error()) {
 			reason = "Unauthorized redirect"
 		}
-		markErr := mirrors.MarkMirrorDown(m.redis, mirror.ID, reason)
+		markErr := mirrors.MarkMirrorDown(m.redis, mirror.ID, proto, reason)
 		if markErr != nil {
 			log.Errorf(format+"Unable to mark mirror as down: %s", mirror.Name, markErr)
 		}
@@ -553,7 +559,7 @@ func (m *monitor) healthCheckDo(mirror *mirrors.Mirror, file string, size int64)
 
 	switch statusCode {
 	case 200:
-		err = mirrors.MarkMirrorUp(m.redis, mirror.ID)
+		err = mirrors.MarkMirrorUp(m.redis, mirror.ID, proto)
 		if err != nil {
 			log.Errorf(format+"Unable to mark mirror as up: %s", mirror.Name, err)
 		}
@@ -564,7 +570,7 @@ func (m *monitor) healthCheckDo(mirror *mirrors.Mirror, file string, size int64)
 			log.Noticef(format+"Up! (%dms)", mirror.Name, elapsed/time.Millisecond)
 		}
 	case 404:
-		err = mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("File not found %s (error 404)", file))
+		err = mirrors.MarkMirrorDown(m.redis, mirror.ID, proto, fmt.Sprintf("File not found %s (error 404)", file))
 		if err != nil {
 			log.Errorf(format+"Unable to mark mirror as down: %s", mirror.Name, err)
 		}
@@ -576,7 +582,7 @@ func (m *monitor) healthCheckDo(mirror *mirrors.Mirror, file string, size int64)
 		}
 		log.Errorf(format+"Error: File %s not found (error 404)", mirror.Name, file)
 	default:
-		err = mirrors.MarkMirrorDown(m.redis, mirror.ID, fmt.Sprintf("Got status code %d", statusCode))
+		err = mirrors.MarkMirrorDown(m.redis, mirror.ID, proto, fmt.Sprintf("Got status code %d", statusCode))
 		if err != nil {
 			log.Errorf(format+"Unable to mark mirror as down: %s", mirror.Name, err)
 		}
