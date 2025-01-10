@@ -15,51 +15,91 @@ import (
 )
 
 func TestFilter(t *testing.T) {
-	// Test that a mirror is rejected if basic checks fail, ie. when it's
-	// disabled, down, has a invalid HTTP URL, or secure option mismatch.
-	//
-	// These tests might need to be re-ordered or adjusted if ever the
-	// implementation of the Filter() function changes.
+	// Test that a mirror that is disabled is rejected
+
+	m1 := mirrors.Mirror{
+		HttpURL: "http://m1.mirror",
+	}
+	mlist := mirrors.Mirrors{m1}
+	a, x, _, _ := Filter(mlist, UNDEFINED, nil, network.GeoIPRecord{})
+	if len(a) != 0 || len(x) != 1 {
+		t.Fatalf("There should be 0 mirror accepted and 1 mirror excluded")
+	}
+	if m := x[0]; m.ExcludeReason != "Disabled" {
+		t.Fatalf("Invalid ExcludeReason, expected '%s', got '%s'",
+			"Disabled", m.ExcludeReason)
+	}
+
+	// Given that a mirror is enabled, test that it's rejected when the
+	// requested protocol is not available (either it's not supported by
+	// the mirror, or it's down).
 
 	tests1 := map[string]struct {
 		secureOption SecureOption
 		mirrorURL string
-		enabled bool
-		up bool
 		excludeReason string
+		absoluteURL string
 	} {
-		"not_enabled": {
+		"want_https_but_http_only": {
 			secureOption: WITHTLS,
 			mirrorURL: "http://m1.mirror",
-			excludeReason: "Disabled",
-		},
-		"not_up": {
-			secureOption: WITHTLS,
-			mirrorURL: "http://m1.mirror",
-			enabled: true,
-			excludeReason: "Down",
-		},
-		"not_https": {
-			secureOption: WITHTLS,
-			mirrorURL: "http://m1.mirror",
-			enabled: true,
-			up: true,
 			excludeReason: "Not HTTPS",
+			absoluteURL: "http://m1.mirror",
 		},
-		"not_http": {
+		"want_https_has_https_but_down": {
+			secureOption: WITHTLS,
+			mirrorURL: "https://m1.mirror",
+			excludeReason: "Down",
+			absoluteURL: "https://m1.mirror",
+		},
+		"want_https_has_any_but_down": {
+			secureOption: WITHTLS,
+			mirrorURL: "m1.mirror",
+			excludeReason: "Down",
+			absoluteURL: "https://m1.mirror",
+		},
+		"want_http_but_https_only": {
 			secureOption: WITHOUTTLS,
 			mirrorURL: "https://m1.mirror",
-			enabled: true,
-			up: true,
 			excludeReason: "Not HTTP",
+			absoluteURL: "https://m1.mirror",
+		},
+		"want_http_has_http_but_down": {
+			secureOption: WITHOUTTLS,
+			mirrorURL: "http://m1.mirror",
+			excludeReason: "Down",
+			absoluteURL: "http://m1.mirror",
+		},
+		"want_http_has_any_but_down": {
+			secureOption: WITHOUTTLS,
+			mirrorURL: "m1.mirror",
+			excludeReason: "Down",
+			absoluteURL: "http://m1.mirror",
+		},
+		"want_any_has_http_only_but_down": {
+			secureOption: UNDEFINED,
+			mirrorURL: "http://m1.mirror",
+			excludeReason: "Down / Not HTTPS",
+			absoluteURL: "http://m1.mirror",
+		},
+		"want_any_has_https_only_but_down": {
+			secureOption: UNDEFINED,
+			mirrorURL: "https://m1.mirror",
+			excludeReason: "Not HTTP / Down",
+			absoluteURL: "https://m1.mirror",
+		},
+		"want_any_has_any_but_down": {
+			secureOption: UNDEFINED,
+			mirrorURL: "m1.mirror",
+			excludeReason: "Down",
+			absoluteURL: "http://m1.mirror",
 		},
 	}
 
 	for name, test := range tests1 {
 		m1 := mirrors.Mirror{
 			HttpURL: test.mirrorURL,
-			Enabled: test.enabled,
-			Up: test.up,
+			Enabled: true,
 		}
 		mlist := mirrors.Mirrors{m1}
 		t.Run(name, func(t *testing.T) {
@@ -71,11 +111,16 @@ func TestFilter(t *testing.T) {
 				t.Fatalf("Invalid ExcludeReason, expected '%s', got '%s'",
 					test.excludeReason, m.ExcludeReason)
 			}
+			if m := x[0]; m.AbsoluteURL != test.absoluteURL {
+				t.Fatalf("Invalid AbsoluteURL, expected '%s', got '%s'",
+					test.absoluteURL, m.AbsoluteURL)
+			}
 		})
 	}
 
-	// Given that basic checks passed, test that a mirror is rejected
-	// when the requested file is not valid (wrong size or mod time).
+	// Given that a mirror is enabled and the protocol requested is available,
+	// test that a mirror is rejected when the requested file is not valid
+	// (wrong size or mod time).
 
 	testfile := &filesystem.FileInfo{
 		Path: "/test/file.tgz",
@@ -108,7 +153,7 @@ func TestFilter(t *testing.T) {
 		m1 := mirrors.Mirror{
 			HttpURL: "https://m1.mirror",
 			Enabled: true,
-			Up: true,
+			HttpsUp: true,
 			FileInfo: &filesystem.FileInfo{
 				Path: "/test/file.tgz",
 				Size: test.fileSize,
@@ -128,9 +173,9 @@ func TestFilter(t *testing.T) {
 		})
 	}
 
-	// Given that basic checks passed, and the file on the mirror is valid,
-	// test that a mirror is rejected when the client doesn't meet the
-	// geolocation requirements.
+	// Given that a mirror is enabled, the protocol requested is available
+	// and the file on the mirror is valid, test that a mirror is rejected
+	// when the client doesn't meet the geolocation requirements.
 
 	clientInfo := network.GeoIPRecord{
 		ContinentCode: "EU",
@@ -182,7 +227,7 @@ func TestFilter(t *testing.T) {
 		m1 := mirrors.Mirror{
 			HttpURL: "https://m1.mirror",
 			Enabled: true,
-			Up: true,
+			HttpsUp: true,
 			FileInfo: testfile,
 			ContinentOnly: test.continentOnly,
 			ContinentCode: test.continentCode,
@@ -232,7 +277,7 @@ func TestFilter(t *testing.T) {
 			m := mirrors.Mirror{
 				HttpURL: fmt.Sprintf("https://m%d.mirror", i),
 				Enabled: true,
-				Up: true,
+				HttpsUp: true,
 				FileInfo: testfile,
 				Distance: d,
 			}
