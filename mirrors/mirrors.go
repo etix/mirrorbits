@@ -66,7 +66,7 @@ type Mirror struct {
 	Comment                     string           `redis:"comment" yaml:"-"`
 	Enabled                     bool             `redis:"enabled" yaml:"Enabled"`
 	Up                          bool             `redis:"up" json:"-" yaml:"-"`
-	ExcludeReason               string           `redis:"excludeReason" json:",omitempty" yaml:"-"`
+	DownReason                  string           `redis:"downReason" json:",omitempty" yaml:"-"`
 	StateSince                  Time             `redis:"stateSince" json:",omitempty" yaml:"-"`
 	AllowRedirects              Redirects        `redis:"allowredirects" json:",omitempty" yaml:"AllowRedirects"`
 	TZOffset                    int64            `redis:"tzoffset" json:"-" yaml:"-"` // timezone offset in ms
@@ -84,6 +84,7 @@ type Mirror struct {
 
 	FileInfo *filesystem.FileInfo `redis:"-" json:"-" yaml:"-"` // Details of the requested file on this specific mirror
 	AbsoluteURL string            `redis:"-" yaml:"-"` // Absolute HttpURL, guaranteed to start with a scheme
+	ExcludeReason string          `redis:"-" json:",omitempty" yaml:"-"` // Reason why the mirror was excluded
 }
 
 // Prepare must be called after retrieval from the database to reformat some values
@@ -232,7 +233,7 @@ func SetMirrorState(r *database.Redis, id int, proto Protocol, state bool, reaso
 	}
 
 	var args []interface{}
-	args = append(args, key, "up", state, "excludeReason", reason)
+	args = append(args, key, "up", state, "downReason", reason)
 
 	if state != previousState {
 		args = append(args, "stateSince", time.Now().Unix())

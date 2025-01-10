@@ -483,8 +483,8 @@ func TestSetMirrorState(t *testing.T) {
 	/* Set HTTP mirror up */
 
 	cmdPreviousState := mock.Command("HGET", "MIRROR_1", "up").Expect(int64(0)).Expect(int64(1))
-	cmdStateSince := mock.Command("HMSET", "MIRROR_1", "up", true, "excludeReason", "test1", "stateSince", redigomock.NewAnyInt()).Expect("ok")
-	cmdState := mock.Command("HMSET", "MIRROR_1", "up", true, "excludeReason", "test2").Expect("ok")
+	cmdStateSince := mock.Command("HMSET", "MIRROR_1", "up", true, "downReason", "test1", "stateSince", redigomock.NewAnyInt()).Expect("ok")
+	cmdState := mock.Command("HMSET", "MIRROR_1", "up", true, "downReason", "test2").Expect("ok")
 
 	if err := SetMirrorState(conn, 1, HTTP, true, "test1"); err != nil {
 		t.Fatalf("Unexpected error: %s", err)
@@ -521,7 +521,7 @@ func TestSetMirrorState(t *testing.T) {
 	/* Set HTTP mirror down */
 
 	cmdPreviousState = mock.Command("HGET", "MIRROR_1", "up").Expect(int64(1))
-	cmdStateSince = mock.Command("HMSET", "MIRROR_1", "up", false, "excludeReason", "test3", "stateSince", redigomock.NewAnyInt()).Expect("ok")
+	cmdStateSince = mock.Command("HMSET", "MIRROR_1", "up", false, "downReason", "test3", "stateSince", redigomock.NewAnyInt()).Expect("ok")
 
 	if err := SetMirrorState(conn, 1, HTTP, false, "test3"); err != nil {
 		t.Fatalf("Unexpected error: %s", err)
