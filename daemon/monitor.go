@@ -495,9 +495,12 @@ func (m *monitor) healthCheck(mirror mirrors.Mirror) error {
 }
 
 func (m *monitor) healthCheckDo(mirror *mirrors.Mirror, file string, size int64) error {
+	// Prepare url
+	url := mirror.HttpURL
+
 	// Get protocol
 	proto := mirrors.HTTP
-	if strings.HasPrefix(mirror.HttpURL, "https://") {
+	if strings.HasPrefix(url, "https://") {
 		proto = mirrors.HTTPS
 	}
 
@@ -505,7 +508,7 @@ func (m *monitor) healthCheckDo(mirror *mirrors.Mirror, file string, size int64)
 	format := "%-" + fmt.Sprintf("%d.%ds %-5s ", m.formatLongestID+4, m.formatLongestID+4, proto)
 
 	// Prepare the HTTP request
-	req, err := http.NewRequest("HEAD", strings.TrimRight(mirror.HttpURL, "/")+file, nil)
+	req, err := http.NewRequest("HEAD", strings.TrimRight(url, "/")+file, nil)
 	req.Header.Set("User-Agent", userAgent)
 	req.Close = true
 
@@ -519,7 +522,7 @@ func (m *monitor) healthCheckDo(mirror *mirrors.Mirror, file string, size int64)
 	go func() {
 		select {
 		case <-m.stop:
-			log.Debugf("Aborting health-check for %s", mirror.HttpURL)
+			log.Debugf("Aborting health-check for %s", url)
 			cancel()
 		case <-ctx.Done():
 		}
