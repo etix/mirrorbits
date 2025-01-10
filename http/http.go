@@ -372,7 +372,12 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 			fallback = true
 			for i, f := range fallbacks {
 				// Set the absolute URL
-				absURL := f.URL
+				var absURL string
+				if utils.HasAnyPrefix(f.URL, "http://", "https://") {
+					absURL = f.URL
+				} else {
+					absURL = "http://" + f.URL
+				}
 
 				// Create a mirror object and add it to the result
 				mlist = append(mlist, mirrors.Mirror{
