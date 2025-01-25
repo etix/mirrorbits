@@ -40,11 +40,20 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-REDIS="redis-cli $@"
+# Find which redis cli to use
+REDIS_CLI=redis-cli
+for x in valkey redict keydb; do
+    if command -v $x-cli 2>&1 >/dev/null; then
+        REDIS_CLI=$x-cli
+        break
+    fi
+done
+
+REDIS="$REDIS_CLI $@"
 
 # Get all the STATS_* keys
-echo "Scanning the redis db for STATS_* keys, this might take a while ..."
-if redis-cli --help 2>&1 | grep -q -- " --count "; then
+echo "Scanning the ${REDIS_CLI/-cli/} database for STATS_* keys, this might take a while ..."
+if $REDIS_CLI --help 2>&1 | grep -q -- " --count "; then
     KEYS=$($REDIS --scan --count 1000 --pattern "STATS_*")
 else
     KEYS=$($REDIS --scan --pattern "STATS_*")
