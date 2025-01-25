@@ -18,12 +18,12 @@ Mirrorbits maintains daily, monthly and yearly stats. The pairs
 
 For example, the command:
 
-    $(basename $0) daily:30 monthly:12 -n 2
+    $(basename $0) daily:30 monthly:12 -- -p 6380
 
 will keep only the last 30 daily stats and the last 12 monthly stats.  Older
 stats will be deleted. Yearly stats are left untouched, as we didn't prodive
 any yearly:<retention> argument. Finally, trailing arguments are handed over
-to the redis-cli command, hence '-n 2' makes redis-cli act on db number 2.
+to the redis-cli command, hence '-p 6380' makes redis-cli use the port 6380.
 "
 
 ARGS=
