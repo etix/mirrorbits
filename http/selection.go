@@ -242,10 +242,12 @@ func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesyst
 			if !m.FileInfo.ModTime.IsZero() {
 				mModTime := m.FileInfo.ModTime
 				if GetConfig().FixTimezoneOffsets {
-					mModTime = mModTime.Add(time.Duration(m.TZOffset) * time.Millisecond)
+					offset := time.Duration(m.TZOffset) * time.Millisecond
+					mModTime = mModTime.Add(offset)
 				}
-				mModTime = mModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
-				lModTime := fileInfo.ModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
+				precision := m.LastSuccessfulSyncPrecision.Duration()
+				mModTime = mModTime.Truncate(precision)
+				lModTime := fileInfo.ModTime.Truncate(precision)
 				if !mModTime.Equal(lModTime) {
 					m.ExcludeReason = fmt.Sprintf("Mod time mismatch (diff: %s)", lModTime.Sub(mModTime))
 					goto discard
