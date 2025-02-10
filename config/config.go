@@ -90,6 +90,7 @@ type Configuration struct {
 	DisallowRedirects       bool       `yaml:"DisallowRedirects"`
 	WeightDistributionRange float32    `yaml:"WeightDistributionRange"`
 	DisableOnMissingFile    bool       `yaml:"DisableOnMissingFile"`
+	AllowOutdatedFiles      []OutdatedFilesConfig `yaml:"AllowOutdatedFiles"`
 	Fallbacks               []fallback `yaml:"Fallbacks"`
 
 	RedisSentinelMasterName string      `yaml:"RedisSentinelMasterName"`
@@ -113,6 +114,11 @@ type hashing struct {
 	SHA1   bool `yaml:"SHA1"`
 	SHA256 bool `yaml:"SHA256"`
 	MD5    bool `yaml:"MD5"`
+}
+
+type OutdatedFilesConfig struct {
+	Prefix  string `yaml:"Prefix"`
+	Minutes int    `yaml:"Minutes"`
 }
 
 // LoadConfig loads the configuration file if it has not yet been loaded
@@ -168,6 +174,14 @@ func ReloadConfig() error {
 	}
 	if c.RepositoryScanInterval < 0 {
 		c.RepositoryScanInterval = 0
+	}
+	for _, rule := range c.AllowOutdatedFiles {
+		if len(rule.Prefix) > 0 && rule.Prefix[0] != '/' {
+			return fmt.Errorf("AllowOutdatedFiles.Prefix must start with '/'")
+		}
+		if rule.Minutes < 0 {
+			return fmt.Errorf("AllowOutdatedFiles.Minutes must be >= 0")
+		}
 	}
 
 	if config != nil &&
