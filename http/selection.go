@@ -164,7 +164,17 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 // and the list of mirrors that were excluded. Also return the distance of the
 // closest and farthest mirrors.
 func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (accepted mirrors.Mirrors, excluded mirrors.Mirrors, closestMirror float32, farthestMirror float32) {
+	// Check if this file is allowed to be outdated
 	checkSize := true
+	maxOutdated := time.Duration(0)
+	config := GetConfig().AllowOutdatedFiles
+	for _, c := range config {
+		if strings.HasPrefix(fileInfo.Path, c.Prefix) {
+			checkSize = false
+			maxOutdated = time.Duration(c.Minutes) * time.Minute
+			break
+		}
+	}
 
 	accepted = make([]mirrors.Mirror, 0, len(mlist))
 	excluded = make([]mirrors.Mirror, 0, len(mlist))
@@ -251,7 +261,7 @@ func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesyst
 				mModTime = mModTime.Truncate(precision)
 				lModTime := fileInfo.ModTime.Truncate(precision)
 				delta := lModTime.Sub(mModTime)
-				if delta != 0 {
+				if delta < 0 || delta > maxOutdated {
 					m.ExcludeReason = fmt.Sprintf("Mod time mismatch (diff: %s)", delta)
 					goto discard
 				}

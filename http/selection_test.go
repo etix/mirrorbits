@@ -15,6 +15,11 @@ import (
 )
 
 func TestFilter(t *testing.T) {
+	// The configuration must have been loaded
+	SetConfiguration(&Configuration{
+		FixTimezoneOffsets: false,
+	})
+
 	// Test that a mirror that is disabled is rejected
 
 	m1 := mirrors.Mirror{
@@ -138,16 +143,17 @@ func TestFilter(t *testing.T) {
 			fileModTime: testfile.ModTime,
 			excludeReason: "File size mismatch",
 		},
-		"wrong_mod_time": {
+		"wrong_mod_time_newer_on_mirror": {
 			fileSize: testfile.Size,
 			fileModTime: testfile.ModTime.Add(time.Second * 10),
 			excludeReason: "Mod time mismatch (diff: -10s)",
 		},
+		"wrong_mod_time_older_on_mirror": {
+			fileSize: testfile.Size,
+			fileModTime: testfile.ModTime.Add(time.Second * -10),
+			excludeReason: "Mod time mismatch (diff: 10s)",
+		},
 	}
-
-	SetConfiguration(&Configuration{
-		FixTimezoneOffsets: false,
-	})
 
 	for name, test := range tests2 {
 		m1 := mirrors.Mirror{
@@ -294,5 +300,98 @@ func TestFilter(t *testing.T) {
 					test.extrema, []float32{closest, farthest})
 			}
 		})
+	}
+}
+
+func TestFilterAllowOutdatedFiles(t *testing.T) {
+	// Given a file that is outdated on a mirror, test that the mirror is
+	// rejected, unless the configuration setting AllowOutdatedFiles is set
+	// correctly in order to accept this file.
+
+	testfile := &filesystem.FileInfo{
+		Path: "/test/file.tgz",
+		Size: 43000,
+		ModTime: time.Now(),
+	}
+
+	configValues := [][]OutdatedFilesConfig{
+		[]OutdatedFilesConfig{},
+		[]OutdatedFilesConfig{{
+			Prefix: "/test/",
+			Minutes: 1,
+		}},
+		[]OutdatedFilesConfig{{
+			Prefix: "/wrong/",
+			Minutes: 2,
+		}},
+		[]OutdatedFilesConfig{{
+			Prefix: "/test/",
+			Minutes: 2,
+		}},
+	}
+
+	tests := map[string]struct {
+		fileSize int64
+		fileModTime time.Time
+		excludeReason []string
+	} {
+		"outdated_same_size": {
+			fileSize: testfile.Size,
+			fileModTime: testfile.ModTime.Add(-100 * time.Second),
+			excludeReason: []string{
+				"Mod time mismatch (diff: 1m40s)",
+				"Mod time mismatch (diff: 1m40s)",
+				"Mod time mismatch (diff: 1m40s)",
+				"",
+			},
+		},
+		"outdated_different_size": {
+			fileSize: 12345,
+			fileModTime: testfile.ModTime.Add(-100 * time.Second),
+			excludeReason: []string{
+				"File size mismatch",
+				"Mod time mismatch (diff: 1m40s)",
+				"File size mismatch",
+				"",
+			},
+		},
+	}
+
+	for idx, configValue := range configValues {
+		SetConfiguration(&Configuration{
+			AllowOutdatedFiles: configValue,
+		})
+
+		for name, test := range tests {
+			m1 := mirrors.Mirror{
+				HttpURL: fmt.Sprintf("https://m%d.mirror", 1),
+				Enabled: true,
+				HttpsUp: true,
+				FileInfo: &filesystem.FileInfo{
+					Path: testfile.Path,
+					Size: test.fileSize,
+					ModTime: test.fileModTime,
+				},
+			}
+			mlist := mirrors.Mirrors{m1}
+
+			t.Run(name, func(t *testing.T) {
+				a, x, _, _ := Filter(mlist, WITHTLS, testfile, network.GeoIPRecord{})
+				testExcludeReason := test.excludeReason[idx]
+				if testExcludeReason != "" {
+					if len(a) != 0 || len(x) != 1 {
+						t.Fatalf("There should be 0 mirror accepted and 1 mirror excluded")
+					}
+					if m := x[0]; m.ExcludeReason != testExcludeReason {
+						t.Fatalf("Invalid ExcludeReason, expected '%s', got '%s'",
+							testExcludeReason, m.ExcludeReason)
+					}
+				} else {
+					if len(a) != 1 || len(x) != 0 {
+						t.Fatalf("There should be 1 mirror accepted and 0 mirror excluded")
+					}
+				}
+			})
+		}
 	}
 }
