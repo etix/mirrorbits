@@ -164,6 +164,8 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 // and the list of mirrors that were excluded. Also return the distance of the
 // closest and farthest mirrors.
 func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (accepted mirrors.Mirrors, excluded mirrors.Mirrors, closestMirror float32, farthestMirror float32) {
+	checkSize := true
+
 	accepted = make([]mirrors.Mirror, 0, len(mlist))
 	excluded = make([]mirrors.Mirror, 0, len(mlist))
 
@@ -235,7 +237,7 @@ func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesyst
 
 		// Is it the same size / modtime as source?
 		if m.FileInfo != nil {
-			if m.FileInfo.Size != fileInfo.Size {
+			if checkSize && m.FileInfo.Size != fileInfo.Size {
 				m.ExcludeReason = "File size mismatch"
 				goto discard
 			}
@@ -248,8 +250,9 @@ func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesyst
 				precision := m.LastSuccessfulSyncPrecision.Duration()
 				mModTime = mModTime.Truncate(precision)
 				lModTime := fileInfo.ModTime.Truncate(precision)
-				if !mModTime.Equal(lModTime) {
-					m.ExcludeReason = fmt.Sprintf("Mod time mismatch (diff: %s)", lModTime.Sub(mModTime))
+				delta := lModTime.Sub(mModTime)
+				if delta != 0 {
+					m.ExcludeReason = fmt.Sprintf("Mod time mismatch (diff: %s)", delta)
 					goto discard
 				}
 			}
