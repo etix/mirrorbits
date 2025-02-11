@@ -11,6 +11,23 @@ import (
 	"github.com/etix/mirrorbits/network"
 )
 
+func TestHasAnyPrefix(t *testing.T) {
+	var b bool
+
+	b = HasAnyPrefix("http://test.com", "http://", "https://")
+	if !b {
+		t.Fatal("Expected true, got false")
+	}
+	b = HasAnyPrefix("https://test.com", "http://", "https://")
+	if !b {
+		t.Fatal("Expected true, got false")
+	}
+	b = HasAnyPrefix("test.com", "http://", "https://")
+	if b {
+		t.Fatal("Expected false, got true")
+	}
+}
+
 func TestNormalizeURL(t *testing.T) {
 	s := []string{
 		"", "",

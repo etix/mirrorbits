@@ -202,7 +202,7 @@ func (c *cli) CmdList(args ...string) error {
 			}
 		}
 		if *down == true {
-			if mirror.Up == true || mirror.Enabled == false {
+			if IsUp(mirror) || mirror.Enabled == false {
 				continue
 			}
 		}
@@ -234,10 +234,8 @@ func (c *cli) CmdList(args ...string) error {
 		if *state == true {
 			if mirror.Enabled == false {
 				fmt.Fprintf(w, "\tdisabled")
-			} else if mirror.Up == true {
-				fmt.Fprintf(w, "\tup")
 			} else {
-				fmt.Fprintf(w, "\tdown")
+				fmt.Fprintf(w, "\t%s", StatusString(mirror))
 			}
 			fmt.Fprintf(w, " \t(%s)", stateSince.Format(time.RFC1123))
 		}
@@ -247,6 +245,55 @@ func (c *cli) CmdList(args ...string) error {
 	w.Flush()
 
 	return nil
+}
+
+func IsHTTPOnly(m *rpc.Mirror) bool {
+	return strings.HasPrefix(m.HttpURL, "http://")
+}
+
+func IsHTTPSOnly(m *rpc.Mirror) bool {
+	return strings.HasPrefix(m.HttpURL, "https://")
+}
+
+func IsUp(m *rpc.Mirror) bool {
+	if m.HttpUp == m.HttpsUp {
+		return m.HttpUp
+	}
+	if IsHTTPOnly(m) {
+		return m.HttpUp
+	}
+	if IsHTTPSOnly(m) {
+		return m.HttpsUp
+	}
+	return false
+}
+
+func StatusString(m *rpc.Mirror) string {
+	var http string
+	var https string
+
+	if m.HttpUp {
+		http = "up"
+	} else {
+		http = "down"
+	}
+
+	if m.HttpsUp {
+		https = "up"
+	} else {
+		https = "down"
+	}
+
+	if m.HttpUp == m.HttpsUp {
+		return http
+	}
+	if IsHTTPOnly(m) {
+		return http
+	}
+	if IsHTTPSOnly(m) {
+		return https
+	}
+	return fmt.Sprintf("%s/%s", http, https)
 }
 
 func (c *cli) CmdAdd(args ...string) error {
@@ -284,14 +331,25 @@ func (c *cli) CmdAdd(args ...string) error {
 		os.Exit(-1)
 	}
 
-	if !strings.HasPrefix(*http, "http://") && !strings.HasPrefix(*http, "https://") {
-		*http = "http://" + *http
-	}
-
-	_, err := url.Parse(*http)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Can't parse url\n")
+	if utils.HasAnyPrefix(*http, "http://", "https://") {
+		_, err := url.Parse(*http)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Can't parse HTTP URL\n")
+			os.Exit(-1)
+		}
+	} else if strings.Contains(*http, "://") {
+		fmt.Fprintf(os.Stderr, "The HTTP URL has an invalid scheme\n")
 		os.Exit(-1)
+	} else {
+		// No scheme, that's a "relative URLs", and we do accept it.
+		// Note that the documentation of net/url mentions that parsing
+		// such URL is "invalid but may not necessarily return an error",
+		// so let's add a scheme before we parse it.
+		_, err := url.Parse("http://" + *http)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Can't parse HTTP URL\n")
+			os.Exit(-1)
+		}
 	}
 
 	mirror := &mirrors.Mirror{
@@ -856,7 +914,12 @@ func (c *cli) CmdExport(args ...string) error {
 			urls = append(urls, m.RsyncURL)
 		}
 		if *http == true && m.HttpURL != "" {
-			urls = append(urls, m.HttpURL)
+			if utils.HasAnyPrefix(m.HttpURL, "http://", "https://") {
+				urls = append(urls, m.HttpURL)
+			} else {
+				urls = append(urls, "http://" + m.HttpURL)
+				urls = append(urls, "https://" + m.HttpURL)
+			}
 		}
 		if *ftp == true && m.FtpURL != "" {
 			urls = append(urls, m.FtpURL)
@@ -1014,10 +1077,8 @@ func (c *cli) CmdStats(args ...string) error {
 		fmt.Fprintf(w, "Identifier:\t%s\n", name)
 		if !reply.Mirror.Enabled {
 			fmt.Fprintf(w, "Status:\tdisabled\n")
-		} else if reply.Mirror.Up {
-			fmt.Fprintf(w, "Status:\tup\n")
 		} else {
-			fmt.Fprintf(w, "Status:\tdown\n")
+			fmt.Fprintf(w, "Status:\t%s\n", StatusString(reply.Mirror))
 		}
 		fmt.Fprintf(w, "Download requests:\t%d\n", reply.Requests)
 		fmt.Fprint(w, "Bytes transferred:\t")
