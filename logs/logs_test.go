@@ -241,18 +241,18 @@ func TestLogDownload(t *testing.T) {
 	dlogger.Close()
 
 	// The next line isn't supposed to crash.
-	LogDownload("", 500, nil, nil)
+	LogDownload("", "GET", 500, nil, nil)
 
 	setDownloadLogWriter(&buf, true)
 
 	buf.Reset()
 
 	// The next few lines arent't supposed to crash.
-	LogDownload("", 200, nil, nil)
-	LogDownload("", 302, nil, nil)
-	LogDownload("", 404, nil, nil)
-	LogDownload("", 500, nil, nil)
-	LogDownload("", 501, nil, nil)
+	LogDownload("", "GET", 200, nil, nil)
+	LogDownload("", "GET", 302, nil, nil)
+	LogDownload("", "GET", 404, nil, nil)
+	LogDownload("", "GET", 500, nil, nil)
+	LogDownload("", "GET", 501, nil, nil)
 
 	if c := strings.Count(buf.String(), "\n"); c != 5 {
 		t.Fatalf("Invalid number of lines, got %d, expected 5", c)
