@@ -395,3 +395,83 @@ func TestFilterAllowOutdatedFiles(t *testing.T) {
 		}
 	}
 }
+
+func TestFilterFixTimezoneOffsets(t *testing.T) {
+	// Given a mirror with a 1-hour timezone offset, test that the mirror
+	// is rejected unless 1) the TZOffset of the mirror is set correctly,
+	// and 2) the configuration setting FixTimezoneOffsets is enabled.
+
+	var offset int64 = 3600
+	modTime := time.Now()
+	outdatedModTime := modTime.Add(time.Duration(-offset) * time.Second)
+
+	fileRequested := &filesystem.FileInfo{
+		Path: "/test/file.tgz",
+		Size: 43000,
+		ModTime: modTime,
+	}
+
+	fileOnMirror := &filesystem.FileInfo{
+		Path: "/test/file.tgz",
+		Size: 43000,
+		ModTime: outdatedModTime,
+	}
+
+	configValues := []bool{false, true}
+
+	tests := map[string]struct {
+		tzoffset int64
+		excludeReason []string
+		
+	} {
+		"tzoffset_unset": {
+			tzoffset: 0,
+			excludeReason: []string{
+				"Mod time mismatch (diff: 1h0m0s)",
+				"Mod time mismatch (diff: 1h0m0s)",
+			},
+		},
+		"tzoffset_set": {
+			tzoffset: offset * 1000,
+			excludeReason: []string{
+				"Mod time mismatch (diff: 1h0m0s)",
+				"",
+			},
+		},
+	}
+
+	for idx, configValue := range configValues {
+		SetConfiguration(&Configuration{
+			FixTimezoneOffsets: configValue,
+		})
+
+		for name, test := range tests {
+			m1 := mirrors.Mirror{
+				HttpURL: fmt.Sprintf("https://m%d.mirror", 1),
+				Enabled: true,
+				HttpsUp: true,
+				FileInfo: fileOnMirror,
+				TZOffset: test.tzoffset,
+			}
+			mlist := mirrors.Mirrors{m1}
+
+			t.Run(name, func(t *testing.T) {
+				a, x, _, _ := Filter(mlist, WITHTLS, fileRequested, network.GeoIPRecord{})
+				testExcludeReason := test.excludeReason[idx]
+				if testExcludeReason != "" {
+					if len(a) != 0 || len(x) != 1 {
+						t.Fatalf("There should be 0 mirror accepted and 1 mirror excluded")
+					}
+					if m := x[0]; m.ExcludeReason != testExcludeReason {
+						t.Fatalf("Invalid ExcludeReason, expected '%s', got '%s'",
+							testExcludeReason, m.ExcludeReason)
+					}
+				} else {
+					if len(a) != 1 || len(x) != 0 {
+						t.Fatalf("There should be 1 mirror accepted and 0 mirror excluded")
+					}
+				}
+			})
+		}
+	}
+}
