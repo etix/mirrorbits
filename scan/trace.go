@@ -78,8 +78,18 @@ func (t *Trace) GetLastUpdate(mirror mirrors.Mirror) error {
 
 	log.Debugf("Getting latest trace file for %s...", mirror.Name)
 
+	// Prepare the mirror URL
+	var mirrorURL string
+	if utils.HasAnyPrefix(mirror.HttpURL, "http://", "https://") {
+		mirrorURL = mirror.HttpURL
+	} else if mirror.HttpsUp == true {
+		mirrorURL = "https://" + mirror.HttpURL
+	} else {
+		mirrorURL = "http://" + mirror.HttpURL
+	}
+
 	// Prepare the HTTP request
-	req, err := http.NewRequest("GET", utils.ConcatURL(mirror.HttpURL, traceFile), nil)
+	req, err := http.NewRequest("GET", utils.ConcatURL(mirrorURL, traceFile), nil)
 	req.Header.Set("User-Agent", userAgent)
 	req.Close = true
 

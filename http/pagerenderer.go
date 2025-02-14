@@ -87,12 +87,12 @@ func (w *RedirectRenderer) Write(ctx *Context, results *mirrors.Results) (status
 				if len(m.CountryFields) > 0 {
 					countryCode = strings.ToLower(m.CountryFields[0])
 				}
-				ctx.ResponseWriter().Header().Add("Link", fmt.Sprintf("<%s>; rel=duplicate; pri=%d; geo=%s", m.HttpURL+path, i+1, countryCode))
+				ctx.ResponseWriter().Header().Add("Link", fmt.Sprintf("<%s>; rel=duplicate; pri=%d; geo=%s", m.AbsoluteURL+path, i+1, countryCode))
 			}
 		}
 
 		// Finally issue the redirect
-		http.Redirect(ctx.ResponseWriter(), ctx.Request(), results.MirrorList[0].HttpURL+path, http.StatusFound)
+		http.Redirect(ctx.ResponseWriter(), ctx.Request(), results.MirrorList[0].AbsoluteURL+path, http.StatusFound)
 		return http.StatusFound, nil
 	}
 	// No mirror returned for this request

@@ -256,7 +256,12 @@ func (c *CLI) GeoUpdateMirror(ctx context.Context, in *MirrorIDRequest) (*GeoUpd
 		return nil, err
 	}
 
-	u, err := url.Parse(mirror.HttpURL)
+	var u *url.URL
+	if utils.HasAnyPrefix(mirror.HttpURL, "http://", "https://") {
+		u, err = url.Parse(mirror.HttpURL)
+	} else {
+		u, err = url.Parse("http://" + mirror.HttpURL)
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "can't parse http url")
 	}
@@ -319,7 +324,12 @@ func (c *CLI) AddMirror(ctx context.Context, in *Mirror) (*AddMirrorReply, error
 		return nil, status.Error(codes.FailedPrecondition, "unexpected ID")
 	}
 
-	u, err := url.Parse(mirror.HttpURL)
+	var u *url.URL
+	if utils.HasAnyPrefix(mirror.HttpURL, "http://", "https://") {
+		u, err = url.Parse(mirror.HttpURL)
+	} else {
+		u, err = url.Parse("http://" + mirror.HttpURL)
+	}
 	if err != nil {
 		return nil, errors.Wrap(err, "can't parse http url")
 	}
@@ -480,6 +490,15 @@ func (c *CLI) setMirror(mirror *mirrors.Mirror) error {
 		"comment", mirror.Comment,
 		"allowredirects", mirror.AllowRedirects,
 		"enabled", mirror.Enabled)
+
+	// Reset state to down for unsupported protocol
+	if strings.HasPrefix(mirror.HttpURL, "http://") {
+		conn.Send("HMSET", fmt.Sprintf("MIRROR_%d", mirror.ID),
+			"httpsUp", false)
+	} else if strings.HasPrefix(mirror.HttpURL, "https://") {
+		conn.Send("HMSET", fmt.Sprintf("MIRROR_%d", mirror.ID),
+			"httpUp", false)
+	}
 
 	// The name of the mirror has been changed.
 	conn.Send("HSET", "MIRRORS", mirror.ID, mirror.Name)

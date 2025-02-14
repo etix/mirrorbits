@@ -174,28 +174,41 @@ func NewLogDisabled(id int) LogAction {
 
 type LogStateChanged struct {
 	LogCommonAction
+	Proto  Protocol
 	Up     bool
 	Reason string
 }
 
 func (l *LogStateChanged) GetOutput() string {
-	if l.Up == false {
-		if len(l.Reason) == 0 {
-			return "Mirror is down"
-		}
-		return "Mirror is down: " + l.Reason
+	var mirror string
+
+	switch l.Proto {
+	case HTTP:
+		mirror = "HTTP mirror"
+	case HTTPS:
+		mirror = "HTTPS mirror"
+	default:
+		mirror = "Mirror"
 	}
 
-	return "Mirror is up"
+	if l.Up == false {
+		if len(l.Reason) == 0 {
+			return mirror + " is down"
+		}
+		return mirror + " is down: " + l.Reason
+	}
+
+	return mirror + " is up"
 }
 
-func NewLogStateChanged(id int, up bool, reason string) LogAction {
+func NewLogStateChanged(id int, proto Protocol, up bool, reason string) LogAction {
 	return &LogStateChanged{
 		LogCommonAction: LogCommonAction{
 			Type:      LOGTYPE_STATECHANGED,
 			MirrorID:  id,
 			Timestamp: time.Now(),
 		},
+		Proto:  proto,
 		Up:     up,
 		Reason: reason,
 	}

@@ -116,7 +116,9 @@
                 "lon" : {{$v.Longitude}},
                 "id" : "{{$v.Name}}",
                 "enabled": {{$v.Enabled}},
-                "up": {{$v.Up}}
+                "URL"    : "{{$v.HttpURL}}",
+                "httpUp"  : {{$v.HttpUp}},
+                "httpsUp" : {{$v.HttpsUp}},
             },
             {{end}}
             ]
@@ -124,8 +126,8 @@
 
         MirrorMarker = L.Marker.extend({
             options: {
-                operational: false,
                 enabled: false,
+                state: '',
                 mid: ''
             }
         });
@@ -134,8 +136,10 @@
             var color = "red";
             if (marker.options.enabled == false) {
                 color = "black";
-            } else if (marker.options.operational == true) {
+            } else if (marker.options.state == "up") {
                 color = "green";
+            } else if (marker.options.state == "degraded") {
+                color = "orange";
             }
             return '<tr><td style="background-color: ' + color + '"> &nbsp; </td><td>' + marker.options.mid + '</td></tr>';
         }
@@ -159,7 +163,7 @@
                         hasDisabled = true;
                         continue
                     }
-                    if (cluster.getAllChildMarkers()[i].options.operational == true) {
+                    if (cluster.getAllChildMarkers()[i].options.state == "up") {
                         hasUp = true;
                     } else {
                         hasDown = true;
@@ -186,14 +190,28 @@
         for (i in mirrors.rows) {
             var area = (Math.PI * (radius * radius));
             var size = Math.sqrt(area / Math.PI) * 2;
-            var operational = mirrors.rows[i].enabled & mirrors.rows[i].up;
             var enabled = mirrors.rows[i].enabled;
+            var state = "down";
+
+            if (enabled) {
+                if (mirrors.rows[i].httpUp == mirrors.rows[i].httpsUp) {
+                    state = mirrors.rows[i].httpUp ? "up" : "down";
+                } else if (mirrors.rows[i].URL.startsWith("http://")) {
+                    state = mirrors.rows[i].httpUp ? "up" : "down";
+                } else if (mirrors.rows[i].URL.startsWith("https://")) {
+                    state = mirrors.rows[i].httpsUp ? "up" : "down";
+                } else {
+                    state = "degraded";
+                }
+            }
 
             var cssClass;
             if (!enabled) {
                 cssClass = "marker-disabled";
-            } else if (operational == true) {
+            } else if (state == "up") {
                 cssClass = "marker-good";
+            } else if (state == "degraded") {
+                cssClass = "marker-mixed";
             } else {
                 cssClass = "marker-bad";
             }
@@ -202,7 +220,7 @@
 
             var m = new MirrorMarker([mirrors.rows[i].lat, mirrors.rows[i].lon], {
                 icon: icon,
-                operational: operational,
+                state: state,
                 enabled: enabled,
                 mid: mirrors.rows[i].id
             });

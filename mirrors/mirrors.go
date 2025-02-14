@@ -19,6 +19,27 @@ import (
 	"github.com/gomodule/redigo/redis"
 )
 
+type Protocol uint
+
+const (
+	UNDEFINED Protocol = iota
+	HTTP
+	HTTPS
+)
+
+func (p Protocol) String() string {
+	switch p {
+	case UNDEFINED:
+		return "undefined"
+	case HTTP:
+		return "HTTP"
+	case HTTPS:
+		return "HTTPS"
+	default:
+		return "unknown"
+	}
+}
+
 // Mirror is the structure representing all the information about a mirror
 type Mirror struct {
 	ID                          int              `redis:"ID" yaml:"-"`
@@ -44,8 +65,10 @@ type Mirror struct {
 	Asnum                       uint             `redis:"asnum" yaml:"ASNum"`
 	Comment                     string           `redis:"comment" yaml:"-"`
 	Enabled                     bool             `redis:"enabled" yaml:"Enabled"`
-	Up                          bool             `redis:"up" json:"-" yaml:"-"`
-	ExcludeReason               string           `redis:"excludeReason" json:",omitempty" yaml:"-"`
+	HttpUp                      bool             `redis:"httpUp" json:"-" yaml:"-"`
+	HttpsUp                     bool             `redis:"httpsUp" json:"-" yaml:"-"`
+	HttpDownReason              string           `redis:"httpDownReason" json:",omitempty" yaml:"-"`
+	HttpsDownReason             string           `redis:"httpsDownReason" json:",omitempty" yaml:"-"`
 	StateSince                  Time             `redis:"stateSince" json:",omitempty" yaml:"-"`
 	AllowRedirects              Redirects        `redis:"allowredirects" json:",omitempty" yaml:"AllowRedirects"`
 	TZOffset                    int64            `redis:"tzoffset" json:"-" yaml:"-"` // timezone offset in ms
@@ -62,6 +85,8 @@ type Mirror struct {
 	LastModTime                 Time             `redis:"lastModTime" yaml:"-"`
 
 	FileInfo *filesystem.FileInfo `redis:"-" json:"-" yaml:"-"` // Details of the requested file on this specific mirror
+	AbsoluteURL string            `redis:"-" yaml:"-"` // Absolute HttpURL, guaranteed to start with a scheme
+	ExcludeReason string          `redis:"-" json:",omitempty" yaml:"-"` // Reason why the mirror was excluded
 }
 
 // Prepare must be called after retrieval from the database to reformat some values
@@ -70,9 +95,29 @@ func (m *Mirror) Prepare() {
 	m.ExcludedCountryFields = strings.Fields(m.ExcludedCountryCodes)
 }
 
-// IsHTTPS returns true if the mirror has an HTTPS address
-func (m *Mirror) IsHTTPS() bool {
+// IsHTTPOnly returns true if the mirror has an HTTP address
+func (m *Mirror) IsHTTPOnly() bool {
+	return strings.HasPrefix(m.HttpURL, "http://")
+}
+
+// IsHTTPSOnly returns true if the mirror has an HTTPS address
+func (m *Mirror) IsHTTPSOnly() bool {
 	return strings.HasPrefix(m.HttpURL, "https://")
+}
+
+// IsUp returns true if the mirror is up (for a mirror that supports both HTTP
+// and HTTPS, it means both are up)
+func (m *Mirror) IsUp() bool {
+	if m.HttpUp == m.HttpsUp {
+		return m.HttpUp
+	}
+	if m.IsHTTPOnly() {
+		return m.HttpUp
+	}
+	if m.IsHTTPSOnly() {
+		return m.HttpsUp
+	}
+	return false
 }
 
 // Mirrors represents a slice of Mirror
@@ -183,29 +228,41 @@ func SetMirrorEnabled(r *database.Redis, id int, state bool) error {
 }
 
 // MarkMirrorUp marks the given mirror as up
-func MarkMirrorUp(r *database.Redis, id int) error {
-	return SetMirrorState(r, id, true, "")
+func MarkMirrorUp(r *database.Redis, id int, proto Protocol) error {
+	return SetMirrorState(r, id, proto, true, "")
 }
 
 // MarkMirrorDown marks the given mirror as down
-func MarkMirrorDown(r *database.Redis, id int, reason string) error {
-	return SetMirrorState(r, id, false, reason)
+func MarkMirrorDown(r *database.Redis, id int, proto Protocol, reason string) error {
+	return SetMirrorState(r, id, proto, false, reason)
 }
 
-// SetMirrorState sets the state of a mirror to up or down with an optional reason
-func SetMirrorState(r *database.Redis, id int, state bool, reason string) error {
+// SetMirrorState sets the state of a mirror to up or down, over HTTP or HTTPS,
+// with an optional reason
+func SetMirrorState(r *database.Redis, id int, proto Protocol, state bool, reason string) error {
 	conn := r.Get()
 	defer conn.Close()
 
 	key := fmt.Sprintf("MIRROR_%d", id)
 
-	previousState, err := redis.Bool(conn.Do("HGET", key, "up"))
+	var upField, reasonField string
+
+	switch proto {
+	case HTTP:
+		upField, reasonField = "httpUp", "httpDownReason"
+	case HTTPS:
+		upField, reasonField = "httpsUp", "httpsDownReason"
+	default:
+		return fmt.Errorf("Unknown protocol: %s", proto)
+	}
+
+	previousState, err := redis.Bool(conn.Do("HGET", key, upField))
 	if err != nil && err != redis.ErrNil {
 		return err
 	}
 
 	var args []interface{}
-	args = append(args, key, "up", state, "excludeReason", reason)
+	args = append(args, key, upField, state, reasonField, reason)
 
 	if state != previousState {
 		args = append(args, "stateSince", time.Now().Unix())
@@ -218,7 +275,7 @@ func SetMirrorState(r *database.Redis, id int, state bool, reason string) error 
 		database.Publish(conn, database.MIRROR_UPDATE, strconv.Itoa(id))
 
 		if state != previousState {
-			PushLog(r, NewLogStateChanged(id, state, reason))
+			PushLog(r, NewLogStateChanged(id, proto, state, reason))
 		}
 	}
 

@@ -35,99 +35,8 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 		return
 	}
 
-	// Filter
-	safeIndex := 0
-	excluded = make([]mirrors.Mirror, 0, len(mlist))
-	var closestMirror float32
-	var farthestMirror float32
-	for i, m := range mlist {
-		// Does it support http? Is it well formated?
-		if !strings.HasPrefix(m.HttpURL, "http://") && !strings.HasPrefix(m.HttpURL, "https://") {
-			m.ExcludeReason = "Invalid URL"
-			goto discard
-		}
-		// Is it enabled?
-		if !m.Enabled {
-			m.ExcludeReason = "Disabled"
-			goto discard
-		}
-		// Is it up?
-		if !m.Up {
-			if m.ExcludeReason == "" {
-				m.ExcludeReason = "Down"
-			}
-			goto discard
-		}
-		if ctx.SecureOption() == WITHTLS && !m.IsHTTPS() {
-			m.ExcludeReason = "Not HTTPS"
-			goto discard
-		}
-		if ctx.SecureOption() == WITHOUTTLS && m.IsHTTPS() {
-			m.ExcludeReason = "Not HTTP"
-			goto discard
-		}
-		// Is it the same size / modtime as source?
-		if m.FileInfo != nil {
-			if m.FileInfo.Size != fileInfo.Size {
-				m.ExcludeReason = "File size mismatch"
-				goto discard
-			}
-			if !m.FileInfo.ModTime.IsZero() {
-				mModTime := m.FileInfo.ModTime
-				if GetConfig().FixTimezoneOffsets {
-					mModTime = mModTime.Add(time.Duration(m.TZOffset) * time.Millisecond)
-				}
-				mModTime = mModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
-				lModTime := fileInfo.ModTime.Truncate(m.LastSuccessfulSyncPrecision.Duration())
-				if !mModTime.Equal(lModTime) {
-					m.ExcludeReason = fmt.Sprintf("Mod time mismatch (diff: %s)", lModTime.Sub(mModTime))
-					goto discard
-				}
-			}
-		}
-		// Is it configured to serve its continent only?
-		if m.ContinentOnly {
-			if !clientInfo.IsValid() || clientInfo.ContinentCode != m.ContinentCode {
-				m.ExcludeReason = "Continent only"
-				goto discard
-			}
-		}
-		// Is it configured to serve its country only?
-		if m.CountryOnly {
-			if !clientInfo.IsValid() || !utils.IsInSlice(clientInfo.CountryCode, m.CountryFields) {
-				m.ExcludeReason = "Country only"
-				goto discard
-			}
-		}
-		// Is it in the same AS number?
-		if m.ASOnly {
-			if !clientInfo.IsValid() || clientInfo.ASNum != m.Asnum {
-				m.ExcludeReason = "AS only"
-				goto discard
-			}
-		}
-		// Is the user's country code allowed on this mirror?
-		if clientInfo.IsValid() && utils.IsInSlice(clientInfo.CountryCode, m.ExcludedCountryFields) {
-			m.ExcludeReason = "User's country restriction"
-			goto discard
-		}
-		if safeIndex == 0 {
-			closestMirror = m.Distance
-		} else if closestMirror > m.Distance {
-			closestMirror = m.Distance
-		}
-		if m.Distance > farthestMirror {
-			farthestMirror = m.Distance
-		}
-		mlist[safeIndex] = mlist[i]
-		safeIndex++
-		continue
-	discard:
-		excluded = append(excluded, m)
-	}
-
-	// Reduce the slice to its new size
-	mlist = mlist[:safeIndex]
+	// Filter the list of mirrors
+	mlist, excluded, closestMirror, farthestMirror := Filter(mlist, ctx.SecureOption(), fileInfo, clientInfo)
 
 	if !clientInfo.IsValid() {
 		// Shuffle the list
@@ -249,4 +158,172 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 		mlist[0].Weight = 100
 	}
 	return
+}
+
+// Filter mirror list, return the list of mirrors candidates for redirection,
+// and the list of mirrors that were excluded. Also return the distance of the
+// closest and farthest mirrors.
+func Filter(mlist mirrors.Mirrors, secureOption SecureOption, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (accepted mirrors.Mirrors, excluded mirrors.Mirrors, closestMirror float32, farthestMirror float32) {
+	// Check if this file is allowed to be outdated
+	checkSize := true
+	maxOutdated := time.Duration(0)
+	config := GetConfig().AllowOutdatedFiles
+	for _, c := range config {
+		if strings.HasPrefix(fileInfo.Path, c.Prefix) {
+			checkSize = false
+			maxOutdated = time.Duration(c.Minutes) * time.Minute
+			break
+		}
+	}
+
+	accepted = make([]mirrors.Mirror, 0, len(mlist))
+	excluded = make([]mirrors.Mirror, 0, len(mlist))
+
+	for _, m := range mlist {
+		// Is it enabled?
+		if !m.Enabled {
+			m.ExcludeReason = "Disabled"
+			goto discard
+		}
+
+		// Is the procol requested supported by the mirror?
+		// Is the mirror up for this protocol?
+		switch secureOption {
+		case WITHTLS:
+			// HTTPS explicitly requested
+			m.AbsoluteURL = ensureAbsolute(m.HttpURL, "https")
+			httpsSupported := !strings.HasPrefix(m.HttpURL, "http://")
+			if !httpsSupported {
+				m.ExcludeReason = "Not HTTPS"
+			} else if !m.HttpsUp {
+				m.ExcludeReason = either(m.HttpsDownReason, "Down")
+			} else {
+				break
+			}
+			goto discard
+		case WITHOUTTLS:
+			// HTTP explicitly requested
+			m.AbsoluteURL = ensureAbsolute(m.HttpURL, "http")
+			httpSupported := !strings.HasPrefix(m.HttpURL, "https://")
+			if !httpSupported {
+				m.ExcludeReason = "Not HTTP"
+			} else if !m.HttpUp {
+				m.ExcludeReason = either(m.HttpDownReason, "Down")
+			} else {
+				break
+			}
+			goto discard
+		default:
+			// Any protocol will do - favor HTTPS if avail
+			var httpReason, httpsReason string
+
+			m.AbsoluteURL = ensureAbsolute(m.HttpURL, "https")
+			httpsSupported := !strings.HasPrefix(m.HttpURL, "http://")
+			if !httpsSupported {
+				httpsReason = "Not HTTPS"
+			} else if !m.HttpsUp {
+				httpsReason = either(m.HttpsDownReason, "Down")
+			} else {
+				break
+			}
+
+			m.AbsoluteURL = ensureAbsolute(m.HttpURL, "http")
+			httpSupported := !strings.HasPrefix(m.HttpURL, "https://")
+			if !httpSupported {
+				httpReason = "Not HTTP"
+			} else if !m.HttpUp {
+				httpReason = either(m.HttpDownReason, "Down")
+			} else {
+				break
+			}
+
+			if httpReason == httpsReason {
+				m.ExcludeReason = httpReason
+			} else {
+				m.ExcludeReason = httpReason + " / " + httpsReason
+			}
+			goto discard
+		}
+
+		// Is it the same size / modtime as source?
+		if m.FileInfo != nil {
+			if checkSize && m.FileInfo.Size != fileInfo.Size {
+				m.ExcludeReason = "File size mismatch"
+				goto discard
+			}
+			if !m.FileInfo.ModTime.IsZero() {
+				mModTime := m.FileInfo.ModTime
+				if GetConfig().FixTimezoneOffsets {
+					offset := time.Duration(m.TZOffset) * time.Millisecond
+					mModTime = mModTime.Add(offset)
+				}
+				precision := m.LastSuccessfulSyncPrecision.Duration()
+				mModTime = mModTime.Truncate(precision)
+				lModTime := fileInfo.ModTime.Truncate(precision)
+				delta := lModTime.Sub(mModTime)
+				if delta < 0 || delta > maxOutdated {
+					m.ExcludeReason = fmt.Sprintf("Mod time mismatch (diff: %s)", delta)
+					goto discard
+				}
+			}
+		}
+		// Is it configured to serve its continent only?
+		if m.ContinentOnly {
+			if !clientInfo.IsValid() || clientInfo.ContinentCode != m.ContinentCode {
+				m.ExcludeReason = "Continent only"
+				goto discard
+			}
+		}
+		// Is it configured to serve its country only?
+		if m.CountryOnly {
+			if !clientInfo.IsValid() || !utils.IsInSlice(clientInfo.CountryCode, m.CountryFields) {
+				m.ExcludeReason = "Country only"
+				goto discard
+			}
+		}
+		// Is it in the same AS number?
+		if m.ASOnly {
+			if !clientInfo.IsValid() || clientInfo.ASNum != m.Asnum {
+				m.ExcludeReason = "AS only"
+				goto discard
+			}
+		}
+		// Is the user's country code allowed on this mirror?
+		if clientInfo.IsValid() && utils.IsInSlice(clientInfo.CountryCode, m.ExcludedCountryFields) {
+			m.ExcludeReason = "User's country restriction"
+			goto discard
+		}
+		// Keep track of the closest and farthest mirrors
+		if len(accepted) == 0 {
+			closestMirror = m.Distance
+		} else if m.Distance < closestMirror {
+			closestMirror = m.Distance
+		}
+		if m.Distance > farthestMirror {
+			farthestMirror = m.Distance
+		}
+		accepted = append(accepted, m)
+		continue
+	discard:
+		excluded = append(excluded, m)
+	}
+
+	return
+}
+
+// ensureAbsolute returns the url 'as is' if it's absolute (ie. it starts with
+// a scheme), otherwise it prepends '<scheme>://' and returns the result.
+func ensureAbsolute(url string, scheme string) string {
+	if utils.HasAnyPrefix(url, "http://", "https://") {
+		return url
+	}
+	return scheme + "://" + url
+}
+
+// either returns s if it's not empty, d otherwise
+func either(s string, d string) string {
+	if s != "" {
+		return s
+	}
+	return d
 }
