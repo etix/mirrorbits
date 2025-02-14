@@ -5,6 +5,7 @@ package http
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -14,19 +15,26 @@ import (
 	"github.com/etix/mirrorbits/mirrors"
 )
 
-func TestFilter(t *testing.T) {
-	// The configuration must have been loaded
+var noFileInfo *filesystem.FileInfo
+var noClientInfo network.GeoIPRecord
+
+func TestMain(m *testing.M) {
+	noFileInfo = nil
+	noClientInfo = network.GeoIPRecord{}
 	SetConfiguration(&Configuration{
 		FixTimezoneOffsets: false,
 	})
+	os.Exit(m.Run())
+}
 
+func TestFilter(t *testing.T) {
 	// Test that a mirror that is disabled is rejected
 
 	m1 := mirrors.Mirror{
 		HttpURL: "http://m1.mirror",
 	}
 	mlist := mirrors.Mirrors{m1}
-	a, x, _, _ := Filter(mlist, UNDEFINED, nil, network.GeoIPRecord{})
+	a, x, _, _ := Filter(mlist, UNDEFINED, noFileInfo, noClientInfo)
 	if len(a) != 0 || len(x) != 1 {
 		t.Fatalf("There should be 0 mirror accepted and 1 mirror excluded")
 	}
@@ -108,7 +116,7 @@ func TestFilter(t *testing.T) {
 		}
 		mlist := mirrors.Mirrors{m1}
 		t.Run(name, func(t *testing.T) {
-			a, x, _, _ := Filter(mlist, test.secureOption, nil, network.GeoIPRecord{})
+			a, x, _, _ := Filter(mlist, test.secureOption, noFileInfo, noClientInfo)
 			if len(a) != 0 || len(x) != 1 {
 				t.Fatalf("There should be 0 mirror accepted and 1 mirror excluded")
 			}
@@ -168,7 +176,7 @@ func TestFilter(t *testing.T) {
 		}
 		mlist := mirrors.Mirrors{m1}
 		t.Run(name, func(t *testing.T) {
-			a, x, _, _ := Filter(mlist, WITHTLS, testfile, network.GeoIPRecord{})
+			a, x, _, _ := Filter(mlist, WITHTLS, testfile, noClientInfo)
 			if len(a) != 0 || len(x) != 1 {
 				t.Fatalf("There should be 0 mirror accepted and 1 mirror excluded")
 			}
@@ -376,7 +384,7 @@ func TestFilterAllowOutdatedFiles(t *testing.T) {
 			mlist := mirrors.Mirrors{m1}
 
 			t.Run(name, func(t *testing.T) {
-				a, x, _, _ := Filter(mlist, WITHTLS, testfile, network.GeoIPRecord{})
+				a, x, _, _ := Filter(mlist, WITHTLS, testfile, noClientInfo)
 				testExcludeReason := test.excludeReason[idx]
 				if testExcludeReason != "" {
 					if len(a) != 0 || len(x) != 1 {
@@ -456,7 +464,7 @@ func TestFilterFixTimezoneOffsets(t *testing.T) {
 			mlist := mirrors.Mirrors{m1}
 
 			t.Run(name, func(t *testing.T) {
-				a, x, _, _ := Filter(mlist, WITHTLS, fileRequested, network.GeoIPRecord{})
+				a, x, _, _ := Filter(mlist, WITHTLS, fileRequested, noClientInfo)
 				testExcludeReason := test.excludeReason[idx]
 				if testExcludeReason != "" {
 					if len(a) != 0 || len(x) != 1 {
