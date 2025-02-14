@@ -27,21 +27,63 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// Helper to check the results of the Filter function on a single mirror
+func checkResultsSingle(t *testing.T, a mirrors.Mirrors, x mirrors.Mirrors, reason string, url string) {
+	t.Helper()
+	var m mirrors.Mirror
+
+	// If reason was set, we expect the mirror to have been excluded, while
+	// no reason means that the mirror should have been accepted.
+	if reason == "" {
+		if len(a) != 1 || len(x) != 0 {
+			t.Fatalf("There should be 1 mirror accepted and 0 mirror excluded")
+		}
+		m = a[0]
+	} else {
+		if len(a) != 0 || len(x) != 1 {
+			t.Fatalf("There should be 0 mirror accepted and 1 mirror excluded")
+		}
+		m = x[0]
+	}
+
+	// Test that the field ExcludeReason was set as expected, or is unset
+	// in case the mirror was accepted.
+	if m.ExcludeReason != reason {
+		t.Fatalf("Invalid ExcludeReason, expected '%s', got '%s'", reason, m.ExcludeReason)
+	}
+
+	// The field AbsoluteURL is expected to be set, except in the case when
+	// the mirror is disabled.
+	if m.ExcludeReason != "Disabled" && m.AbsoluteURL != url {
+		t.Fatalf("Invalid AbsoluteURL, expected '%s', got '%s'", url, m.AbsoluteURL)
+	}
+}
+
+// Helper to test the Filter function on a single mirror
+func testFilterSingle(t *testing.T, m mirrors.Mirror, secureOption SecureOption, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord, reason string) {
+	t.Helper()
+	mlist := mirrors.Mirrors{m}
+	a, x, _, _ := Filter(mlist, secureOption, fileInfo, clientInfo)
+	checkResultsSingle(t, a, x, reason, m.HttpURL)
+}
+
+// Helper to test the Filter function on a single mirror, with a specific AbsoluteURL
+func testFilterSingleAbsoluteURL(t *testing.T, m mirrors.Mirror, secureOption SecureOption, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord, reason string, url string) {
+	t.Helper()
+	mlist := mirrors.Mirrors{m}
+	a, x, _, _ := Filter(mlist, secureOption, fileInfo, clientInfo)
+	checkResultsSingle(t, a, x, reason, url)
+}
+
 func TestFilter(t *testing.T) {
 	// Test that a mirror that is disabled is rejected
 
 	m1 := mirrors.Mirror{
 		HttpURL: "http://m1.mirror",
 	}
-	mlist := mirrors.Mirrors{m1}
-	a, x, _, _ := Filter(mlist, UNDEFINED, noFileInfo, noClientInfo)
-	if len(a) != 0 || len(x) != 1 {
-		t.Fatalf("There should be 0 mirror accepted and 1 mirror excluded")
-	}
-	if m := x[0]; m.ExcludeReason != "Disabled" {
-		t.Fatalf("Invalid ExcludeReason, expected '%s', got '%s'",
-			"Disabled", m.ExcludeReason)
-	}
+	t.Run("disabled", func(t *testing.T) {
+		testFilterSingle(t, m1, UNDEFINED, noFileInfo, noClientInfo, "Disabled")
+	})
 
 	// Given that a mirror is enabled, test that it's rejected when the
 	// requested protocol is not available (either it's not supported by
@@ -114,20 +156,9 @@ func TestFilter(t *testing.T) {
 			HttpURL: test.mirrorURL,
 			Enabled: true,
 		}
-		mlist := mirrors.Mirrors{m1}
 		t.Run(name, func(t *testing.T) {
-			a, x, _, _ := Filter(mlist, test.secureOption, noFileInfo, noClientInfo)
-			if len(a) != 0 || len(x) != 1 {
-				t.Fatalf("There should be 0 mirror accepted and 1 mirror excluded")
-			}
-			if m := x[0]; m.ExcludeReason != test.excludeReason {
-				t.Fatalf("Invalid ExcludeReason, expected '%s', got '%s'",
-					test.excludeReason, m.ExcludeReason)
-			}
-			if m := x[0]; m.AbsoluteURL != test.absoluteURL {
-				t.Fatalf("Invalid AbsoluteURL, expected '%s', got '%s'",
-					test.absoluteURL, m.AbsoluteURL)
-			}
+			testFilterSingleAbsoluteURL(t, m1, test.secureOption, noFileInfo, noClientInfo,
+				test.excludeReason, test.absoluteURL)
 		})
 	}
 
@@ -174,16 +205,8 @@ func TestFilter(t *testing.T) {
 				ModTime: test.fileModTime,
 			},
 		}
-		mlist := mirrors.Mirrors{m1}
 		t.Run(name, func(t *testing.T) {
-			a, x, _, _ := Filter(mlist, WITHTLS, testfile, noClientInfo)
-			if len(a) != 0 || len(x) != 1 {
-				t.Fatalf("There should be 0 mirror accepted and 1 mirror excluded")
-			}
-			if m := x[0]; m.ExcludeReason != test.excludeReason {
-				t.Fatalf("Invalid ExcludeReason, expected '%s', got '%s'",
-					test.excludeReason, m.ExcludeReason)
-			}
+			testFilterSingle(t, m1, WITHTLS, testfile, noClientInfo, test.excludeReason)
 		})
 	}
 
@@ -252,16 +275,8 @@ func TestFilter(t *testing.T) {
 			ExcludedCountryCodes: test.excludedCountryCodes,
 		}
 		m1.Prepare()
-		mlist := mirrors.Mirrors{m1}
 		t.Run(name, func(t *testing.T) {
-			a, x, _, _ := Filter(mlist, WITHTLS, testfile, clientInfo)
-			if len(a) != 0 || len(x) != 1 {
-				t.Fatalf("There should be 0 mirror accepted and 1 mirror excluded")
-			}
-			if m := x[0]; m.ExcludeReason != test.excludeReason {
-				t.Fatalf("Invalid ExcludeReason, expected '%s', got '%s'",
-					test.excludeReason, m.ExcludeReason)
-			}
+			testFilterSingle(t, m1, WITHTLS, testfile, clientInfo, test.excludeReason)
 		})
 	}
 
@@ -369,7 +384,6 @@ func TestFilterAllowOutdatedFiles(t *testing.T) {
 		SetConfiguration(&Configuration{
 			AllowOutdatedFiles: configValue,
 		})
-
 		for name, test := range tests {
 			m1 := mirrors.Mirror{
 				HttpURL: fmt.Sprintf("https://m%d.mirror", 1),
@@ -381,24 +395,8 @@ func TestFilterAllowOutdatedFiles(t *testing.T) {
 					ModTime: test.fileModTime,
 				},
 			}
-			mlist := mirrors.Mirrors{m1}
-
 			t.Run(name, func(t *testing.T) {
-				a, x, _, _ := Filter(mlist, WITHTLS, testfile, noClientInfo)
-				testExcludeReason := test.excludeReason[idx]
-				if testExcludeReason != "" {
-					if len(a) != 0 || len(x) != 1 {
-						t.Fatalf("There should be 0 mirror accepted and 1 mirror excluded")
-					}
-					if m := x[0]; m.ExcludeReason != testExcludeReason {
-						t.Fatalf("Invalid ExcludeReason, expected '%s', got '%s'",
-							testExcludeReason, m.ExcludeReason)
-					}
-				} else {
-					if len(a) != 1 || len(x) != 0 {
-						t.Fatalf("There should be 1 mirror accepted and 0 mirror excluded")
-					}
-				}
+				testFilterSingle(t, m1, WITHTLS, testfile, noClientInfo, test.excludeReason[idx])
 			})
 		}
 	}
@@ -452,7 +450,6 @@ func TestFilterFixTimezoneOffsets(t *testing.T) {
 		SetConfiguration(&Configuration{
 			FixTimezoneOffsets: configValue,
 		})
-
 		for name, test := range tests {
 			m1 := mirrors.Mirror{
 				HttpURL: fmt.Sprintf("https://m%d.mirror", 1),
@@ -461,24 +458,8 @@ func TestFilterFixTimezoneOffsets(t *testing.T) {
 				FileInfo: fileOnMirror,
 				TZOffset: test.tzoffset,
 			}
-			mlist := mirrors.Mirrors{m1}
-
 			t.Run(name, func(t *testing.T) {
-				a, x, _, _ := Filter(mlist, WITHTLS, fileRequested, noClientInfo)
-				testExcludeReason := test.excludeReason[idx]
-				if testExcludeReason != "" {
-					if len(a) != 0 || len(x) != 1 {
-						t.Fatalf("There should be 0 mirror accepted and 1 mirror excluded")
-					}
-					if m := x[0]; m.ExcludeReason != testExcludeReason {
-						t.Fatalf("Invalid ExcludeReason, expected '%s', got '%s'",
-							testExcludeReason, m.ExcludeReason)
-					}
-				} else {
-					if len(a) != 1 || len(x) != 0 {
-						t.Fatalf("There should be 1 mirror accepted and 0 mirror excluded")
-					}
-				}
+				testFilterSingle(t, m1, WITHTLS, fileRequested, noClientInfo, test.excludeReason[idx])
 			})
 		}
 	}
