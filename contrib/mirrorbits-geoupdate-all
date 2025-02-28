@@ -25,6 +25,11 @@ For example, the command:
     mirrorbits-geoupdate-all -f -- -p 3391
 
 updates all the mirrors for the mirrorbits instance listening on port 3391.
+
+BUGS: This script assumes that calling 'mirrorbits geoupdate \$mirror' twice
+in a row returns the same result, but this is not always true. For some
+mirrors, the hostname returns more than one address, and each address might
+have a different geolocation, maybe even different a ASN.
 "
 
 FORCE=0
