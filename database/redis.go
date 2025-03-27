@@ -275,9 +275,10 @@ single:
 		r.logError("Redis master: %s is not a master but a %s", GetConfig().RedisAddress, role)
 		return nil, ErrUnreachable
 	}
-	r.printConnectedMaster(GetConfig().RedisAddress)
 
 	r.version, err = r.askVersion(c)
+
+	r.printConnectedMaster(GetConfig().RedisAddress)
 
 	return c, err
 
@@ -324,9 +325,9 @@ func (r *Redis) printConnectedMaster(address string) {
 	defer r.knownMasterLock.Unlock()
 	if address != r.knownMaster && core.Daemon {
 		r.knownMaster = address
-		log.Infof("Connected to redis master %s", address)
+		log.Infof("Connected to redis master %s (version %s)", address, r.version)
 	} else {
-		log.Debugf("Connected to redis master %s", address)
+		log.Debugf("Connected to redis master %s (version %s)", address, r.version)
 	}
 }
 
