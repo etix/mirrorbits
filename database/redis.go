@@ -161,8 +161,11 @@ func (r *Redis) askVersion (conn redis.Conn) (string, error) {
 	}
 
 	info, err := parseInfo(conn.Do("INFO", "server"))
+	if err != nil {
+		return "", err
+	}
 
-	return info["redis_version"], err
+	return info["redis_version"], nil
 }
 
 // Connect initiates a new connection to the redis server
