@@ -86,7 +86,7 @@ func NewRedisCustomPool(pool redisPool) *Redis {
 					r.setFailureState(true)
 				}
 
-				if r.CheckVersion() == ErrRedisUpgradeRequired {
+				if r.version != "" && ! r.IsAtLeastVersion(core.RedisMinimumVersion) {
 					log.Fatalf("Unsupported Redis version, please upgrade to Redis >= %s", core.RedisMinimumVersion)
 				}
 
