@@ -285,9 +285,9 @@ func TestLogDownload(t *testing.T) {
 		Fallback: true,
 	}
 
-	LogDownload("JSON", 200, p, nil)
+	LogDownload("JSON", "GET", 200, p, nil)
 
-	expected := "JSON 200 \"/test/file.tgz\" ip:192.168.0.1 mirror:m1 fallback:true sameasn:444 distance:99.00km countries:FR,UK,DE\n"
+	expected := "JSON 200 \"/test/file.tgz\" method:GET ip:192.168.0.1 mirror:m1 fallback:true sameasn:444 distance:99.00km countries:FR,UK,DE\n"
 	if !strings.HasSuffix(buf.String(), expected) {
 		t.Fatalf("Invalid log line:\nGot:\n%#vs\nExpected:\n%#v", buf.String(), expected)
 	}
@@ -302,9 +302,9 @@ func TestLogDownload(t *testing.T) {
 		IP: "192.168.0.1",
 	}
 
-	LogDownload("JSON", 404, p, nil)
+	LogDownload("JSON", "GET", 404, p, nil)
 
-	expected = "JSON 404 \"/test/file.tgz\" ip:192.168.0.1\n"
+	expected = "JSON 404 \"/test/file.tgz\" method:GET ip:192.168.0.1\n"
 	if !strings.HasSuffix(buf.String(), expected) {
 		t.Fatalf("Invalid log line:\nGot:\n%#vs\nExpected:\n%#v", buf.String(), expected)
 	}
@@ -325,9 +325,9 @@ func TestLogDownload(t *testing.T) {
 		},
 	}
 
-	LogDownload("JSON", 500, p, errors.New("test error"))
+	LogDownload("JSON", "GET", 500, p, errors.New("test error"))
 
-	expected = "JSON 500 \"\" ip: mirror:m1 error:test error\n"
+	expected = "JSON 500 \"\" method:GET ip: mirror:m1 error:test error\n"
 	if !strings.HasSuffix(buf.String(), expected) {
 		t.Fatalf("Invalid log line:\nGot:\n%#vs\nExpected:\n%#v", buf.String(), expected)
 	}
@@ -342,9 +342,9 @@ func TestLogDownload(t *testing.T) {
 		IP: "192.168.0.1",
 	}
 
-	LogDownload("JSON", 501, p, errors.New("test error"))
+	LogDownload("JSON", "GET", 501, p, errors.New("test error"))
 
-	expected = "JSON 501 \"/test/file.tgz\" ip:192.168.0.1 error:test error\n"
+	expected = "JSON 501 \"/test/file.tgz\" method:GET ip:192.168.0.1 error:test error\n"
 	if !strings.HasSuffix(buf.String(), expected) {
 		t.Fatalf("Invalid log line:\nGot:\n%#vs\nExpected:\n%#v", buf.String(), expected)
 	}
