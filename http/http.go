@@ -444,7 +444,7 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 
 	if !ctx.IsMirrorlist() {
 		logs.LogDownload(resultRenderer.Type(), r.Method, status, results, err)
-		if len(mlist) > 0 && r.Method == "GET" {
+		if len(mlist) > 0 && r.Method == "GET" && resultRenderer.Type() == "REDIRECT" {
 			timeout := GetConfig().SameDownloadInterval
 			if r.Header.Get("Range") == "" || timeout == 0 {
 				h.stats.CountDownload(mlist[0], fileInfo)
