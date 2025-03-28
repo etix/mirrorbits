@@ -403,7 +403,12 @@ func RedisIsLoading(err error) bool {
 }
 
 func parseVersion(version string) int64 {
+	// We suppport up to 3 components (major, minor, patch) in the version
 	s := strings.Split(version, ".")
+	for len(s) < 3 {
+		s = append(s, "0")
+	}
+
 	format := fmt.Sprintf("%%s%%0%ds", 2)
 
 	var v string
