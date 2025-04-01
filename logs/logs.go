@@ -177,22 +177,22 @@ func LogDownload(typ string, method string, statuscode int, p *mirrors.Results, 
 			sameASNum = "same"
 		}
 
-		dlogger.l.Printf("%s %d \"%s\" method:%s ip:%s mirror:%s%s %sasn:%d distance:%skm countries:%s",
-			typ, statuscode, p.FileInfo.Path, method, p.IP, m.Name, fallback, sameASNum, m.Asnum, distance, countries)
+		dlogger.l.Printf("%s %d %s \"%s\" ip:%s mirror:%s%s %sasn:%d distance:%skm countries:%s",
+			typ, statuscode, method, p.FileInfo.Path, p.IP, m.Name, fallback, sameASNum, m.Asnum, distance, countries)
 	} else if statuscode == 404 && p != nil {
-		dlogger.l.Printf("%s 404 \"%s\" method:%s ip:%s", typ, p.FileInfo.Path, method, p.IP)
+		dlogger.l.Printf("%s 404 %s \"%s\" ip:%s", typ, method, p.FileInfo.Path, p.IP)
 	} else if statuscode == 500 && p != nil {
 		mirrorName := "unknown"
 		if len(p.MirrorList) > 0 {
 			mirrorName = p.MirrorList[0].Name
 		}
-		dlogger.l.Printf("%s 500 \"%s\" method:%s ip:%s mirror:%s error:%s", typ, p.FileInfo.Path, method, p.IP, mirrorName, errstr)
+		dlogger.l.Printf("%s 500 %s \"%s\" ip:%s mirror:%s error:%s", typ, method, p.FileInfo.Path, p.IP, mirrorName, errstr)
 	} else {
 		var path, ip string
 		if p != nil {
 			path = p.FileInfo.Path
 			ip = p.IP
 		}
-		dlogger.l.Printf("%s %d \"%s\" method:%s ip:%s error:%s", typ, statuscode, path, method, ip, errstr)
+		dlogger.l.Printf("%s %d %s \"%s\" ip:%s error:%s", typ, statuscode, method, path, ip, errstr)
 	}
 }
