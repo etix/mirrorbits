@@ -260,7 +260,7 @@ func TestLogDownload(t *testing.T) {
 
 	buf.Reset()
 
-	/* */
+	/* Test a log line with 200 status code */
 	p := &mirrors.Results{
 		FileInfo: filesystem.FileInfo{
 			Path: "/test/file.tgz",
@@ -294,7 +294,7 @@ func TestLogDownload(t *testing.T) {
 
 	buf.Reset()
 
-	/* */
+	/* Test a log line with 404 status code */
 	p = &mirrors.Results{
 		FileInfo: filesystem.FileInfo{
 			Path: "/test/file.tgz",
@@ -311,7 +311,7 @@ func TestLogDownload(t *testing.T) {
 
 	buf.Reset()
 
-	/* */
+	/* Test a log line with 500 status code */
 	p = &mirrors.Results{
 		MirrorList: mirrors.Mirrors{
 			mirrors.Mirror{
@@ -334,7 +334,7 @@ func TestLogDownload(t *testing.T) {
 
 	buf.Reset()
 
-	/* */
+	/* Test a log line with 501 status code */
 	p = &mirrors.Results{
 		FileInfo: filesystem.FileInfo{
 			Path: "/test/file.tgz",
@@ -345,6 +345,23 @@ func TestLogDownload(t *testing.T) {
 	LogDownload("JSON", "GET", 501, p, errors.New("test error"))
 
 	expected = "JSON 501 GET \"/test/file.tgz\" ip:192.168.0.1 error:test error\n"
+	if !strings.HasSuffix(buf.String(), expected) {
+		t.Fatalf("Invalid log line:\nGot:\n%#vs\nExpected:\n%#v", buf.String(), expected)
+	}
+
+	buf.Reset()
+
+	/* Make sure we don't trip when there's a %s (aka a "verb") in the request */
+	p = &mirrors.Results{
+		FileInfo: filesystem.FileInfo{
+			Path: "/test/%s/hacked",
+		},
+		IP: "192.168.0.1",
+	}
+
+	LogDownload("JSON", "GET", 404, p, nil)
+
+	expected = "JSON 404 GET \"/test/%s/hacked\" ip:192.168.0.1\n"
 	if !strings.HasSuffix(buf.String(), expected) {
 		t.Fatalf("Invalid log line:\nGot:\n%#vs\nExpected:\n%#v", buf.String(), expected)
 	}
