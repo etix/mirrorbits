@@ -341,7 +341,7 @@ func (c *cli) CmdAdd(args ...string) error {
 		fmt.Fprintf(os.Stderr, "The HTTP URL has an invalid scheme\n")
 		os.Exit(-1)
 	} else {
-		// No scheme, that's a "relative URLs", and we do accept it.
+		// No scheme, yes we do accept it.
 		// Note that the documentation of net/url mentions that parsing
 		// such URL is "invalid but may not necessarily return an error",
 		// so let's add a scheme before we parse it.
