@@ -2,23 +2,51 @@
 
 ### FEATURES
 
-- Make per-mirror logs available on the CLI: `mirrorbits logs <mirrorname>` (#5)
-- New option (see FixTimezoneOffsets) to detect and automatically fix timezone shifts on mirrors (mostly for those using FTP).
+- New command `mirrorbits logs <mirrorname>` to make per-mirror logs available on the CLI (#5)
+- New command `mirrorbits geoupdate <mirrorname>` to update the geolocation of a mirror (#96)
+- New option `FixTimezoneOffsets` to detect and automatically fix timezone shifts on mirrors (mostly for those using FTP) (2d9d467)
+- New option `SameDownloadInterval` to avoid counting very close range downloads from a same source (#128)
+- New option `AllowHTTPToHTTPSRedirects` to allow (default) or disallow redirections of HTTP requests to HTTPS mirrors (d108400)
+- New option `AllowOutdatedFiles` to allow redirections to outdated files on the mirrors, under certain conditions (#85, #188)
+- Add support for `If-Modified-Since` aka. RFC-7232 (#169)
+- Support for HTTP+HTTPS mirrors:
+  - so far, a mirror was defined as either HTTP or HTTPS, via the `HttpURL` field
+  - now, it's possible to set a URL without a scheme (eg. `HttpURL: mirror.example.org/some/path/`), in that case mirrorbits performs two health checks (HTTP and HTTPS), and can redirect to either HTTP or HTTPS depending on the context
+  - this "scheme-less" URL also works for the fallback mirrors defined in `mirrorbits.conf`
+  - see Changes below for more changes related to this feature
 
 ### ENHANCEMENTS
 
 - Enforce checks on modtime based on FTP and rsync capabilities
-- Use `type=notify` in the systemd service file to indicate readiness of the http server
+- Use `type=notify` in the systemd service file to indicate readiness of the http server (#90)
 - Make unauthorized redirect errors more visible
+- Require HTTPS based on `X-Forwarded-Proto` header (this can still be overridden by the `?https` parameter) (#97)
+- Do not list disabled mirrors as down (#132)
+- Add Bash completion
 
 ### BUGFIXES
 
-- Fixed a race condition in automatic mirror scan
+- Fix a race condition in automatic mirror scan
 - Restore case-insensitive mirror name matching on the CLI
+- Fix outdated entries in the LRU cache under certain conditions (#114)
 
-### Changes
+### Changes to support HTTP+HTTPS mirrors
+
+- This new version includes a **DATABASE UPGRADE**. You won't be able to roll back to a previous mirrorbits version after upgrading. The db upgrade should be fast.
+- Daemon logs: the protocol used for the health-check is now logged:
+  - before: `<datetime> mirror.example.org  Up! (509ms)`
+  - after : `<datetime> mirror.example.org  HTTPS Up! (509ms)`
+- Command `mirrorbits list`: for the STATE column, new values are possible for HTTP+HTTPS mirrors:
+  - `up/down` if HTTP health-check succeeded but HTTPS health-check failed
+  - `down/up` for the other way round
+- HTML templates have been updated to support HTTP+HTTPS mirrors. Make sure to use the latest templates `mirrorlist.html` and `mirrorstats.html`.
+
+### Other Changes
 
 - Use Go modules (Go 1.11+)
+- Downloads logs: the method of the request is now logged just before the path:
+  - before: `<datetime> REDIRECT 302 "/README" [...]`
+  - after : `<datetime> REDIRECT 302 GET "/README" [...]`
 
 ## v0.5.1
 
