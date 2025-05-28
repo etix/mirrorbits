@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/etix/mirrorbits/core"
-	"github.com/etix/mirrorbits/network"
 )
 
 const (
@@ -89,30 +88,6 @@ func IsInSlice(a string, list []string) bool {
 		if b == a {
 			return true
 		}
-	}
-	return false
-}
-
-// IsAdditionalCountry returns true if the clientInfo country is in list
-func IsAdditionalCountry(clientInfo network.GeoIPRecord, list []string) bool {
-	if !clientInfo.IsValid() {
-		return false
-	}
-	for i, b := range list {
-		if i > 0 && b == clientInfo.CountryCode {
-			return true
-		}
-	}
-	return false
-}
-
-// IsPrimaryCountry returns true if the clientInfo country is the primary country
-func IsPrimaryCountry(clientInfo network.GeoIPRecord, list []string) bool {
-	if !clientInfo.IsValid() {
-		return false
-	}
-	if len(list) > 0 && list[0] == clientInfo.CountryCode {
-		return true
 	}
 	return false
 }

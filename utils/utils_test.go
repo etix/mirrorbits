@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/etix/mirrorbits/core"
-	"github.com/etix/mirrorbits/network"
 )
 
 func TestHasAnyPrefix(t *testing.T) {
@@ -98,52 +97,6 @@ func TestIsInSlice(t *testing.T) {
 		t.Fatal("Expected false, got true")
 	}
 	b = IsInSlice("", list)
-	if b {
-		t.Fatal("Expected false, got true")
-	}
-}
-
-func TestIsAdditionalCountry(t *testing.T) {
-	var b bool
-	list := []string{"FR", "DE", "GR"}
-
-	clientInfo := network.GeoIPRecord{
-		CountryCode: "FR",
-	}
-
-	b = IsAdditionalCountry(clientInfo, list)
-	if b {
-		t.Fatal("Expected false, got true")
-	}
-
-	clientInfo = network.GeoIPRecord{
-		CountryCode: "GR",
-	}
-
-	b = IsAdditionalCountry(clientInfo, list)
-	if !b {
-		t.Fatal("Expected true, got false")
-	}
-}
-
-func TestIsPrimaryCountry(t *testing.T) {
-	var b bool
-	list := []string{"FR", "DE", "GR"}
-
-	clientInfo := network.GeoIPRecord{
-		CountryCode: "FR",
-	}
-
-	b = IsPrimaryCountry(clientInfo, list)
-	if !b {
-		t.Fatal("Expected true, got false")
-	}
-
-	clientInfo = network.GeoIPRecord{
-		CountryCode: "GR",
-	}
-
-	b = IsPrimaryCountry(clientInfo, list)
 	if b {
 		t.Fatal("Expected false, got true")
 	}
