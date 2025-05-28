@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/etix/mirrorbits/core"
+	"github.com/etix/mirrorbits/utils"
 	"github.com/op/go-logging"
 	"gopkg.in/yaml.v3"
 )
@@ -174,6 +175,9 @@ func ReloadConfig() error {
 	}
 	if c.RepositoryScanInterval < 0 {
 		c.RepositoryScanInterval = 0
+	}
+	for i := range c.Fallbacks {
+		c.Fallbacks[i].URL = utils.NormalizeURL(c.Fallbacks[i].URL)
 	}
 	for _, rule := range c.AllowOutdatedFiles {
 		if len(rule.Prefix) > 0 && rule.Prefix[0] != '/' {
