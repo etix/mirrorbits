@@ -42,3 +42,27 @@ func ExtractRemoteIP(XForwardedFor string) string {
 	}
 	return ""
 }
+
+// IsPrimaryCountry returns true if the clientInfo country is the primary country
+func IsPrimaryCountry(clientInfo GeoIPRecord, list []string) bool {
+	if !clientInfo.IsValid() {
+		return false
+	}
+	if len(list) > 0 && list[0] == clientInfo.CountryCode {
+		return true
+	}
+	return false
+}
+
+// IsAdditionalCountry returns true if the clientInfo country is in list
+func IsAdditionalCountry(clientInfo GeoIPRecord, list []string) bool {
+	if !clientInfo.IsValid() {
+		return false
+	}
+	for i, b := range list {
+		if i > 0 && b == clientInfo.CountryCode {
+			return true
+		}
+	}
+	return false
+}

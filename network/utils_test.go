@@ -35,3 +35,49 @@ func TestExtractRemoteIP(t *testing.T) {
 		t.Fatalf("Expected '192.168.0.1', got %s", r)
 	}
 }
+
+func TestIsPrimaryCountry(t *testing.T) {
+	var b bool
+	list := []string{"FR", "DE", "GR"}
+
+	clientInfo := GeoIPRecord{
+		CountryCode: "FR",
+	}
+
+	b = IsPrimaryCountry(clientInfo, list)
+	if !b {
+		t.Fatal("Expected true, got false")
+	}
+
+	clientInfo = GeoIPRecord{
+		CountryCode: "GR",
+	}
+
+	b = IsPrimaryCountry(clientInfo, list)
+	if b {
+		t.Fatal("Expected false, got true")
+	}
+}
+
+func TestIsAdditionalCountry(t *testing.T) {
+	var b bool
+	list := []string{"FR", "DE", "GR"}
+
+	clientInfo := GeoIPRecord{
+		CountryCode: "FR",
+	}
+
+	b = IsAdditionalCountry(clientInfo, list)
+	if b {
+		t.Fatal("Expected false, got true")
+	}
+
+	clientInfo = GeoIPRecord{
+		CountryCode: "GR",
+	}
+
+	b = IsAdditionalCountry(clientInfo, list)
+	if !b {
+		t.Fatal("Expected true, got false")
+	}
+}

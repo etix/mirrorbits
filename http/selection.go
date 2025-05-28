@@ -87,13 +87,13 @@ func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *f
 
 		if m.Distance <= closestMirror*GetConfig().WeightDistributionRange {
 			score := (float32(baseScore) - m.Distance)
-			if !utils.IsPrimaryCountry(clientInfo, m.CountryFields) {
+			if !network.IsPrimaryCountry(clientInfo, m.CountryFields) {
 				score /= 2
 			}
 			m.ComputedScore += int(score)
-		} else if utils.IsPrimaryCountry(clientInfo, m.CountryFields) {
+		} else if network.IsPrimaryCountry(clientInfo, m.CountryFields) {
 			m.ComputedScore += int(float32(baseScore) - (m.Distance * 5))
-		} else if utils.IsAdditionalCountry(clientInfo, m.CountryFields) {
+		} else if network.IsAdditionalCountry(clientInfo, m.CountryFields) {
 			m.ComputedScore += int(float32(baseScore) - closestMirror)
 		}
 
