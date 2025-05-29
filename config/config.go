@@ -163,7 +163,7 @@ func ReloadConfig() error {
 	if c.WeightDistributionRange <= 0 {
 		return fmt.Errorf("WeightDistributionRange must be > 0")
 	}
-	if !isInSlice(c.OutputMode, []string{"auto", "json", "redirect"}) {
+	if !utils.IsInSlice(c.OutputMode, []string{"auto", "json", "redirect"}) {
 		return fmt.Errorf("Config: outputMode can only be set to 'auto', 'json' or 'redirect'")
 	}
 	if c.Repository == "" {
@@ -265,14 +265,4 @@ func testSentinelsEq(a, b []sentinels) bool {
 	}
 
 	return true
-}
-
-//DUPLICATE
-func isInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
 }
