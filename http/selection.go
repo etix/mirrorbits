@@ -4,6 +4,7 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -18,6 +19,10 @@ import (
 	"github.com/etix/mirrorbits/utils"
 )
 
+var (
+	ErrInvalidFileInfo = errors.New("Invalid file info (modtime is zero)")
+)
+
 type mirrorSelection interface {
 	// Selection must return an ordered list of selected mirror,
 	// a list of rejected mirrors and and an error code.
@@ -29,6 +34,12 @@ type DefaultEngine struct{}
 
 // Selection returns an ordered list of selected mirror, a list of rejected mirrors and and an error code
 func (h DefaultEngine) Selection(ctx *Context, cache *mirrors.Cache, fileInfo *filesystem.FileInfo, clientInfo network.GeoIPRecord) (mlist mirrors.Mirrors, excluded mirrors.Mirrors, err error) {
+	// Bail out early if we don't have valid file details
+	if fileInfo.ModTime.IsZero() {
+		err = ErrInvalidFileInfo
+		return
+	}
+
 	// Prepare and return the list of all potential mirrors
 	mlist, err = cache.GetMirrors(fileInfo.Path, clientInfo)
 	if err != nil {
