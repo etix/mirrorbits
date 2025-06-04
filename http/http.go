@@ -333,12 +333,11 @@ func (h *HTTP) mirrorHandler(w http.ResponseWriter, r *http.Request, ctx *Contex
 		return
 	}
 
-	// Get details about the requested file
+	// Get details about the requested file. Errors are not fatal, and
+	// expected when the database is not ready: fallbacks will handle it.
 	fileInfo, err := h.cache.GetFileInfo(urlPath)
 	if err != nil {
-		log.Errorf("Error while fetching Fileinfo: %s", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		//log.Debugf("Error while fetching Fileinfo: %s", err.Error())
 	}
 
 	if checkIfModifiedSince(r, fileInfo.ModTime) == condFalse {
