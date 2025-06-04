@@ -91,7 +91,7 @@ type Configuration struct {
 	WeightDistributionRange float32    `yaml:"WeightDistributionRange"`
 	DisableOnMissingFile    bool       `yaml:"DisableOnMissingFile"`
 	AllowOutdatedFiles      []OutdatedFilesConfig `yaml:"AllowOutdatedFiles"`
-	Fallbacks               []fallback `yaml:"Fallbacks"`
+	Fallbacks               []Fallback `yaml:"Fallbacks"`
 
 	RedisSentinelMasterName string      `yaml:"RedisSentinelMasterName"`
 	RedisSentinels          []sentinels `yaml:"RedisSentinels"`
@@ -100,7 +100,7 @@ type Configuration struct {
 	RPCPassword      string `yaml:"RPCPassword"`
 }
 
-type fallback struct {
+type Fallback struct {
 	URL           string `yaml:"URL"`
 	CountryCode   string `yaml:"CountryCode"`
 	ContinentCode string `yaml:"ContinentCode"`
