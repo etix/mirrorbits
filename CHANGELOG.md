@@ -1,3 +1,10 @@
+## master
+
+### BUGFIXES
+
+- Regression: mirrorbits returned "500 Internal Server Error" when the Redis database was not ready, instead of redirecting users to the fallback mirror(s) (#195)
+- Fix malformed redirections when the fallback URL(s) (in the configuration file) lacks a trailing slash (c6abff6)
+
 ## v0.6
 
 ### FEATURES
