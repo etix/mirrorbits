@@ -560,7 +560,7 @@ func ScanSource(r *database.Redis, forceRehash bool, stop <-chan struct{}) (err 
 		return err
 	}
 
-	log.Infof("[source] Scanned %d files", count)
+	log.Infof("[source] Indexed %d files, %d removed", count, len(toremove))
 
 	return nil
 }
