@@ -149,6 +149,8 @@ func Scan(typ core.ScannerType, r *database.Redis, c *mirrors.Cache, url string,
 		return nil, err
 	}
 
+	log.Infof("[%s] Indexing the files...", name)
+
 	// Exec multi
 	s.ScannerCommit()
 
