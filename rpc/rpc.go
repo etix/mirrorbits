@@ -548,11 +548,25 @@ func (c *CLI) RemoveMirror(ctx context.Context, in *MirrorIDRequest) (*empty.Emp
 	conn.Send("MULTI")
 
 	// Remove each FILEINFO / FILEMIRRORS
-	for _, file := range files {
+	for count, file := range files {
 		conn.Send("DEL", fmt.Sprintf("FILEINFO_%d_%s", in.ID, file))
 		conn.Send("SREM", fmt.Sprintf("FILEMIRRORS_%s", file), in.ID)
 		conn.Send("PUBLISH", database.MIRROR_FILE_UPDATE, fmt.Sprintf("%d %s", in.ID, file))
+		if count > 0 && count % database.RedisMultiMaxSize == 0 {
+			_, err = conn.Do("EXEC")
+			if err != nil {
+				return nil, errors.Wrap(err, "operation failed")
+			}
+			conn.Send("MULTI")
+		}
 	}
+
+	_, err = conn.Do("EXEC")
+	if err != nil {
+		return nil, errors.Wrap(err, "operation failed")
+	}
+
+	conn.Send("MULTI")
 
 	// Remove all other keys
 	conn.Send("DEL",
