@@ -32,12 +32,21 @@ type RsyncScanner struct {
 // Scan starts an rsync scan of the given mirror
 func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <-chan struct{}) (core.Precision, error) {
 	var env []string
+	var cmdName string
+	var actualURL string
 
-	if !strings.HasPrefix(rsyncURL, "rsync://") {
-		return 0, fmt.Errorf("%s does not start with rsync://", rsyncURL)
+	// We allow a custom rsyncs:// scheme which uses rsync-ssl instead
+	if strings.HasPrefix(rsyncURL, "rsync://") {
+		cmdName = "rsync"
+		actualURL = rsyncURL
+	} else if strings.HasPrefix(rsyncURL, "rsyncs://") {
+		cmdName = "rsync-ssl"
+		actualURL = "rsync://" + strings.TrimPrefix(rsyncURL, "rsyncs://")
+	} else {
+		return 0, fmt.Errorf("%s does not start with rsync:// or rsyncs://", rsyncURL)
 	}
 
-	u, err := url.Parse(rsyncURL)
+	u, err := url.Parse(actualURL)
 	if err != nil {
 		return 0, err
 	}
@@ -58,7 +67,17 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <
 	// Don't use the local timezone, use UTC
 	env = append(env, "TZ=UTC")
 
-	cmd := exec.Command("rsync", "-r", "--no-motd", "--timeout=30", "--contimeout=30", "--exclude=.~tmp~/", u.String())
+	args := []string{"-r", "--no-motd", "--exclude=.~tmp~/"}
+	// rsync-ssl does not support --contimeout, but from what I see --timeout covers both and
+	// triggers if openssl takes too long to connect. So use a longer combined timeout there.
+	if cmdName == "rsync-ssl" {
+		args = append(args, "--timeout=60")
+	} else {
+		args = append(args, "--timeout=30", "--contimeout=30")
+	}
+	args = append(args, u.String())
+
+	cmd := exec.Command(cmdName, args...)
 
 	// Setup the environnement
 	cmd.Env = env
@@ -86,7 +105,7 @@ func (r *RsyncScanner) Scan(rsyncURL, identifier string, conn redis.Conn, stop <
 		return 0, err
 	}
 
-	log.Infof("[%s] Requesting file list via rsync...", identifier)
+	log.Infof("[%s] Requesting file list via %s...", identifier, cmdName)
 
 	scanfinished := make(chan bool)
 	go func() {
