@@ -435,7 +435,8 @@ func (c *cli) CmdRemove(args ...string) error {
 	}
 
 	client := c.GetRPC()
-	ctx, cancel := context.WithTimeout(context.Background(), defaultRPCTimeout)
+	// Use a timeout longer than the default, removing a mirror can take time
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second * 60)
 	defer cancel()
 	_, err := client.RemoveMirror(ctx, &rpc.MirrorIDRequest{
 		ID: int32(id),
