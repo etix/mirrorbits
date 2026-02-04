@@ -104,12 +104,12 @@ func IsStopped(stop <-chan struct{}) bool {
 
 // ReadableSize returns a file size in a human readable form
 func ReadableSize(value int64) string {
-	units := []string{"bytes", "KB", "MB", "GB", "TB"}
+	units := []string{"bytes", "KiB", "MiB", "GiB", "TiB"}
 
 	v := float64(value)
 
 	for _, u := range units {
-		if v < 1024 || u == "TB" {
+		if v < 1024 || u == "TiB" {
 			return fmt.Sprintf("%3.1f %s", v, u)
 		}
 		v /= 1024
